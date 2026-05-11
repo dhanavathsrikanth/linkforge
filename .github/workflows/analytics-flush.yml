@@ -1,0 +1,27 @@
+name: Analytics Flush
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  flush:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Trigger Flush API
+        env:
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          curl -X POST "${APP_URL}/api/analytics/flush" \
+          -H "Authorization: Bearer ${INTERNAL_SECRET}" \
+          -H "Content-Type: application/json"

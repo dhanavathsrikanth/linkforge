@@ -20,17 +20,36 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Production Setup
+
+LinkForge requires several environment variables to function in production.
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Neon Postgres connection string |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST Token |
+| `INTERNAL_SECRET` | Secret for triggering internal APIs (Flush, Cron) |
+| `CLERK_WEBHOOK_SECRET` | Secret from Clerk dashboard for webhooks |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Clerk secret key |
+
+### Analytics Persistence (Flush)
+
+To migrate real-time click data from Redis to Postgres, you must trigger the flush API periodically.
+
+**Option 1: GitHub Actions (Recommended)**
+A workflow is provided in `.github/workflows/analytics-flush.yml`. Add `INTERNAL_SECRET` and `APP_URL` to your repository secrets.
+
+**Option 2: Manual Script**
+```bash
+export INTERNAL_SECRET=your_secret
+export APP_URL=https://your-app.com
+npx tsx scripts/flush-analytics.ts
+```
+
 ## Learn More
+...
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
