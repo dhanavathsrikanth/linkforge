@@ -1,0 +1,282 @@
+/**
+ * LinkForge Design Tokens
+ * Generated from DESIGN.md specification
+ * 
+ * This file contains all design tokens as CSS custom properties,
+ * organized following the Stitch DESIGN.md specification structure.
+ */
+
+:root {
+  /* ============================================
+     VERSION & META
+     ============================================ */
+  --ds-version: "alpha";
+  --ds-name: "LinkForge";
+
+  /* ============================================
+     COLORS - Primary Palette
+     ============================================ */
+  --ds-primary: #433BFF;
+  --ds-primary-light: #5B52FF;
+  --ds-primary-dark: #2F28CC;
+  
+  /* Secondary/Surface Palette */
+  --ds-secondary: #DEDCFF;
+  --ds-surface: #FFFFFF;
+  --ds-surface-2: #DEDCFF;
+  --ds-background: #FBFBFE;
+  --ds-background-2: #FFFFFF;
+  
+  /* Neutral Scale (Slate) */
+  --ds-neutral-50: #F8FAFC;
+  --ds-neutral-100: #F1F5F9;
+  --ds-neutral-200: #E2E8F0;
+  --ds-neutral-300: #CBD5E1;
+  --ds-neutral-400: #94A3B8;
+  --ds-neutral-500: #64748B;
+  --ds-neutral-600: #475569;
+  --ds-neutral-700: #334155;
+  --ds-neutral-800: #1E293B;
+  --ds-neutral-900: #0F172A;
+  --ds-neutral-950: #020617;
+  
+  /* Accent Colors */
+  --ds-accent: #27CE7A;
+  --ds-success: #27CE7A;
+  --ds-warning: #fbbf24;
+  --ds-error: #EF4444;
+  
+  /* Text Colors */
+  --ds-text-primary: #0F172A;
+  --ds-text-secondary: #64748B;
+  --ds-text-muted: #64748B;
+  --ds-text-disabled: #94A3B8;
+  --ds-text-on-primary: #FFFFFF;
+  
+  /* Utility Colors */
+  --ds-link: #433BFF;
+  --ds-border: rgba(15, 23, 42, 0.08);
+  --ds-border-2: rgba(15, 23, 42, 0.14);
+  --ds-border-strong: #CBD5E1;
+  
+  /* Dark Theme Colors */
+  --ds-dark-950: #09090b;
+  --ds-dark-900: #141418;
+  --ds-dark-800: #1c1c24;
+  --ds-dark-700: #27272f;
+  --ds-dark-600: #3f3f50;
+
+  /* ============================================
+     TYPOGRAPHY - Font Families
+     ============================================ */
+  --ds-font-geist: "Geist", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --ds-font-instrument: "instrument", sans-serif;
+  --ds-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace;
+  
+  /* Typography Scale - Headlines */
+  --ds-text-display: 48px;
+  --ds-text-display-line-height: 1.1;
+  --ds-text-display-letter-spacing: -0.02em;
+  --ds-text-display-weight: 700;
+  
+  --ds-text-headline-lg: 36px;
+  --ds-text-headline-lg-line-height: 1.2;
+  --ds-text-headline-lg-letter-spacing: -0.02em;
+  --ds-text-headline-lg-weight: 700;
+  
+  --ds-text-headline-md: 24px;
+  --ds-text-headline-md-line-height: 1.3;
+  --ds-text-headline-md-letter-spacing: -0.01em;
+  --ds-text-headline-md-weight: 600;
+  
+  /* Typography Scale - Body */
+  --ds-text-body-lg: 18px;
+  --ds-text-body-lg-line-height: 1.6;
+  --ds-text-body-lg-weight: 400;
+  
+  --ds-text-body-md: 16px;
+  --ds-text-body-md-line-height: 1.6;
+  --ds-text-body-md-weight: 400;
+  
+  --ds-text-body-sm: 14px;
+  --ds-text-body-sm-line-height: 1.5;
+  --ds-text-body-sm-weight: 400;
+  
+  /* Typography Scale - Labels */
+  --ds-text-label-lg: 14px;
+  --ds-text-label-lg-line-height: 1.4;
+  --ds-text-label-lg-weight: 600;
+  --ds-text-label-lg-letter-spacing: 0;
+  
+  --ds-text-label-md: 12px;
+  --ds-text-label-md-line-height: 1.4;
+  --ds-text-label-md-weight: 500;
+  --ds-text-label-md-letter-spacing: 0.01em;
+  
+  --ds-text-label-sm: 11px;
+  --ds-text-label-sm-line-height: 1.4;
+  --ds-text-label-sm-weight: 500;
+  --ds-text-label-sm-letter-spacing: 0.02em;
+
+  /* ============================================
+     SPACING - 4px Base Unit Scale
+     ============================================ */
+  --ds-spacing-base: 4px;
+  --ds-spacing-0: 0px;
+  --ds-spacing-0-5: 2px;
+  --ds-spacing-1: 4px;
+  --ds-spacing-1-5: 6px;
+  --ds-spacing-2: 8px;
+  --ds-spacing-2-5: 10px;
+  --ds-spacing-3: 12px;
+  --ds-spacing-3-5: 14px;
+  --ds-spacing-4: 16px;
+  --ds-spacing-5: 20px;
+  --ds-spacing-6: 24px;
+  --ds-spacing-7: 28px;
+  --ds-spacing-8: 32px;
+  --ds-spacing-9: 36px;
+  --ds-spacing-10: 40px;
+  --ds-spacing-11: 44px;
+  --ds-spacing-12: 48px;
+  --ds-spacing-16: 64px;
+  --ds-spacing-20: 80px;
+  --ds-spacing-24: 96px;
+
+  /* ============================================
+     BORDER RADIUS
+     ============================================ */
+  --ds-rounded-none: 0px;
+  --ds-rounded-sm: 6px;
+  --ds-rounded-md: 10px;
+  --ds-rounded-lg: 12px;
+  --ds-rounded-xl: 16px;
+  --ds-rounded-2xl: 24px;
+  --ds-rounded-full: 9999px;
+
+  /* ============================================
+     SHADOWS / ELEVATION
+     ============================================ */
+  --ds-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --ds-shadow-md: 0 4px 16px rgba(15, 23, 42, 0.1);
+  --ds-shadow-lg: 0 8px 30px -8px rgba(67, 59, 255, 0.15);
+  --ds-shadow-glow: 0 0 32px rgba(67, 59, 255, 0.25);
+  --ds-shadow-inset: inset 0 2px 4px rgba(15, 23, 42, 0.05);
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  --ds-transition-fast: 150ms ease;
+  --ds-transition-base: 250ms ease;
+  --ds-transition-spring: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* ============================================
+     Z-INDEX SCALE
+     ============================================ */
+  --ds-z-base: 0;
+  --ds-z-dropdown: 100;
+  --ds-z-sticky: 200;
+  --ds-z-fixed: 300;
+  --ds-z-modal-backdrop: 400;
+  --ds-z-modal: 500;
+  --ds-z-popover: 600;
+  --ds-z-tooltip: 700;
+
+  /* ============================================
+     COMPONENT TOKENS - Buttons
+     ============================================ */
+  --ds-button-primary-bg: var(--ds-primary);
+  --ds-button-primary-bg-hover: var(--ds-primary-dark);
+  --ds-button-primary-text: var(--ds-text-on-primary);
+  --ds-button-primary-radius: var(--ds-rounded-lg);
+  --ds-button-primary-padding: var(--ds-spacing-3);
+  --ds-button-primary-shadow: var(--ds-shadow-sm);
+  
+  --ds-button-secondary-bg: var(--ds-surface);
+  --ds-button-secondary-bg-hover: var(--ds-neutral-100);
+  --ds-button-secondary-text: var(--ds-text-primary);
+  --ds-button-secondary-radius: var(--ds-rounded-none);
+  --ds-button-secondary-padding: var(--ds-spacing-3);
+  
+  --ds-button-ghost-bg: transparent;
+  --ds-button-ghost-bg-hover: var(--ds-secondary);
+  --ds-button-ghost-text: var(--ds-primary);
+  --ds-button-ghost-radius: var(--ds-rounded-md);
+  --ds-button-ghost-padding: var(--ds-spacing-2);
+
+  /* ============================================
+     COMPONENT TOKENS - Inputs
+     ============================================ */
+  --ds-input-bg: transparent;
+  --ds-input-bg-outlined: var(--ds-surface);
+  --ds-input-text: var(--ds-text-primary);
+  --ds-input-border: none;
+  --ds-input-border-outlined: 1px solid var(--ds-border-strong);
+  --ds-input-radius: var(--ds-rounded-none);
+  --ds-input-radius-outlined: var(--ds-rounded-md);
+  --ds-input-padding: var(--ds-spacing-3);
+  --ds-input-focus-ring: 0 0 0 3px rgba(67, 59, 255, 0.2);
+
+  /* ============================================
+     COMPONENT TOKENS - Cards
+     ============================================ */
+  --ds-card-bg: var(--ds-surface);
+  --ds-card-border: 1px solid var(--ds-border);
+  --ds-card-radius: var(--ds-rounded-lg);
+  --ds-card-padding: var(--ds-spacing-4);
+  --ds-card-shadow: var(--ds-shadow-sm);
+  
+  --ds-card-elevated-bg: var(--ds-surface);
+  --ds-card-elevated-radius: var(--ds-rounded-xl);
+  --ds-card-elevated-padding: var(--ds-spacing-6);
+  --ds-card-elevated-shadow: var(--ds-shadow-md);
+
+  /* ============================================
+     COMPONENT TOKENS - Navigation
+     ============================================ */
+  --ds-nav-item-bg: transparent;
+  --ds-nav-item-bg-active: var(--ds-primary);
+  --ds-nav-item-bg-hover: var(--ds-neutral-100);
+  --ds-nav-item-text: var(--ds-text-secondary);
+  --ds-nav-item-text-active: var(--ds-text-on-primary);
+  --ds-nav-item-text-hover: var(--ds-text-primary);
+  --ds-nav-item-radius: var(--ds-rounded-md);
+  --ds-nav-item-padding: var(--ds-spacing-2) var(--ds-spacing-3);
+}
+
+/* ============================================
+   DARK MODE OVERRIDES
+   ============================================ */
+.dark {
+  /* Colors */
+  --ds-background: var(--ds-dark-900);
+  --ds-background-2: var(--ds-dark-800);
+  --ds-surface: var(--ds-dark-800);
+  --ds-surface-2: var(--ds-dark-700);
+  
+  --ds-text-primary: #F8FAFC;
+  --ds-text-secondary: #94A3B8;
+  --ds-text-muted: #64748B;
+  --ds-text-disabled: #475569;
+  
+  --ds-border: rgba(255, 255, 255, 0.08);
+  --ds-border-2: rgba(255, 255, 255, 0.14);
+  --ds-border-strong: var(--ds-dark-600);
+  
+  /* Shadows */
+  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ds-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ds-shadow-lg: 0 8px 30px -8px rgba(67, 59, 255, 0.25);
+  
+  /* Components */
+  --ds-card-bg: var(--ds-dark-800);
+  --ds-card-border: 1px solid var(--ds-border);
+  
+  --ds-button-secondary-bg: var(--ds-dark-700);
+  --ds-button-secondary-bg-hover: var(--ds-dark-600);
+  --ds-button-secondary-text: var(--ds-text-primary);
+  
+  --ds-nav-item-bg-hover: var(--ds-dark-700);
+  --ds-nav-item-text: var(--ds-text-secondary);
+  --ds-nav-item-text-hover: var(--ds-text-primary);
+}

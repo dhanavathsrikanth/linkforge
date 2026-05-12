@@ -25,48 +25,48 @@ export default async function Home() {
   });
 
   return (
-    <main className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,#DEDCFF,transparent_32%),linear-gradient(to_bottom,#FBFBFE,#FFFFFF)] px-6 py-12">
-      <div className="absolute right-[-12rem] top-20 h-96 w-96 rounded-full bg-[#DEDCFF]/40 blur-3xl" />
-      <div className="absolute bottom-[-10rem] left-[-10rem] h-80 w-80 rounded-full bg-[#F5F7FF]/60 blur-3xl" />
+    <main className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden ds-surface-gradient px-6 py-12">
+      <div className="absolute right-[-12rem] top-20 h-96 w-96 rounded-full bg-[var(--ds-secondary)]/40 blur-3xl" />
+      <div className="absolute bottom-[-10rem] left-[-10rem] h-80 w-80 rounded-full bg-[var(--ds-neutral-100)]/60 blur-3xl" />
       <section className="relative z-10 w-full max-w-2xl">
         <div className="mb-8 text-center">
-          <Badge variant="secondary" className="gap-2 px-4 py-1.5 text-sm">
+          <Badge variant="secondary" className="gap-2 px-4 py-1.5 text-sm bg-[var(--ds-secondary)] text-[var(--ds-primary)] border-[var(--ds-border)]">
             <ShieldCheck className="h-4 w-4" />
             Authenticated with Clerk
           </Badge>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
+          <h1 className="ds-text-display text-[var(--ds-text-primary)]">
             Store user data in Neon
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-slate-600">
+          <p className="mx-auto mt-4 max-w-xl ds-text-body-md text-[var(--ds-text-secondary)]">
             A polished Clerk + Neon example using Server Actions, Drizzle, Tailwind CSS, and shadcn-style components.
           </p>
         </div>
 
       {existingMessage ? (
-        <Card variant="elevated" className="w-full border-slate-200/80 bg-white/95 shadow-xl shadow-slate-200/70">
+        <Card variant="elevated" className="w-full ds-card-elevated">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ds-success)]/10 text-[var(--ds-success)]">
               <CheckCircle2 className="h-7 w-7" />
             </div>
-            <CardTitle className="text-3xl text-slate-950">Your saved message</CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardTitle>Your saved message</CardTitle>
+            <CardDescription>
               This message is stored in Neon and associated with your Clerk user ID.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 text-center shadow-inner">
-              <p className="text-xl font-medium leading-relaxed text-slate-800">
+            <div className="rounded-2xl border border-[var(--ds-border-strong)] bg-[var(--ds-neutral-50)] p-6 text-center shadow-inner">
+              <p className="text-xl font-medium leading-relaxed text-[var(--ds-text-primary)]">
                 {existingMessage.message}
               </p>
             </div>
           </CardContent>
           <CardFooter className="justify-between gap-4 max-sm:flex-col">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-[var(--ds-text-muted)]">
               <Database className="h-4 w-4" />
               Synced to Neon Postgres
             </div>
             <form action={deleteUserMessage}>
-              <Button type="submit" variant="outline" className="gap-2 rounded-xl border-red-200 text-red-600 hover:bg-red-50">
+              <Button type="submit" variant="destructive" className="gap-2 rounded-xl">
                 <Trash2 className="h-4 w-4" />
                 Delete Message
               </Button>
@@ -74,13 +74,13 @@ export default async function Home() {
           </CardFooter>
         </Card>
       ) : (
-        <Card variant="elevated" className="w-full border-slate-200/80 bg-white/95 shadow-xl shadow-slate-200/70">
+        <Card variant="elevated" className="w-full ds-card-elevated">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ds-text-primary)] text-white">
               <MessageSquareText className="h-7 w-7" />
             </div>
-            <CardTitle className="text-3xl text-slate-950">Create your message</CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardTitle>Create your message</CardTitle>
+            <CardDescription>
               Save a message to Neon using your authenticated Clerk user ID.
             </CardDescription>
           </CardHeader>
@@ -90,11 +90,11 @@ export default async function Home() {
                 type="text"
                 name="message"
                 placeholder="Enter a message"
-                className="h-12 rounded-xl border-slate-200 bg-white text-base text-slate-900 placeholder:text-slate-400"
+                className="h-12"
               />
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="h-11 w-full rounded-xl shadow-sm">
+              <Button type="submit" className="h-11 w-full">
                 Save Message
               </Button>
             </CardFooter>

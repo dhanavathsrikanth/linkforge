@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { workspaces } from "@/lib/db/schema";
+import { getOrCreateDbUser } from "@/lib/auth";
 import { CreateLinkModal } from "@/components/links/CreateLinkModal";
 import { LinkCard } from "@/components/links/LinkCard";
 
@@ -8,17 +10,45 @@ export const metadata = {
   title: "Links - LinkForge",
 };
 
+function slugify(input: string) {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .slice(0, 40) || "workspace";
+}
+
 export default async function LinksPage() {
   const { userId } = await auth();
   if (!userId) {
     redirect("/login");
   }
 
-  // Get the user's first workspace (or default)
-  // In a real app, this would be determined by the URL or a cookie
-  const workspace = await db.query.workspaces.findFirst({
-    where: (w, { eq }) => eq(w.ownerId, userId),
+  // Resolve the DB user (workspaces.ownerId is users.id UUID, not Clerk ID).
+  const dbUser = await getOrCreateDbUser();
+  if (!dbUser) {
+    redirect("/login");
+  }
+
+  // Get the user's first workspace, or create a default one.
+  let workspace = await db.query.workspaces.findFirst({
+    where: (w, { eq }) => eq(w.ownerId, dbUser.id),
   });
+
+  if (!workspace) {
+    const baseName = dbUser.firstName || dbUser.name || dbUser.email || "My";
+    const slug = `${slugify(baseName)}-${dbUser.id.slice(0, 8)}`;
+    const [created] = await db
+      .insert(workspaces)
+      .values({
+        name: `${baseName}'s Workspace`,
+        slug,
+        ownerId: dbUser.id,
+        isDefault: true,
+      })
+      .returning();
+    workspace = created;
+  }
 
   if (!workspace) {
     // Should handle no workspace state

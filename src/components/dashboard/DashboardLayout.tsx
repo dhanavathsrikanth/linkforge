@@ -26,8 +26,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Show loading state while checking auth
   if (!isLoaded || (isSignedIn && userLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-b-[var(--ds-accent)]"></div>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--ds-background)]">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-[var(--ds-border-strong)] border-b-[var(--ds-primary)]"></div>
       </div>
     );
   }
@@ -38,7 +38,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FB] text-slate-900 selection:bg-[#433BFF]/20 selection:text-[#433BFF]">
+    <div className="flex min-h-screen bg-[var(--ds-background)] text-[var(--ds-text-primary)] selection:bg-[var(--ds-primary)]/20 selection:text-[var(--ds-primary)]">
       <Sidebar />
 
       {/* Main area */}
