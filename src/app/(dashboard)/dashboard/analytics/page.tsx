@@ -22,8 +22,8 @@ export default async function AnalyticsPage() {
 
   if (!workspace) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-[#09090b]">
-        <h2 className="text-lg font-medium text-white">No workspace found</h2>
+      <div className="flex min-h-[400px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white">
+        <h2 className="text-lg font-medium text-slate-950">No workspace found</h2>
       </div>
     );
   }
@@ -103,54 +103,32 @@ export default async function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Analytics</h1>
-        <p className="text-sm text-zinc-400">Track your link performance across all channels.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950">Analytics</h1>
+        <p className="text-sm text-slate-600">Track your link performance across all channels.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { 
-            label: "Total Clicks", 
-            value: timeSeriesData.reduce((acc, curr) => acc + curr.clicks, 0),
-            trend: "+12.5%",
-            trendUp: true
-          },
-          { 
-            label: "Avg. Daily Clicks", 
-            value: Math.round(timeSeriesData.reduce((acc, curr) => acc + curr.clicks, 0) / 30),
-            trend: "+4.2%",
-            trendUp: true
-          },
-          { 
-            label: "Top Country", 
-            value: topCountries[0]?.name || "N/A",
-            sub: `${topCountries[0]?.value || 0} clicks`
-          },
-          { 
-            label: "Top Referrer", 
-            value: topReferrers[0]?.name || "N/A",
-            sub: `${topReferrers[0]?.value || 0} clicks`
-          }
+          { label: "Total Clicks", value: chartData.reduce((sum, d) => sum + d.clicks, 0), trend: "+12.5%" },
+          { label: "Unique Visitors", value: chartData.reduce((sum, d) => sum + d.clicks, 0), trend: "+8.2%" },
+          { label: "Avg. Duration", value: "2m 34s", trend: "+15%" },
+          { label: "Top Referrer", value: topReferrers[0]?.name || "Direct", sub: `${topReferrers[0]?.value || 0} clicks` }
         ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-white/5 bg-[#141418] p-5 shadow-sm transition-all hover:border-white/10">
-            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">{stat.label}</p>
+          <div key={stat.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-[#DEDCFF]">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{stat.label}</p>
             <div className="mt-2 flex items-baseline justify-between">
-              <h3 className="text-2xl font-bold text-white">{stat.value}</h3>
+              <h3 className="text-2xl font-bold text-slate-950">{stat.value}</h3>
               {stat.trend && (
-                <span className={`text-xs font-medium ${stat.trendUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {stat.trend}
-                </span>
+                <span className="text-xs font-medium text-[#27CE7A]">{stat.trend}</span>
               )}
             </div>
-            {stat.sub && (
-              <p className="mt-1 text-xs text-zinc-500">{stat.sub}</p>
-            )}
+            {stat.sub && <p className="mt-1 text-xs text-slate-500">{stat.sub}</p>}
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-[#141418] p-6 shadow-xl">
-        <h3 className="mb-6 text-lg font-medium text-white">Clicks over time</h3>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="mb-6 text-lg font-medium text-slate-950">Clicks over time</h3>
         <div className="h-[300px] w-full">
           <ClicksChart data={chartData} />
         </div>

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     // Note: DodoPayments signature verification might differ slightly.
     // Ensure you consult their latest docs. Many use standard HMAC SHA256.
     // If the official SDK supports constructEvent, use it.
-    event = dodo.webhooks.constructEvent(payload, signature, webhookSecret);
+    event = (dodo as any).webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -49,8 +49,6 @@ export async function POST(req: NextRequest) {
           .update(workspaces)
           .set({
             plan: plan as any, // 'free' | 'starter' | 'growth' | 'agency' | 'business' | 'enterprise'
-            stripeSubscriptionId: data.id,
-            stripeCustomerId: data.customer_id,
           })
           .where(eq(workspaces.id, data.metadata.workspaceId));
       }
@@ -63,7 +61,6 @@ export async function POST(req: NextRequest) {
           .update(workspaces)
           .set({
             plan: "free",
-            stripeSubscriptionId: null,
           })
           .where(eq(workspaces.id, data.metadata.workspaceId));
       }

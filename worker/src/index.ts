@@ -1,213 +1,14 @@
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
-import { Redis } from "@upstash/redis/cloudflare";
-import { Ratelimit } from "@upstash/ratelimit";
-import { parseDevice, parseBrowser, parseOs, hashIp, pickAbVariant, getDomain } from "./utils";
+import {
+  parseDevice,
+  parseBrowser,
+  parseOs,
+  hashIp,
+  pickAbVariant,
+  resolveRoutingRules,
+} from "./utils";
+import type { Env, LinkData, RequestContext } from "./types";
 
-type Bindings = {
-  LINKS_KV: KVNamespace;
-  UPSTASH_REDIS_REST_URL: string;
-  UPSTASH_REDIS_REST_TOKEN: string;
-  ENVIRONMENT: string;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
-
-// Cache for Ratelimit
-const ratelimitCache = new Map();
-
-// Middleware
-app.use("*", logger());
-app.use(
-  "*",
-  cors({
-    origin: ["https://linkforge.app", "http://localhost:3000"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
-  })
-);
-
-// Health check
-app.get("/health", (c) => {
-  return c.json({ status: "ok", service: "linkforge-worker", ts: Date.now() });
-});
-
-// Cache invalidate
-app.post("/api/cache/invalidate", async (c) => {
-  const { slug } = await c.req.json();
-  if (!slug) return c.json({ error: "Missing slug" }, 400);
-  await c.env.LINKS_KV.delete(slug);
-  return c.json({ success: true });
-});
-
-// ─── Short link redirect ───────────────────────────────────────────────────────
-app.get("/:slug", async (c) => {
-  const slug = c.req.param("slug");
-
-  if (!slug || slug.length < 2) {
-    return c.json({ error: "Invalid slug" }, 400);
-  }
-
-  try {
-    // Step A — Parse request
-    const country = c.req.header("cf-ipcountry") || "unknown";
-    const rawIp = c.req.header("cf-connecting-ip") || "127.0.0.1";
-    
-    // Step A.0 — Rate Limiting
-    const redis = new Redis({
-      url: c.env.UPSTASH_REDIS_REST_URL,
-      token: c.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-    
-    const ratelimit = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(10, "10 s"), // 10 requests per 10 seconds per IP
-      ephemeralCache: ratelimitCache,
-    });
-    
-    const { success } = await ratelimit.limit(`ratelimit_${rawIp}`);
-    if (!success) {
-      return c.json({ error: "Too many requests" }, 429);
-    }
-
-    // Step A — Parse request
-    const rawUa = c.req.header("user-agent") || "";
-    const deviceType = parseDevice(rawUa);
-    const browser = parseBrowser(rawUa);
-    const os = parseOs(rawUa);
-    const referrer = c.req.header("referer") || "";
-    const referrerDomain = getDomain(referrer);
-    const rawIp = c.req.header("cf-connecting-ip") || "127.0.0.1";
-    const ipHash = await hashIp(rawIp);
-
-    // Step B — Check KV cache first
-    let linkData: any = await c.env.LINKS_KV.get(slug, "json");
-
-    if (!linkData) {
-      // Fallback: query DB via Next.js API (edge-to-origin)
-      const origin =
-        c.env.ENVIRONMENT === "production"
-          ? "https://linkforge.app"
-          : "http://localhost:3000";
-
-      const res = await fetch(`${origin}/api/links/resolve?slug=${slug}`, {
-        headers: { "x-worker-secret": "internal" },
-      });
-
-      if (!res.ok) {
-        return c.html(notFoundPage(), 404);
-      }
-
-      linkData = await res.json();
-      
-      // Store in KV with 5-minute TTL
-      c.executionCtx.waitUntil(
-        c.env.LINKS_KV.put(slug, JSON.stringify(linkData), { expirationTtl: 300 })
-      );
-    }
-
-    if (!linkData || !linkData.isActive) {
-      return c.html(notFoundPage(), 404);
-    }
-
-    // Step C — Smart Routing
-    let finalDestination = linkData.destination;
-    let variantId = "";
-
-    if (linkData.abTestEnabled && linkData.abTestVariants?.length > 0) {
-      finalDestination = pickAbVariant(linkData.abTestVariants);
-      variantId = finalDestination; // Simplified for tracking
-    } else if (linkData.geoRouting && linkData.geoRouting[country]) {
-      finalDestination = linkData.geoRouting[country];
-    } else if (deviceType === "mobile" && os === "iOS" && linkData.iosDestination) {
-      finalDestination = linkData.iosDestination;
-    } else if (deviceType === "mobile" && os === "Android" && linkData.androidDestination) {
-      finalDestination = linkData.androidDestination;
-    }
-
-    // Append query params and UTM parameters
-    try {
-      const destUrl = new URL(finalDestination);
-      const reqUrl = new URL(c.req.url);
-      reqUrl.searchParams.forEach((val, key) => {
-        destUrl.searchParams.set(key, val);
-      });
-      if (linkData.utmSource && !destUrl.searchParams.has("utm_source")) destUrl.searchParams.set("utm_source", linkData.utmSource);
-      if (linkData.utmMedium && !destUrl.searchParams.has("utm_medium")) destUrl.searchParams.set("utm_medium", linkData.utmMedium);
-      if (linkData.utmCampaign && !destUrl.searchParams.has("utm_campaign")) destUrl.searchParams.set("utm_campaign", linkData.utmCampaign);
-      if (linkData.utmTerm && !destUrl.searchParams.has("utm_term")) destUrl.searchParams.set("utm_term", linkData.utmTerm);
-      if (linkData.utmContent && !destUrl.searchParams.has("utm_content")) destUrl.searchParams.set("utm_content", linkData.utmContent);
-      finalDestination = destUrl.toString();
-    } catch {
-      // Ignored if invalid URL
-    }
-
-    // Step D — Password Protection
-    if (linkData.password) {
-      // Redirect to Next.js origin challenge page to verify password and set a cookie
-      // Alternatively, serve a simple challenge page right here.
-      // But we'll redirect to origin's challenge page
-      const origin =
-        c.env.ENVIRONMENT === "production"
-          ? "https://linkforge.app"
-          : "http://localhost:3000";
-          
-      // Actually we just check if a cookie like "pw_auth_{slug}" is present. If not, redirect.
-      const cookieHeader = c.req.header("cookie") || "";
-      if (!cookieHeader.includes(`pw_auth_${slug}=`)) {
-        return c.redirect(`${origin}/challenge/${slug}`, 302);
-      }
-    }
-
-    // Step E — Write log (WaitUntil)
-    c.executionCtx.waitUntil(
-      recordClick(slug, {
-        ts: Date.now(),
-        ip: ipHash,
-        country,
-        device: deviceType,
-        browser,
-        os,
-        referrer,
-        referrerDomain,
-        abVariant: variantId,
-        linkId: linkData.id,
-        workspaceId: linkData.workspaceId,
-      }, c.env)
-    );
-
-    // Step F — Return 302
-    return c.redirect(finalDestination, 302);
-  } catch (err) {
-    console.error("Redirect error:", err);
-    return c.html(notFoundPage(), 404);
-  }
-});
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function recordClick(
-  slug: string,
-  clickData: Record<string, any>,
-  env: Bindings
-): Promise<void> {
-  try {
-    const redis = new Redis({
-      url: env.UPSTASH_REDIS_REST_URL,
-      token: env.UPSTASH_REDIS_REST_TOKEN,
-    });
-    
-    // Push the click data to an Upstash Redis list for async processing
-    // We use LPUSH to add to the head of the list
-    await redis.lpush(`clicks:${slug}`, clickData);
-    
-    // Also increment a global counter for quick dashboard stats
-    await redis.incr(`stats:clicks:total`);
-    await redis.incr(`stats:clicks:daily:${new Date().toISOString().split('T')[0]}`);
-  } catch (err) {
-    console.error("Redis record error:", err);
-  }
-}
+// ─── 404 Page ────────────────────────────────────────────────────────────────
 
 function notFoundPage(): string {
   return `<!DOCTYPE html>
@@ -217,21 +18,292 @@ function notFoundPage(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Link Not Found – LinkForge</title>
   <style>
-    body { background: #09090b; color: #fff; font-family: system-ui; display: flex;
-           flex-direction: column; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }
-    h1   { font-size: 2.5rem; color: #7c3aed; margin-bottom: 0.5rem; }
-    p    { color: #a1a1aa; margin-bottom: 2rem; }
-    a    { background: #2563eb; color: #fff; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 500; transition: background 0.2s; }
-    a:hover { background: #1d4ed8; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #09090b;
+      color: #fafafa;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a855f7, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 2.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .hex { font-size: 1.75rem; line-height: 1; }
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+    }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; color: #fafafa; }
+    p { color: #71717a; font-size: 0.9375rem; line-height: 1.6; margin-bottom: 2rem; }
+    .cta {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #a855f7, #3b82f6);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      transition: opacity 0.2s;
+    }
+    .cta:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
-  <h1>⚡ LinkForge</h1>
-  <p>This link doesn't exist or has expired.</p>
-  <a href="https://linkforge.app">Go to Homepage →</a>
+  <div class="logo">
+    <span class="hex">⬡</span> LinkForge
+  </div>
+  <div class="card">
+    <div class="icon">🔗</div>
+    <h1>Link not found</h1>
+    <p>This link doesn't exist, has expired, or has been deactivated.</p>
+    <a class="cta" href="https://linkforge.app">Shorten your own links free →</a>
+  </div>
 </body>
 </html>`;
 }
 
-export default app;
+// ─── Click Logger (async, non-blocking) ──────────────────────────────────────
+
+async function logClick(
+  link: LinkData,
+  req: Request,
+  env: Env,
+  ctx: { device: string; country: string; city: string; region: string; language: string },
+  ipHash: string,
+  isUnique: boolean,
+  destination: string,
+  variant: string
+): Promise<void> {
+  try {
+    const ua = req.headers.get("user-agent") || "";
+    const browser = parseBrowser(ua);
+    const os = parseOs(ua);
+    const referrer = req.headers.get("referer") || "";
+    const referrerDomain = referrer
+      ? (() => { try { return new URL(referrer).hostname; } catch { return ""; } })()
+      : "";
+
+    await fetch(`${env.API_URL}/api/internal/clicks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-worker-secret": env.WORKER_SECRET,
+      },
+      body: JSON.stringify({
+        linkId: link.id,
+        workspaceId: link.workspaceId,
+        slug: link.slug,
+        destination,
+        variant,
+        timestamp: new Date().toISOString(),
+        ipHash,
+        isUnique,
+        device: ctx.device,
+        browser,
+        os,
+        country: ctx.country,
+        city: ctx.city,
+        region: ctx.region,
+        referrer,
+        referrerDomain,
+        language: ctx.language,
+      }),
+    });
+  } catch (err) {
+    console.error("[logClick] Failed:", err);
+  }
+}
+
+// ─── Main fetch handler ───────────────────────────────────────────────────────
+
+export default {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(req.url);
+
+    // Health check
+    if (url.pathname === "/health") {
+      return Response.json({ status: "ok", service: "linkforge-worker", ts: Date.now() });
+    }
+
+    // ── Step 1: Parse domain + slug ──────────────────────────────────────────
+    const host = req.headers.get("host") || url.hostname;
+    const domain = host.split(":")[0]; // strip port if present
+    const slug = url.pathname.replace(/^\//, "").split("/")[0];
+
+    if (!slug || slug.length < 1) {
+      return new Response(notFoundPage(), {
+        status: 404,
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    }
+
+    const kvKey = `${domain}:${slug}`;
+
+    // ── Step 2: Check KV cache ────────────────────────────────────────────────
+    let link: LinkData | null = await env.LINKS_KV.get<LinkData>(kvKey, "json");
+
+    // ── Step 3: Fetch from API if not cached ──────────────────────────────────
+    if (!link) {
+      try {
+        const apiRes = await fetch(
+          `${env.API_URL}/api/internal/links?domain=${encodeURIComponent(domain)}&slug=${encodeURIComponent(slug)}`,
+          {
+            headers: {
+              "x-worker-secret": env.WORKER_SECRET,
+            },
+          }
+        );
+
+        if (!apiRes.ok) {
+          return new Response(notFoundPage(), {
+            status: 404,
+            headers: { "Content-Type": "text/html;charset=UTF-8" },
+          });
+        }
+
+        link = (await apiRes.json()) as LinkData;
+
+        // Cache for 60 seconds
+        ctx.waitUntil(
+          env.LINKS_KV.put(kvKey, JSON.stringify(link), { expirationTtl: 60 })
+        );
+      } catch (err) {
+        console.error("[worker] API fetch failed:", err);
+        return new Response(notFoundPage(), {
+          status: 404,
+          headers: { "Content-Type": "text/html;charset=UTF-8" },
+        });
+      }
+    }
+
+    // ── Step 4: Link not found ────────────────────────────────────────────────
+    if (!link) {
+      return new Response(notFoundPage(), {
+        status: 404,
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    }
+
+    // ── Step 5: Check isActive ────────────────────────────────────────────────
+    if (!link.isActive) {
+      return new Response(notFoundPage(), {
+        status: 404,
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    }
+
+    // ── Step 6: Check expiry ──────────────────────────────────────────────────
+    const now = Date.now();
+    if (link.expiresAt && new Date(link.expiresAt).getTime() < now) {
+      return new Response(notFoundPage(), {
+        status: 410,
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    }
+    if (
+      link.expiresAfterClicks !== null &&
+      link.expiresAfterClicks !== undefined &&
+      link.totalClicks >= link.expiresAfterClicks
+    ) {
+      return new Response(notFoundPage(), {
+        status: 410,
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    }
+
+    // ── Step 7: Password protection ───────────────────────────────────────────
+    if (link.password) {
+      return Response.redirect(
+        `${env.API_URL}/protected?id=${encodeURIComponent(link.id)}`,
+        302
+      );
+    }
+
+    // ── Step 8: Device / geo / language context ───────────────────────────────
+    const ua = req.headers.get("user-agent") || "";
+    const deviceType = parseDevice(ua);
+
+    // Bot: skip redirect logging entirely, still redirect
+    const cfData = (req as any).cf as {
+      country?: string;
+      city?: string;
+      region?: string;
+    } | undefined;
+
+    const country = cfData?.country || req.headers.get("cf-ipcountry") || "XX";
+    const city = cfData?.city || "";
+    const region = cfData?.region || "";
+    const language = (req.headers.get("accept-language") || "").split(",")[0].split(";")[0].trim();
+
+    const requestCtx: RequestContext = { device: deviceType as RequestContext["device"], country, language };
+
+    // ── Step 8: Smart routing ─────────────────────────────────────────────────
+    let finalDestination = link.destination;
+    let variant = "";
+
+    if (link.abTestEnabled && link.abVariants && link.abVariants.length > 0) {
+      const picked = pickAbVariant(link.abVariants);
+      finalDestination = picked.destination;
+      variant = picked.name || picked.destination;
+    } else if (link.routingRules && link.routingRules.length > 0) {
+      const matched = resolveRoutingRules(link.routingRules, requestCtx);
+      if (matched) finalDestination = matched;
+    }
+
+    // ── Step 9: Async click logging ───────────────────────────────────────────
+    if (deviceType !== "bot") {
+      ctx.waitUntil(
+        (async () => {
+          const rawIp = req.headers.get("cf-connecting-ip") || "127.0.0.1";
+          const ipHash = await hashIp(rawIp);
+
+          // Uniqueness check: KV key "uniq:linkId:ipHash" with 24h TTL
+          const uniqKey = `uniq:${link!.id}:${ipHash}`;
+          const existing = await env.LINKS_KV.get(uniqKey);
+          const isUnique = existing === null;
+          if (isUnique) {
+            await env.LINKS_KV.put(uniqKey, "1", { expirationTtl: 86400 }); // 24h
+          }
+
+          await logClick(
+            link!,
+            req,
+            env,
+            { device: deviceType, country, city, region, language },
+            ipHash,
+            isUnique,
+            finalDestination,
+            variant
+          );
+        })()
+      );
+    }
+
+    // ── Step 10: Redirect ─────────────────────────────────────────────────────
+    return Response.redirect(finalDestination, 302);
+  },
+};

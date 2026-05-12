@@ -9,14 +9,14 @@ export async function GET(req: Request) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, 401);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
 
     if (!slug) {
-      return NextResponse.json({ error: "Missing slug" }, 400);
+      return NextResponse.json({ error: "Missing slug" }, { status: 400 });
     }
 
     // Verify user owns the workspace for this link
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, 404);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Fetch latest clicks from Redis
@@ -48,6 +48,6 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("Realtime analytics error:", err);
-    return NextResponse.json({ error: "Internal server error" }, 500);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

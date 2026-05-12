@@ -24,19 +24,43 @@ export async function getOrCreateDbUser() {
   const primaryEmail =
     clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
       ?.emailAddress ?? "";
+  const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+  const userValues = {
+    clerkId: clerkUser.id,
+    email: primaryEmail,
+    name: fullName,
+    firstName: clerkUser.firstName ?? null,
+    lastName: clerkUser.lastName ?? null,
+    username: clerkUser.username ?? null,
+    avatar: clerkUser.imageUrl ?? null,
+    profileImageUrl: clerkUser.imageUrl ?? null,
+    birthday: null,
+    gender: null,
+    externalId: clerkUser.externalId ?? null,
+    primaryEmailAddressId: clerkUser.primaryEmailAddressId ?? null,
+    primaryPhoneNumberId: clerkUser.primaryPhoneNumberId ?? null,
+    primaryWeb3WalletId: clerkUser.primaryWeb3WalletId ?? null,
+    passwordEnabled: clerkUser.passwordEnabled ?? null,
+    twoFactorEnabled: clerkUser.twoFactorEnabled ?? null,
+    lastSignInAt: clerkUser.lastSignInAt ? new Date(clerkUser.lastSignInAt) : null,
+    clerkCreatedAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : null,
+    clerkUpdatedAt: clerkUser.updatedAt ? new Date(clerkUser.updatedAt) : null,
+    emailAddresses: clerkUser.emailAddresses,
+    phoneNumbers: clerkUser.phoneNumbers,
+    externalAccounts: clerkUser.externalAccounts,
+    web3Wallets: clerkUser.web3Wallets,
+    publicMetadata: clerkUser.publicMetadata,
+    privateMetadata: clerkUser.privateMetadata,
+    unsafeMetadata: clerkUser.unsafeMetadata,
+  };
 
   const [user] = await db
     .insert(users)
-    .values({
-      clerkId: clerkUser.id,
-      email: primaryEmail,
-      name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
-      avatar: clerkUser.imageUrl ?? null,
-    })
+    .values(userValues)
     .onConflictDoUpdate({
       target: users.clerkId,
       set: {
-        email: primaryEmail,
+        ...userValues,
         updatedAt: new Date(),
       },
     })

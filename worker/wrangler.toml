@@ -1,17 +1,22 @@
-name = "linkforge-worker"
-main = "src/index.ts"
-compatibility_date = "2024-05-29"
+name            = "linkforge-worker"
+main            = "src/index.ts"
+compatibility_date  = "2025-05-12"
 compatibility_flags = ["nodejs_compat"]
 
-[vars]
-ENVIRONMENT = "production"
-
-# KV Namespaces (create via wrangler kv:namespace create)
+# ─── KV Namespaces ────────────────────────────────────────────────────────────
+# Create via: wrangler kv:namespace create LINKS_KV
 [[kv_namespaces]]
 binding = "LINKS_KV"
-id = "your_kv_namespace_id"
+id      = "your_kv_namespace_id"          # Replace with real ID after creation
 
-# R2 Buckets
-# [[r2_buckets]]
-# binding = "R2"
-# bucket_name = "linkforge-assets"
+# ─── Environment Variables ────────────────────────────────────────────────────
+# Set secrets via: wrangler secret put WORKER_SECRET
+[vars]
+API_URL = "https://linkforge.app"
+# WORKER_SECRET is set as a Cloudflare secret (not a plain var)
+# Run: wrangler secret put WORKER_SECRET
+
+# ─── Local dev overrides ──────────────────────────────────────────────────────
+[env.development]
+[env.development.vars]
+API_URL = "http://localhost:3000"

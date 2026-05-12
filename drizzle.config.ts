@@ -1,19 +1,18 @@
-import type { Config } from "drizzle-kit";
-import * as dotenv from "dotenv";
+import { defineConfig } from "drizzle-kit";
+import { loadEnvConfig } from "@next/env";
 
-// Load environment variables from .env.local
-dotenv.config({ path: ".env.local" });
+loadEnvConfig(process.cwd());
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL not found in environment variables");
+  throw new Error("DATABASE_URL must be a Neon postgres connection string");
 }
 
-export default {
+export default defineConfig({
+  dialect: "postgresql",
   schema: "./src/lib/db/schema.ts",
   out: "./src/lib/db/migrations",
-  dialect: "postgresql",
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
   strict: true,
-} satisfies Config;
+});

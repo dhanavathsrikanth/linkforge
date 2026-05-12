@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     // Basic secret check for cron/internal calls
     const authHeader = req.headers.get("authorization");
     if (authHeader !== `Bearer ${process.env.INTERNAL_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, 401);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get all keys matching clicks:*
@@ -59,6 +59,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, flushed: processedCount });
   } catch (err) {
     console.error("Flush error:", err);
-    return NextResponse.json({ error: "Internal server error" }, 500);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

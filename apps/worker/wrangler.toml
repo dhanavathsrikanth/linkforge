@@ -1,0 +1,11 @@
+name = "linkforge-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "LINKS_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID"
+
+[vars]
+API_URL = "https://your-api-url.com"
