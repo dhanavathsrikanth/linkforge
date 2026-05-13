@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, Sparkles } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, Sparkles, QrCode } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
 import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
+import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
+import type { QRSettings } from "@/types/qr";
+import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 
 type LinkRow = {
   id: string;
@@ -17,6 +20,7 @@ type LinkRow = {
   totalClicks: number;
   createdAt: string | Date;
   isActive?: boolean;
+  qrSettings?: QRSettings | null;
 };
 
 type Props = {
@@ -38,6 +42,9 @@ export function LinksListClient({
     {},
   );
   const { copied, copy } = useClipboard();
+  // QR panel state — tracks which link's QR panel is open
+  const [qrLinkId, setQrLinkId] = useState<string | null>(null);
+  const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
 
   function handleCreated(link: any) {
     setLinks((prev) => [link as LinkRow, ...prev.filter((l) => l.id !== link.id)]);
@@ -168,6 +175,14 @@ export function LinksListClient({
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
+                          <button
+                            type="button"
+                            onClick={() => setQrLinkId(link.id)}
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                            title="QR Code"
+                          >
+                            <QrCode className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums font-semibold">
@@ -194,6 +209,19 @@ export function LinksListClient({
         prefill={advancedPrefill}
         onCreated={handleCreated}
       />
+
+      {/* QR Panel — shared across all table rows */}
+      {qrLink && (
+        <QRCustomizePanel
+          open={!!qrLinkId}
+          onOpenChange={(v) => { if (!v) setQrLinkId(null); }}
+          linkId={qrLink.id}
+          linkSlug={qrLink.slug}
+          shortUrl={`https://${defaultDomain}/${qrLink.slug}`}
+          linkTitle={qrLink.title ?? qrLink.slug}
+          initialSettings={qrLink.qrSettings ?? DEFAULT_QR_SETTINGS}
+        />
+      )}
 
       {/* Toast (transient) */}
       <AnimatePresence>

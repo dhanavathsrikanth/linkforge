@@ -21,6 +21,9 @@ export {
   clicks,
   conversions,
   userMessages,
+  linkGallery,
+  linkGalleryClicks,
+  usageCounters,
   // Enums
   planEnum,
   memberRoleEnum,
@@ -33,4 +36,6 @@ export {
   linksRelations,
   clicksRelations,
   conversionsRelations,
+  linkGalleryRelations,
+  linkGalleryClicksRelations,
 } from "./schema";

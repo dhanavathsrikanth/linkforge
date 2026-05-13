@@ -59,7 +59,7 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        {children}
+        {children as React.ReactNode}
       </DialogContent>
     </Dialog>
   )

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { clicks, links } from "@/lib/db/schema";
+import { clicks, links, domains } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { trackLinkClicked } from "@/lib/posthog";
+import { incrementUsage } from "@/lib/billing/usage";
 
 type ClickPayload = {
   linkId: string;
@@ -21,6 +23,8 @@ type ClickPayload = {
   referrer?: string;
   referrerDomain?: string;
   language?: string;
+  /** True when the request came via a QR code scan (?source=qr) */
+  isQrScan?: boolean;
 };
 
 /**
@@ -58,6 +62,7 @@ export async function POST(req: Request) {
     region,
     referrer,
     referrerDomain,
+    isQrScan,
   } = body;
 
   if (!linkId || !workspaceId) {
@@ -72,6 +77,17 @@ export async function POST(req: Request) {
 
   try {
     // Insert click record + increment totalClicks atomically
+    // Also get domain info for PostHog tracking
+    const link = await db.query.links.findFirst({
+      where: eq(links.id, linkId),
+    });
+
+    const domain = link?.domainId
+      ? await db.query.domains.findFirst({
+        where: eq(domains.id, link.domainId),
+      })
+      : null;
+
     await Promise.all([
       db.insert(clicks).values({
         linkId,
@@ -88,27 +104,44 @@ export async function POST(req: Request) {
         referrerDomain: referrerDomain ?? null,
         // Map variant → abVariant column
         abVariant: variant ?? null,
+        // QR scan tracking
+        isQrScan: isQrScan ?? false,
         createdAt: new Date(timestamp),
       }),
       // Increment the denormalized totalClicks counter on the link row
       // Also increment uniqueClicks if this is a unique visitor
       ...(isUnique
         ? [
-            db
-              .update(links)
-              .set({
-                totalClicks: sql`${links.totalClicks} + 1`,
-                uniqueClicks: sql`${links.uniqueClicks} + 1`,
-              })
-              .where(eq(links.id, linkId)),
-          ]
+          db
+            .update(links)
+            .set({
+              totalClicks: sql`${links.totalClicks} + 1`,
+              uniqueClicks: sql`${links.uniqueClicks} + 1`,
+            })
+            .where(eq(links.id, linkId)),
+        ]
         : [
-            db
-              .update(links)
-              .set({ totalClicks: sql`${links.totalClicks} + 1` })
-              .where(eq(links.id, linkId)),
-          ]),
+          db
+            .update(links)
+            .set({ totalClicks: sql`${links.totalClicks} + 1` })
+            .where(eq(links.id, linkId)),
+        ]),
     ]);
+
+    // Track click event in PostHog (non-blocking, best effort)
+    if (link) {
+      trackLinkClicked({
+        linkId,
+        domain: domain?.domain || "linkforge.app",
+      });
+    }
+
+    // Increment monthly clicksTracked usage (best-effort)
+    try {
+      await incrementUsage(workspaceId, "clicksTracked", 1);
+    } catch (e) {
+      console.warn("[POST /api/internal/clicks] increment usage failed", e);
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { links } from "@/lib/db";
+import { links, domains, workspaces } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getOrCreateDbUser } from "@/lib/auth";
+import { trackLinkCreated } from "@/lib/posthog";
+import { eq, sql } from "drizzle-orm";
+import { incrementUsage } from "@/lib/billing/usage";
 
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
@@ -29,6 +32,20 @@ const CreateLinkSchema = z.object({
   iosDestination: z.string().url().optional().or(z.literal("")),
   androidDestination: z.string().url().optional().or(z.literal("")),
 });
+
+const PLAN_LIMITS: Record<string, { links: number | "unlimited"; domains: number | "unlimited" }> = {
+  free: { links: 500, domains: 1 },
+  starter: { links: 5000, domains: 2 },
+  growth: { links: 25000, domains: 5 },
+  agency: { links: "unlimited", domains: 15 },
+  business: { links: "unlimited", domains: 25 },
+  enterprise: { links: "unlimited", domains: 50 },
+};
+
+function resolvePlanLimits(plan?: string) {
+  const key = (plan || "free").toLowerCase();
+  return PLAN_LIMITS[key] || PLAN_LIMITS["free"];
+}
 
 function emptyToNull<T extends string | undefined | null>(v: T): string | null {
   if (v === undefined || v === null) return null;
@@ -74,6 +91,31 @@ export async function POST(req: Request) {
 
     const v = parsed.data;
     const slug = (v.slug && v.slug.trim().length > 0) ? v.slug.trim() : nanoid(7);
+
+    // Enforce plan link limits (total links per workspace)
+    const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, v.workspaceId) });
+    if (!ws) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+    const planLimits = resolvePlanLimits(ws.plan);
+    if (planLimits.links !== "unlimited") {
+      const [{ count: totalLinks }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(links)
+        .where(eq(links.workspaceId, v.workspaceId));
+      if (totalLinks >= (planLimits.links as number)) {
+        return NextResponse.json(
+          {
+            code: "PLAN_LIMIT_REACHED",
+            limit: "links",
+            current: totalLinks,
+            max: planLimits.links,
+            upgradeUrl: "/pricing",
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     // Hash password if provided
     let hashedPassword: string | null = null;
@@ -121,6 +163,32 @@ export async function POST(req: Request) {
     } catch (cacheErr) {
       console.warn("[POST /api/links] redis cache failed", cacheErr);
     }
+
+    // Increment monthly usage counter
+    try {
+      await incrementUsage(v.workspaceId, "linksCreated", 1);
+    } catch (e) {
+      console.warn("[POST /api/links] increment usage failed", e);
+    }
+
+    // Track link creation in PostHog (non-blocking, best effort)
+    // Get domain info from the created link
+    const linkWithDomain = await db.query.links.findFirst({
+      where: eq(links.id, link.id),
+    });
+
+    const domain = linkWithDomain?.domainId
+      ? await db.query.domains.findFirst({
+        where: eq(domains.id, linkWithDomain.domainId),
+      })
+      : null;
+
+    trackLinkCreated({
+      linkId: link.id,
+      domain: domain?.domain || "linkforge.app",
+      hasCustomSlug: !!v.slug && v.slug.trim().length > 0,
+      hasUTM: !!(v.utmSource || v.utmMedium || v.utmCampaign || v.utmTerm || v.utmContent),
+    });
 
     return NextResponse.json({ link }, { status: 201 });
   } catch (err) {

@@ -12,19 +12,23 @@ import {
   Users,
   CreditCard,
   MoreHorizontal,
+  LayoutList,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 
 const nav = [
-  { name: "Overview",  href: "/dashboard",                icon: LayoutDashboard },
-  { name: "Links",     href: "/dashboard/links",          icon: Link2 },
-  { name: "QR Codes",  href: "/dashboard/qr",             icon: QrCode },
-  { name: "Analytics", href: "/dashboard/analytics",      icon: BarChart3 },
-  { name: "Domains",   href: "/dashboard/settings/domains", icon: Globe },
-  { name: "Team",      href: "/dashboard/team",           icon: Users },
-  { name: "Billing",   href: "/dashboard/settings/billing", icon: CreditCard },
-  { name: "Settings",  href: "/dashboard/settings",       icon: Settings },
+  { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
+  { name: "Links",       href: "/dashboard/links",            icon: Link2 },
+  { name: "Link in Bio", href: "/dashboard/link-in-bio",      icon: LayoutList },
+  { name: "QR Codes",    href: "/dashboard/qr",               icon: QrCode },
+  { name: "Analytics",   href: "/dashboard/analytics",        icon: BarChart3 },
+  { name: "Domains",     href: "/dashboard/settings/domains", icon: Globe },
+  { name: "Team",        href: "/dashboard/team",             icon: Users },
+  { name: "Pricing",     href: "/pricing",                    icon: Sparkles },
+  { name: "Billing",     href: "/dashboard/settings/billing", icon: CreditCard },
+  { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
 ];
 
 export function Sidebar() {
@@ -41,9 +45,9 @@ export function Sidebar() {
   const displayName = user?.fullName || user?.firstName || "Coolest User";
 
   return (
-    <aside className="flex w-[240px] shrink-0 flex-col bg-background border-r border-border">
+    <aside className="flex w-[240px] shrink-0 flex-col bg-background border-r border-border h-screen sticky top-0">
       {/* User profile */}
-      <div className="flex items-center gap-3 px-5 py-5">
+      <div className="flex items-center gap-3 px-5 py-5 shrink-0">
         {user?.imageUrl ? (
           <img
             src={user.imageUrl}
@@ -63,8 +67,8 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+      {/* Nav — scrollable so all items show on short screens */}
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-2 overflow-y-auto">
         {nav.map((item) => {
           const active = isActive(item.href);
           return (

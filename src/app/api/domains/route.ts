@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { domains, links } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { domains, links, workspaces } from "@/lib/db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { resolvePlanLimits } from "@/lib/billing/planLimits";
 
 export async function GET(req: Request) {
   const { userId } = await auth();
@@ -54,12 +55,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing workspaceId or domain" }, { status: 400 });
     }
 
+    // Enforce plan limits for domains per workspace
+    const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
+    if (!ws) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+    const planLimits = resolvePlanLimits(ws.plan);
+    if (planLimits.domains !== "unlimited") {
+      const [{ count: totalDomains }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(domains)
+        .where(eq(domains.workspaceId, workspaceId));
+      if (totalDomains >= (planLimits.domains as number)) {
+        return NextResponse.json(
+          {
+            code: "PLAN_LIMIT_REACHED",
+            limit: "domains",
+            current: totalDomains,
+            max: planLimits.domains,
+            upgradeUrl: "/pricing",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Validate domain
     // Must not include http:// or https:// or trailing slashes
     if (domain.includes("http://") || domain.includes("https://") || domain.includes("/")) {
       return NextResponse.json({ error: "Invalid domain format. Do not include http:// or trailing slashes." }, { status: 400 });
     }
-    
+
     const domainRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!domainRegex.test(domain)) {
       return NextResponse.json({ error: "Invalid domain format." }, { status: 400 });
@@ -83,6 +109,15 @@ export async function POST(req: Request) {
       verified: false,
       isDefault: false,
     }).returning();
+
+    // Increment monthly usage counter (best-effort)
+    try {
+      // Count a domain creation in monthly counters
+      const { incrementUsage } = await import("@/lib/billing/usage");
+      await incrementUsage(workspaceId, "domainsCreated", 1);
+    } catch (e) {
+      console.warn("[POST /api/domains] increment usage failed", e);
+    }
 
     return NextResponse.json({
       domain: newDomain.domain,

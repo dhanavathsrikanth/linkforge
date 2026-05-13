@@ -12,6 +12,9 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type { QRSettings } from "@/types/qr";
+import { DEFAULT_QR_SETTINGS } from "@/types/qr";
+import type { GalleryLink, GalleryAppearance } from "@/types/gallery";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +105,20 @@ export const workspaces = pgTable(
     logo: text("logo"),
     customDomain: text("custom_domain").unique(),
     isDefault: boolean("is_default").notNull().default(false),
+    // UTM templates - saved templates for this workspace
+    utmTemplates: jsonb("utm_templates").$type<
+      {
+        id: string;
+        name: string;
+        source: string;
+        medium: string;
+        campaign: string;
+        term: string;
+        content: string;
+        isDefault: boolean;
+      }[]
+    >().default(sql`'[]'::jsonb`),
+    defaultUtmTemplateId: uuid("default_utm_template_id"),
     ...timestamps,
   },
   (t) => [index("workspaces_owner_idx").on(t.ownerId)]
@@ -198,11 +215,28 @@ export const links = pgTable(
     // Geo routing: { "US": "https://...", "GB": "https://..." }
     geoRouting: jsonb("geo_routing").$type<Record<string, string>>(),
 
+    // Smart routing rules - array of conditional redirects
+    routingRules: jsonb("routing_rules").$type<
+      {
+        id: string;
+        condition: {
+          type: "device" | "country" | "language";
+          value: string;
+        };
+        destination: string;
+      }[]
+    >().default(sql`'[]'::jsonb`),
+
     // A/B testing
     abTestEnabled: boolean("ab_test_enabled").notNull().default(false),
     abTestVariants: jsonb("ab_test_variants").$type<
       { destination: string; weight: number; clicks: number }[]
     >(),
+
+    // QR customization — stored as JSONB, falls back to DEFAULT_QR_SETTINGS
+    qrSettings: jsonb("qr_settings")
+      .$type<QRSettings>()
+      .default(DEFAULT_QR_SETTINGS),
 
     ...timestamps,
   },
@@ -248,6 +282,9 @@ export const clicks = pgTable(
     utmSource: text("utm_source"),
     utmMedium: text("utm_medium"),
     utmCampaign: text("utm_campaign"),
+
+    // QR scan tracking — true when ?source=qr is detected
+    isQrScan: boolean("is_qr_scan").notNull().default(false),
 
     // A/B
     abVariant: text("ab_variant"),
@@ -358,8 +395,140 @@ export const conversionsRelations = relations(conversions, ({ one }) => ({
   }),
 }));
 
+// ─── usage_counters (monthly) ───────────────────────────────────────────────────
+// Tracks per-workspace monthly usage for billing enforcement & UX.
+// month_start uses the first day of the month in UTC (e.g., 2026-05-01 00:00:00Z).
+export const usageCounters = pgTable(
+  "usage_counters",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    monthStart: timestamp("month_start", { withTimezone: true, mode: "date" })
+      .notNull(),
+    // Aggregated counters for the month
+    linksCreated: integer("links_created").notNull().default(0),
+    domainsCreated: integer("domains_created").notNull().default(0),
+    apiCalls: integer("api_calls").notNull().default(0),
+    clicksTracked: integer("clicks_tracked").notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("usage_counters_workspace_month_unique_idx").on(
+      t.workspaceId,
+      t.monthStart
+    ),
+    index("usage_counters_workspace_idx").on(t.workspaceId),
+    index("usage_counters_month_idx").on(t.monthStart),
+  ]
+);
+
 export const userMessages = pgTable("user_messages", {
   userId: text("user_id").primaryKey().notNull(),
   createTs: timestamp("create_ts").defaultNow().notNull(),
   message: text("message").notNull(),
 });
+
+// ─── link_gallery ─────────────────────────────────────────────────────────────
+// Stores a user's link-in-bio page configuration
+
+export const linkGallery = pgTable(
+  "link_gallery",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    customDomainId: uuid("custom_domain_id").references(() => domains.id, {
+      onDelete: "set null",
+    }),
+
+    // Page identity
+    slug: text("slug").notNull().unique(),
+    isPublished: boolean("is_published").notNull().default(false),
+
+    // Profile
+    displayName: text("display_name"),
+    bio: text("bio"),
+    avatarUrl: text("avatar_url"),
+    avatarInitials: text("avatar_initials"),
+    avatarBgColor: text("avatar_bg_color").notNull().default("#6366f1"),
+
+    // Links array stored as JSONB
+    links: jsonb("links").$type<GalleryLink[]>().notNull().default(sql`'[]'::jsonb`),
+
+    // Appearance config stored as JSONB
+    appearance: jsonb("appearance").$type<GalleryAppearance>(),
+
+    // SEO
+    seoTitle: text("seo_title"),
+    seoDescription: text("seo_description"),
+
+    // Branding
+    showBranding: boolean("show_branding").notNull().default(true),
+
+    // NOTE: totalClicks is intentionally NOT stored here.
+    // Compute on read: SELECT COUNT(*) FROM link_gallery_clicks WHERE gallery_id = ?
+    // This avoids drift from failed inserts, crashes, or GDPR deletions.
+
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("link_gallery_slug_idx").on(t.slug),
+    index("link_gallery_user_idx").on(t.userId),
+    index("link_gallery_workspace_idx").on(t.workspaceId),
+  ]
+);
+
+// ─── link_gallery_clicks ──────────────────────────────────────────────────────
+
+export const linkGalleryClicks = pgTable(
+  "link_gallery_clicks",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    galleryId: uuid("gallery_id")
+      .notNull()
+      .references(() => linkGallery.id, { onDelete: "cascade" }),
+    linkIndex: integer("link_index").notNull(),
+    ip: text("ip"),
+    country: text("country"),
+    device: deviceEnum("device").notNull().default("unknown"),
+    referrer: text("referrer"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("lgc_gallery_idx").on(t.galleryId),
+    index("lgc_created_at_idx").on(t.createdAt),
+  ]
+);
+
+// ─── Relations (gallery) ──────────────────────────────────────────────────────
+
+export const linkGalleryRelations = relations(linkGallery, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [linkGallery.workspaceId],
+    references: [workspaces.id],
+  }),
+  user: one(users, {
+    fields: [linkGallery.userId],
+    references: [users.id],
+  }),
+  customDomain: one(domains, {
+    fields: [linkGallery.customDomainId],
+    references: [domains.id],
+  }),
+  clicks: many(linkGalleryClicks),
+}));
+
+export const linkGalleryClicksRelations = relations(linkGalleryClicks, ({ one }) => ({
+  gallery: one(linkGallery, {
+    fields: [linkGalleryClicks.galleryId],
+    references: [linkGallery.id],
+  }),
+}));

@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Edit3, Trash2, ExternalLink, BarChart2 } from "lucide-react";
+import { Copy, Edit3, Trash2, ExternalLink, BarChart2, QrCode } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -8,15 +8,18 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { RealtimeClicks } from "../analytics/RealtimeClicks";
+import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
+import type { QRSettings } from "@/types/qr";
+import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 
 export function LinkCard({ link }: { link: any }) {
   const [copied, setCopied] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [qrPanelOpen, setQrPanelOpen] = useState(false);
   const shortUrl = `https://linkforge.app/${link.slug}`;
 
   const handleCopy = () => {
@@ -73,11 +76,23 @@ export function LinkCard({ link }: { link: any }) {
 
           <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
             <button 
-              onClick={handleCopy}
+              onClick={() =>
+                navigator.clipboard.writeText(shortUrl).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                })
+              }
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-950 transition-colors"
               title="Copy"
             >
               <Copy className="h-4 w-4" />
+            </button>
+            <button 
+              onClick={() => setQrPanelOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F5F7FF] text-[#433BFF] hover:bg-[#DEDCFF] hover:text-[#3730E6] transition-colors"
+              title="QR Code"
+            >
+              <QrCode className="h-4 w-4" />
             </button>
             <button 
               onClick={() => setAnalyticsOpen(true)}
@@ -136,6 +151,16 @@ export function LinkCard({ link }: { link: any }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <QRCustomizePanel
+        open={qrPanelOpen}
+        onOpenChange={setQrPanelOpen}
+        linkId={link.id}
+        linkSlug={link.slug}
+        shortUrl={shortUrl}
+        linkTitle={link.title ?? link.slug}
+        initialSettings={link.qrSettings ?? DEFAULT_QR_SETTINGS}
+      />
     </>
   );
 }

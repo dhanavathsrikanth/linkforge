@@ -96,7 +96,8 @@ async function logClick(
   ipHash: string,
   isUnique: boolean,
   destination: string,
-  variant: string
+  variant: string,
+  isQrScan: boolean
 ): Promise<void> {
   try {
     const ua = req.headers.get("user-agent") || "";
@@ -131,6 +132,7 @@ async function logClick(
         referrer,
         referrerDomain,
         language: ctx.language,
+        isQrScan,
       }),
     });
   } catch (err) {
@@ -276,6 +278,9 @@ export default {
 
     // ── Step 9: Async click logging ───────────────────────────────────────────
     if (deviceType !== "bot") {
+      // Detect QR scan: the QR code adds ?source=qr to the short URL
+      const isQrScan = url.searchParams.get("source") === "qr";
+
       ctx.waitUntil(
         (async () => {
           const rawIp = req.headers.get("cf-connecting-ip") || "127.0.0.1";
@@ -297,7 +302,8 @@ export default {
             ipHash,
             isUnique,
             finalDestination,
-            variant
+            variant,
+            isQrScan
           );
         })()
       );

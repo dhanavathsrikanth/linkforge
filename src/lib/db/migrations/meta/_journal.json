@@ -8,6 +8,13 @@
       "when": 1778332151943,
       "tag": "0000_vengeful_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778657067096,
+      "tag": "0001_solid_plazm",
+      "breakpoints": true
     }
   ]
 }
