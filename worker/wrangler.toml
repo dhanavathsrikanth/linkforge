@@ -18,5 +18,9 @@ API_URL = "https://linkforge.app"
 
 # ─── Local dev overrides ──────────────────────────────────────────────────────
 [env.development]
+[[env.development.kv_namespaces]]
+binding = "LINKS_KV"
+id = "your_kv_namespace_id"
+
 [env.development.vars]
 API_URL = "http://localhost:3000"

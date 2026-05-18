@@ -125,7 +125,7 @@ export function LinkCard({ link }: { link: any }) {
             <span className="font-medium text-slate-700">{link.totalClicks || 0}</span> clicks
           </button>
           <div className="flex items-center gap-2 text-slate-500">
-            <span className="font-medium text-slate-700">{new Date(link.createdAt).toLocaleDateString()}</span> created
+            <span suppressHydrationWarning className="font-medium text-slate-700">{new Date(link.createdAt).toLocaleDateString()}</span> created
           </div>
         </div>
       </div>

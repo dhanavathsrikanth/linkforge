@@ -7,7 +7,8 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { DEFAULT_APPEARANCE } from "@/types/gallery";
 import { eq } from "drizzle-orm";
-
+import { checkLimit } from "@/lib/billing/usage";
+import { billingLimitError } from "@/lib/billing/middleware";
 // M5: Reserved slugs that would collide with app routes
 const RESERVED_SLUGS = new Set([
   "admin", "api", "p", "dashboard", "login", "signup", "sign-in", "sign-up",
@@ -86,6 +87,11 @@ export async function GET() {
         where: (w, { eq }) => eq(w.ownerId, dbUser.id),
       });
       if (!workspace) return NextResponse.json({ error: "No workspace found" }, { status: 404 });
+
+      const limitCheck = await checkLimit(workspace.id, 'bioPages', false);
+      if (!limitCheck.allowed) {
+        return billingLimitError('bioPages', limitCheck.current, limitCheck.limit, workspace.plan);
+      }
 
       [gallery] = await db.insert(linkGallery).values({
         userId: dbUser.id,

@@ -15,6 +15,27 @@
       "when": 1778657067096,
       "tag": "0001_solid_plazm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779115142345,
+      "tag": "0002_flashy_unus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779195000000,
+      "tag": "0003_rebuild_billing_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779196000000,
+      "tag": "0004_rebuild_remaining_tables",
+      "breakpoints": true
     }
   ]
 }

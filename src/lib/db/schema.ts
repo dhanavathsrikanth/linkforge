@@ -105,6 +105,10 @@ export const workspaces = pgTable(
     logo: text("logo"),
     customDomain: text("custom_domain").unique(),
     isDefault: boolean("is_default").notNull().default(false),
+    dodoBillingCycleAnchor: timestamp('dodo_billing_cycle_anchor', { withTimezone: true }),
+    dodoCustomerId: text('dodo_customer_id').unique(),
+    planUpdatedAt: timestamp('plan_updated_at', { withTimezone: true }),
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
     // UTM templates - saved templates for this workspace
     utmTemplates: jsonb("utm_templates").$type<
       {
@@ -532,3 +536,69 @@ export const linkGalleryClicksRelations = relations(linkGalleryClicks, ({ one })
     references: [linkGallery.id],
   }),
 }));
+
+// ─── subscriptions ─────────────────────────────────────────────────────────────
+export const subscriptions = pgTable('subscriptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  dodoSubscriptionId: text('dodo_subscription_id').unique(),
+  dodoCustomerId: text('dodo_customer_id'),
+  plan: planEnum('plan').notNull().default('free'),
+  billingCycle: text('billing_cycle', { enum: ['monthly', 'annual'] })
+    .notNull().default('monthly'),
+  status: text('status', {
+    enum: ['active','past_due','cancelled','trialing','paused','incomplete']
+  }).notNull().default('active'),
+  currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
+  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('subscriptions_workspace_idx').on(t.workspaceId),
+  index('subscriptions_dodo_id_idx').on(t.dodoSubscriptionId)
+]);
+
+// ─── usage_overrides ──────────────────────────────────────────────────────────
+// This table lets you give individual workspaces custom limits
+// e.g. give a key customer 10,000 links/mo even on Free plan
+export const usageOverrides = pgTable('usage_overrides', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().unique()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  linksPerMonth: integer('links_per_month'),         // null = use plan default
+  clicksTrackedPerMonth: integer('clicks_tracked_per_month'),
+  customDomains: integer('custom_domains'),
+  teamMembers: integer('team_members'),
+  apiCallsPerHour: integer('api_calls_per_hour'),
+  abTestingEnabled: boolean('ab_testing_enabled'),   // null = use plan default
+  whiteLabelEnabled: boolean('white_label_enabled'),
+  bioPages: integer('bio_pages'),
+  analyticsRetentionDays: integer('analytics_retention_days'),
+  reason: text('reason'), // internal note e.g. "enterprise deal - negotiated"
+  expiresAt: timestamp('expires_at', { withTimezone: true }), // null = permanent
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedBy: text('updated_by'), // admin user ID who set this override
+});
+
+// ─── billing_events ───────────────────────────────────────────────────────────
+export const billingEvents = pgTable('billing_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .references(() => workspaces.id, { onDelete: 'set null' }),
+  eventType: text('event_type').notNull(),
+  // e.g. 'payment.succeeded','subscription.cancelled','plan.upgraded'
+  fromPlan: planEnum('from_plan'),
+  toPlan: planEnum('to_plan'),
+  amount: numeric('amount', { precision: 10, scale: 2 }),
+  currency: text('currency').default('USD'),
+  dodoEventId: text('dodo_event_id').unique(), // for deduplication
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => [
+  index('billing_events_workspace_idx').on(t.workspaceId),
+  index('billing_events_dodo_id_idx').on(t.dodoEventId)
+]);

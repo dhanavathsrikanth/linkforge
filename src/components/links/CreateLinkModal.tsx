@@ -43,15 +43,29 @@ export function CreateLinkModal({ workspaceId }: { workspaceId: string }) {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      let formattedTags: string[] | undefined = undefined;
+      if (values.tags && typeof values.tags === 'string') {
+        formattedTags = values.tags.split(',').map(t => t.trim()).filter(Boolean);
+      }
+
+      const payload = {
+        ...values,
+        tags: formattedTags && formattedTags.length > 0 ? formattedTags : undefined,
+        workspaceId,
+      };
+
       const res = await fetch("/api/links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, workspaceId }),
+        body: JSON.stringify(payload),
       });
       
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to create link");
+        const errorMessage = typeof data.error === 'object' 
+          ? JSON.stringify(data.error.fieldErrors || data.error) 
+          : data.error;
+        throw new Error(errorMessage || "Failed to create link");
       }
       
       setOpen(false);

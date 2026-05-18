@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --env development",
     "deploy": "wrangler deploy",
     "cf-typegen": "wrangler types"
   },

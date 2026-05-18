@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
+import { PlanBadge } from "@/components/billing/PlanBadge";
+import { useEffect, useState } from "react";
 
 const nav = [
   { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
@@ -34,6 +36,18 @@ const nav = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
+  const [plan, setPlan] = useState<string>("free");
+
+  useEffect(() => {
+    fetch("/api/workspaces/current")
+      .then(res => res.json())
+      .then(data => {
+        if (data.workspace?.plan) {
+          setPlan(data.workspace.plan);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   function isActive(href: string) {
     return href === "/dashboard"
@@ -59,9 +73,12 @@ export function Sidebar() {
             {initial}
           </div>
         )}
-        <span className="flex-1 truncate text-sm font-semibold text-foreground">
-          {displayName}
-        </span>
+        <div className="flex-1 min-w-0 flex flex-col items-start">
+          <span className="truncate text-sm font-semibold text-foreground w-full">
+            {displayName}
+          </span>
+          <PlanBadge plan={plan} asLink />
+        </div>
         <button className="rounded-md p-1 text-muted-foreground hover:bg-muted">
           <MoreHorizontal className="h-4 w-4" />
         </button>

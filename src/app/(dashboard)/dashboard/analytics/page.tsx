@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { getOrCreateDbUser } from "@/lib/auth";
 import { AnalyticsClient } from "./AnalyticsClient";
 
 export const metadata = {
@@ -15,9 +16,14 @@ export default async function AnalyticsPage() {
     redirect("/login");
   }
 
+  const dbUser = await getOrCreateDbUser();
+  if (!dbUser) {
+    redirect("/login");
+  }
+
   // Get user's workspace
   const workspace = await db.query.workspaces.findFirst({
-    where: eq(workspaces.ownerId, userId),
+    where: eq(workspaces.ownerId, dbUser.id),
   });
 
   if (!workspace) {

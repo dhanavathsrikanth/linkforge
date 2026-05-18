@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { domains, links, workspaces } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { resolvePlanLimits } from "@/lib/billing/planLimits";
+import { checkLimit } from "@/lib/billing/usage";
+import { billingLimitError } from "@/lib/billing/middleware";
 
 export async function GET(req: Request) {
   const { userId } = await auth();
@@ -60,24 +61,9 @@ export async function POST(req: Request) {
     if (!ws) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
-    const planLimits = resolvePlanLimits(ws.plan);
-    if (planLimits.domains !== "unlimited") {
-      const [{ count: totalDomains }] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(domains)
-        .where(eq(domains.workspaceId, workspaceId));
-      if (totalDomains >= (planLimits.domains as number)) {
-        return NextResponse.json(
-          {
-            code: "PLAN_LIMIT_REACHED",
-            limit: "domains",
-            current: totalDomains,
-            max: planLimits.domains,
-            upgradeUrl: "/pricing",
-          },
-          { status: 403 }
-        );
-      }
+    const limitCheck = await checkLimit(workspaceId, 'customDomains', false);
+    if (!limitCheck.allowed) {
+      return billingLimitError('customDomains', limitCheck.current, limitCheck.limit, ws.plan);
     }
 
     // Validate domain
@@ -110,14 +96,7 @@ export async function POST(req: Request) {
       isDefault: false,
     }).returning();
 
-    // Increment monthly usage counter (best-effort)
-    try {
-      // Count a domain creation in monthly counters
-      const { incrementUsage } = await import("@/lib/billing/usage");
-      await incrementUsage(workspaceId, "domainsCreated", 1);
-    } catch (e) {
-      console.warn("[POST /api/domains] increment usage failed", e);
-    }
+
 
     return NextResponse.json({
       domain: newDomain.domain,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db";
+import { sendWelcomeEmail } from "@/lib/email";
 
 type ClerkWebhookEvent = {
   type: string;
@@ -123,6 +124,15 @@ export async function POST(req: Request) {
             updatedAt: new Date(),
           },
         });
+
+      // Fire welcome email in background — only on first creation
+      if (type === "user.created" && primaryEmail) {
+        const displayName = fullName || primaryEmail.split("@")[0];
+        // setTimeout keeps the webhook response fast
+        setTimeout(() => {
+          sendWelcomeEmail(primaryEmail, displayName).catch(() => {});
+        }, 0);
+      }
     }
 
     if (type === "user.deleted") {

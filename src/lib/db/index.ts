@@ -38,4 +38,12 @@ export {
   conversionsRelations,
   linkGalleryRelations,
   linkGalleryClicksRelations,
+  subscriptions,
+  usageOverrides,
+  billingEvents,
 } from "./schema";
+
+export type Subscription = typeof schema.subscriptions.$inferSelect;
+export type UsageOverride = typeof schema.usageOverrides.$inferSelect;
+export type BillingEvent = typeof schema.billingEvents.$inferSelect;
+export type Plan = typeof schema.planEnum.enumValues[number];

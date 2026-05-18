@@ -19,8 +19,8 @@ jobs:
           
       - name: Trigger Flush API
         env:
-          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
-          APP_URL: ${{ secrets.APP_URL }}
+          INTERNAL_SECRET: ${{ fromJson(toJson(secrets)).INTERNAL_SECRET }}
+          APP_URL: ${{ fromJson(toJson(secrets)).APP_URL }}
         run: |
           curl -X POST "${APP_URL}/api/analytics/flush" \
           -H "Authorization: Bearer ${INTERNAL_SECRET}" \

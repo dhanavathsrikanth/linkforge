@@ -9,8 +9,8 @@ import bcrypt from "bcryptjs";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { trackLinkCreated } from "@/lib/posthog";
 import { eq, sql } from "drizzle-orm";
-import { incrementUsage } from "@/lib/billing/usage";
-
+import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
+import { billingLimitError } from "@/lib/billing/middleware";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -31,21 +31,10 @@ const CreateLinkSchema = z.object({
   ogImage: z.string().url().optional().or(z.literal("")),
   iosDestination: z.string().url().optional().or(z.literal("")),
   androidDestination: z.string().url().optional().or(z.literal("")),
+  abTestEnabled: z.boolean().optional(),
 });
 
-const PLAN_LIMITS: Record<string, { links: number | "unlimited"; domains: number | "unlimited" }> = {
-  free: { links: 500, domains: 1 },
-  starter: { links: 5000, domains: 2 },
-  growth: { links: 25000, domains: 5 },
-  agency: { links: "unlimited", domains: 15 },
-  business: { links: "unlimited", domains: 25 },
-  enterprise: { links: "unlimited", domains: 50 },
-};
 
-function resolvePlanLimits(plan?: string) {
-  const key = (plan || "free").toLowerCase();
-  return PLAN_LIMITS[key] || PLAN_LIMITS["free"];
-}
 
 function emptyToNull<T extends string | undefined | null>(v: T): string | null {
   if (v === undefined || v === null) return null;
@@ -97,24 +86,18 @@ export async function POST(req: Request) {
     if (!ws) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
-    const planLimits = resolvePlanLimits(ws.plan);
-    if (planLimits.links !== "unlimited") {
-      const [{ count: totalLinks }] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(links)
-        .where(eq(links.workspaceId, v.workspaceId));
-      if (totalLinks >= (planLimits.links as number)) {
-        return NextResponse.json(
-          {
-            code: "PLAN_LIMIT_REACHED",
-            limit: "links",
-            current: totalLinks,
-            max: planLimits.links,
-            upgradeUrl: "/pricing",
-          },
-          { status: 403 }
-        );
-      }
+
+    const limits = await getEffectiveLimits(v.workspaceId);
+    if (v.abTestEnabled && !limits.abTestingEnabled) {
+      return NextResponse.json({
+        success: false,
+        error: { code: 'FEATURE_NOT_AVAILABLE', feature: 'abTesting', upgradeTo: 'growth' }
+      }, { status: 402 });
+    }
+
+    const limitCheck = await checkLimit(v.workspaceId, 'linksPerMonth', false);
+    if (!limitCheck.allowed) {
+      return billingLimitError('linksPerMonth', limitCheck.current, limitCheck.limit, ws.plan);
     }
 
     // Hash password if provided
@@ -166,7 +149,7 @@ export async function POST(req: Request) {
 
     // Increment monthly usage counter
     try {
-      await incrementUsage(v.workspaceId, "linksCreated", 1);
+      await checkLimit(v.workspaceId, 'linksPerMonth', true);
     } catch (e) {
       console.warn("[POST /api/links] increment usage failed", e);
     }

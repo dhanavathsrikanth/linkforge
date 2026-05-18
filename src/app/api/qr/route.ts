@@ -3,8 +3,14 @@ import { auth } from "@clerk/nextjs/server";
 import QRCode from "qrcode";
 import { z } from "zod";
 import { rateLimitMiddleware } from "@/lib/rate-limiter";
+import { db } from "@/lib/db";
+import { workspaces } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { checkLimit } from "@/lib/billing/usage";
+import { billingLimitError } from "@/lib/billing/middleware";
 
 const QRParamsSchema = z.object({
+  workspaceId: z.string().uuid("Must provide a workspace ID"),
   url: z.string().url("Must be a valid URL"),
   size: z.coerce.number().int().min(64).max(2048).default(512),
   fgColor: z
@@ -39,6 +45,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const raw = {
     url: searchParams.get("url") ?? undefined,
+    workspaceId: searchParams.get("workspaceId") ?? undefined,
     size: searchParams.get("size") ?? undefined,
     fgColor: searchParams.get("fgColor") ?? undefined,
     bgColor: searchParams.get("bgColor") ?? undefined,
@@ -53,7 +60,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { url, size, fgColor, bgColor, errorLevel } = parsed.data;
+  const { workspaceId, url, size, fgColor, bgColor, errorLevel } = parsed.data;
+
+  // Enforce plan limits for QR codes per workspace
+  const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
+  if (!ws) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+  const limitCheck = await checkLimit(workspaceId, 'qrCodesPerMonth', false);
+  if (!limitCheck.allowed) {
+    return billingLimitError('qrCodesPerMonth', limitCheck.current, limitCheck.limit, ws.plan);
+  }
 
   try {
     const pngBuffer = await QRCode.toBuffer(url, {
@@ -72,6 +89,8 @@ export async function GET(req: NextRequest) {
       pngBuffer.byteOffset,
       pngBuffer.byteOffset + pngBuffer.byteLength
     ) as ArrayBuffer;
+
+    await checkLimit(workspaceId, 'qrCodesPerMonth', true);
 
     return new NextResponse(arrayBuffer, {
       status: 200,
