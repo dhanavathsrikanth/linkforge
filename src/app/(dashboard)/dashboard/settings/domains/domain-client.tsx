@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Check, Loader2, AlertCircle, Trash2, X, RefreshCw, Copy } from "lucide-react";
+import { useSafeFetch } from "@/hooks/useBillingError";
 
 interface Domain {
   id: string;
@@ -13,6 +14,7 @@ interface Domain {
 }
 
 export function DomainsClient({ workspaceId }: { workspaceId: string }) {
+  const safeFetch = useSafeFetch();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
@@ -52,11 +54,13 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     if (!newDomain) return;
 
     try {
-      const res = await fetch("/api/domains", {
+      const res = await safeFetch("/api/domains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId, domain: newDomain.trim() }),
       });
+      if (!res) return; // Intercepted by 402 handler
+
       const data = await res.json();
 
       if (res.ok) {
@@ -64,7 +68,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
         setStep(2);
         fetchDomains(); // refresh list
       } else {
-        alert(data.error || "Failed to add domain");
+        alert(data.error?.message || data.error || "Failed to add domain");
       }
     } catch (err) {
       console.error(err);
@@ -76,9 +80,11 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     setVerifying(true);
     setVerifyMessage("");
     try {
-      const res = await fetch(`/api/domains/${id}/verify`, {
+      const res = await safeFetch(`/api/domains/${id}/verify`, {
         method: "POST",
       });
+      if (!res) return;
+
       const data = await res.json();
       
       if (data.verified) {
@@ -106,9 +112,11 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     if (!confirm("Are you sure you want to delete this domain? All links using it will revert to the default domain.")) return;
     
     try {
-      const res = await fetch(`/api/domains/${id}`, {
+      const res = await safeFetch(`/api/domains/${id}`, {
         method: "DELETE",
       });
+      if (!res) return;
+
       const data = await res.json();
       
       if (res.ok) {
@@ -124,9 +132,11 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
 
   async function handleSetPrimary(id: string) {
     try {
-      const res = await fetch(`/api/domains/${id}`, {
+      const res = await safeFetch(`/api/domains/${id}`, {
         method: "PATCH",
       });
+      if (!res) return;
+
       if (res.ok) {
         fetchDomains();
       } else {
