@@ -10,6 +10,7 @@ import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
+import { getDefaultDomain } from "@/lib/utils";
 
 type LinkRow = {
   id: string;
@@ -32,7 +33,7 @@ type Props = {
 export function LinksListClient({
   workspaceId,
   initialLinks,
-  defaultDomain = "linkforge.app",
+  defaultDomain = getDefaultDomain(),
 }: Props) {
   const router = useRouter();
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { clicks, links, domains } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { trackLinkClicked } from "@/lib/posthog";
+import { getDefaultDomain } from "@/lib/utils";
 import { incrementUsage } from "@/lib/billing/usage";
 
 type ClickPayload = {
@@ -132,7 +133,7 @@ export async function POST(req: Request) {
     if (link) {
       trackLinkClicked({
         linkId,
-        domain: domain?.domain || "linkforge.app",
+        domain: domain?.domain || getDefaultDomain(),
       });
     }
 

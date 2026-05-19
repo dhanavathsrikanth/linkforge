@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { clicks, links, workspaces, domains } from "@/lib/db/schema";
 import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
+import { getDefaultDomain } from "@/lib/utils";
 
 interface TopLinkData {
   id: string;
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
         id: link.id,
         title: link.title || link.slug,
         slug: link.slug,
-        domain: domain?.domain || "linkforge.app",
+        domain: domain?.domain || getDefaultDomain(),
         url: link.destination || "",
         clicks: clickData.clicks,
         uniqueClicks: clickData.uniqueClicks,

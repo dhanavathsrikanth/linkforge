@@ -1,3 +1,7 @@
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { Webhook } from 'svix';
 import { db } from '@/lib/db';
 import { workspaces, subscriptions, billingEvents } from '@/lib/db/schema';
@@ -5,13 +9,42 @@ import { resetUsageForWorkspace } from '@/lib/billing/usage';
 import { sendPlanUpgradedEmail } from '@/lib/email';
 import { resend } from '@/lib/resend';
 import { eq } from 'drizzle-orm';
-import { PlanKey } from '@/lib/billing/plans';
+import { PLANS, PlanKey } from '@/lib/billing/plans';
+import { mapProductToPlan, guessPlanFromName } from '@/lib/billing/planMap';
+
+// Handle seconds vs milliseconds timestamps safely
+function parseTs(input: unknown): Date | undefined {
+  if (input == null) return undefined;
+  const n = Number(input);
+  if (!Number.isFinite(n)) {
+    const d = new Date(String(input));
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  // If value looks like seconds (10 digits), convert to ms
+  const ms = n < 1e12 ? n * 1000 : n;
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
+// Derive plan from configured PLANS.*.dodoPriceId values when product_id is present.
+// This avoids needing extra env for product->plan mapping and ensures we can resolve
+// the plan that was actually sold in checkout.
+function planFromConfiguredPrices(productId: string | undefined | null): PlanKey | undefined {
+  if (!productId) return undefined;
+  const pid = String(productId);
+  for (const [key, plan] of Object.entries(PLANS)) {
+    const ids = plan.dodoPriceId as any;
+    if (ids?.monthly && ids.monthly === pid) return key as PlanKey;
+    if (ids?.annual && ids.annual === pid) return key as PlanKey;
+  }
+  return undefined;
+}
 
 export async function POST(req: Request) {
   try {
     const rawBody = await req.text();
     const headersList = req.headers;
-    
+
     const svix_id = headersList.get("svix-id");
     const svix_timestamp = headersList.get("svix-timestamp");
     const svix_signature = headersList.get("svix-signature");
@@ -20,7 +53,11 @@ export async function POST(req: Request) {
       return new Response('Missing svix headers', { status: 400 });
     }
 
-    const wh = new Webhook(process.env.DODO_WEBHOOK_SECRET || '');
+    const wh = new Webhook(
+      process.env.DODO_WEBHOOK_SECRET ||
+      process.env.DODO_PAYMENTS_WEBHOOK_SECRET ||
+      ''
+    );
 
     let payload: any;
     try {
@@ -35,26 +72,44 @@ export async function POST(req: Request) {
     }
 
     const eventType = payload.type;
+    console.log('[Dodo Webhook] Received event', { type: eventType, id: payload?.id });
 
     // IDEMPOTENCY CHECK - do this FIRST before any DB writes
     const existing = await db.query.billingEvents.findFirst({
       where: eq(billingEvents.dodoEventId, payload.id)
     });
-    
+
     if (existing) {
       return new Response('Already processed', { status: 200 });
     }
 
-    if (eventType === 'payment.succeeded') {
-      const workspaceId = payload.data.metadata?.workspaceId;
-      const plan = payload.data.metadata?.plan as PlanKey;
-      const billingCycle = payload.data.metadata?.billingCycle || 'monthly';
-      const amount = payload.data.total_amount || payload.data.amount || 0;
-      const currency = payload.data.currency || 'USD';
-      const customerId = payload.data.customer_id;
-      const subscriptionId = payload.data.subscription_id;
+    if (
+      eventType === 'payment.succeeded' ||
+      eventType === 'invoice.paid' ||
+      eventType === 'checkout.completed' ||
+      eventType === 'checkout.session.completed'
+    ) {
+      const raw = payload.data || {};
+      const customerId = raw.customer_id || raw.customerId;
+      let workspaceId: string | undefined = raw.metadata?.workspaceId as string | undefined;
 
-      if (!workspaceId) return new Response('Missing workspaceId', { status: 200 });
+      // Fallback: resolve workspace by customer id if metadata is missing
+      if (!workspaceId && customerId) {
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.dodoCustomerId, customerId),
+        });
+        workspaceId = ws?.id;
+      }
+
+      if (!workspaceId) {
+        console.warn('[Dodo Webhook] Missing workspaceId in payment success-like event', {
+          type: eventType,
+          id: payload?.id,
+          customerId,
+          metadata: raw?.metadata,
+        });
+        return new Response('Missing workspaceId', { status: 200 });
+      }
 
       const workspace = await db.query.workspaces.findFirst({
         where: eq(workspaces.id, workspaceId),
@@ -64,17 +119,43 @@ export async function POST(req: Request) {
 
       const fromPlan = workspace.plan || 'free';
 
+      const productId =
+        raw.product_id ||
+        raw.items?.[0]?.product_id ||
+        raw.subscription?.items?.[0]?.product_id ||
+        raw.price?.product_id;
+
+      const plan =
+        (raw.metadata?.plan as PlanKey | undefined) ||
+        mapProductToPlan(productId) ||
+        planFromConfiguredPrices(productId) ||
+        guessPlanFromName(raw.product_name) ||
+        (fromPlan as PlanKey);
+
+      const billingCycle =
+        (raw.metadata?.billingCycle as 'monthly' | 'annual' | undefined) ||
+        raw.interval ||
+        raw.items?.[0]?.interval ||
+        'monthly';
+
+      const amountMinor = Number(raw.total_amount ?? raw.amount ?? 0);
+      const amountDecimal = isFinite(amountMinor) ? (amountMinor / 100).toFixed(2) : '0.00';
+      const currency = raw.currency || 'USD';
+      const subscriptionId = raw.subscription_id || raw.subscription?.id;
+
       await db.update(workspaces)
-        .set({ 
-          plan, 
-          planUpdatedAt: new Date(), 
-          dodoCustomerId: customerId 
+        .set({
+          plan,
+          planUpdatedAt: new Date(),
+          dodoCustomerId: customerId
         })
         .where(eq(workspaces.id, workspaceId));
 
       if (subscriptionId) {
-        const currentPeriodStart = payload.data.current_period_start ? new Date(payload.data.current_period_start) : new Date();
-        const currentPeriodEnd = payload.data.current_period_end ? new Date(payload.data.current_period_end) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const currentPeriodStart = parseTs(payload.data.current_period_start) ?? new Date();
+        const currentPeriodEnd =
+          parseTs(payload.data.current_period_end) ??
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
         const subData = {
           workspaceId,
@@ -105,9 +186,14 @@ export async function POST(req: Request) {
         eventType: 'payment.succeeded',
         fromPlan: fromPlan as PlanKey,
         toPlan: plan,
-        amount: amount.toString(),
+        amount: amountDecimal,
         currency,
-        dodoEventId: payload.id
+        dodoEventId: payload.id,
+        metadata: {
+          sourceEventType: eventType,
+          productId,
+          subscriptionId,
+        } as any
       });
 
       // Clears Redis so new limits apply immediately
@@ -122,15 +208,36 @@ export async function POST(req: Request) {
             name: ownerName,
             plan,
             billingCycle: billingCycle as 'monthly' | 'annual',
-          }).catch(() => {});
+          }).catch(() => { });
         }, 0);
       }
-    } 
+    }
     else if (eventType === 'subscription.cancelled') {
-      const workspaceId = payload.data.metadata?.workspaceId;
-      const subscriptionId = payload.data.subscription_id;
+      let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
+      const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
 
-      if (!workspaceId) return new Response('Missing workspaceId', { status: 200 });
+      if (!workspaceId && subscriptionId) {
+        const sub = await db.query.subscriptions.findFirst({
+          where: eq(subscriptions.dodoSubscriptionId, subscriptionId),
+        });
+        workspaceId = sub?.workspaceId;
+      }
+      if (!workspaceId && payload.data.customer_id) {
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.dodoCustomerId, payload.data.customer_id),
+        });
+        workspaceId = ws?.id;
+      }
+
+      if (!workspaceId) {
+        console.warn('[Dodo Webhook] Missing workspaceId in subscription.cancelled', {
+          id: payload?.id,
+          subscriptionId,
+          customerId: payload?.data?.customer_id,
+          metadata: payload?.data?.metadata,
+        });
+        return new Response('Missing workspaceId', { status: 200 });
+      }
 
       const workspace = await db.query.workspaces.findFirst({
         where: eq(workspaces.id, workspaceId),
@@ -173,33 +280,68 @@ export async function POST(req: Request) {
       }
     }
     else if (eventType === 'subscription.updated') {
-      const workspaceId = payload.data.metadata?.workspaceId;
-      const newPlan = payload.data.metadata?.plan as PlanKey;
-      const subscriptionId = payload.data.subscription_id;
-      
-      if (!workspaceId) return new Response('Missing workspaceId', { status: 200 });
+      let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
+      const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
+
+      if (!workspaceId && subscriptionId) {
+        const sub = await db.query.subscriptions.findFirst({
+          where: eq(subscriptions.dodoSubscriptionId, subscriptionId),
+        });
+        workspaceId = sub?.workspaceId;
+      }
+      if (!workspaceId && payload.data.customer_id) {
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.dodoCustomerId, payload.data.customer_id),
+        });
+        workspaceId = ws?.id;
+      }
+
+      if (!workspaceId) {
+        console.warn('[Dodo Webhook] Missing workspaceId in subscription.updated', {
+          id: payload?.id,
+          subscriptionId,
+          customerId: payload?.data?.customer_id,
+          metadata: payload?.data?.metadata,
+        });
+        return new Response('Missing workspaceId', { status: 200 });
+      }
 
       const workspace = await db.query.workspaces.findFirst({
         where: eq(workspaces.id, workspaceId)
       });
       const fromPlan = workspace?.plan || 'free';
-      const isHigherTier = newPlan !== fromPlan && newPlan !== 'free'; 
+
+      const raw = payload.data || {};
+      const productId =
+        raw.product_id ||
+        raw.items?.[0]?.product_id ||
+        raw.subscription?.items?.[0]?.product_id ||
+        raw.price?.product_id;
+
+      const newPlan =
+        (raw.metadata?.plan as PlanKey | undefined) ||
+        mapProductToPlan(productId) ||
+        planFromConfiguredPrices(productId) ||
+        guessPlanFromName(raw.product_name) ||
+        (fromPlan as PlanKey);
+
+      const isHigherTier = newPlan !== fromPlan && newPlan !== 'free';
 
       await db.update(workspaces)
         .set({ plan: newPlan, planUpdatedAt: new Date() })
         .where(eq(workspaces.id, workspaceId));
 
-      const currentPeriodStart = payload.data.current_period_start ? new Date(payload.data.current_period_start) : new Date();
-      const currentPeriodEnd = payload.data.current_period_end ? new Date(payload.data.current_period_end) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const currentPeriodStart = parseTs(payload.data.current_period_start) ?? new Date();
+      const currentPeriodEnd = parseTs(payload.data.current_period_end) ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       if (subscriptionId) {
         await db.update(subscriptions)
-          .set({ 
+          .set({
             status: payload.data.status || 'active',
             billingCycle: payload.data.metadata?.billingCycle || 'monthly',
             currentPeriodStart,
             currentPeriodEnd,
-            updatedAt: new Date() 
+            updatedAt: new Date()
           })
           .where(eq(subscriptions.dodoSubscriptionId, subscriptionId));
       }
@@ -217,8 +359,23 @@ export async function POST(req: Request) {
       }
     }
     else if (eventType === 'payment.failed') {
-      const subscriptionId = payload.data.subscription_id;
-      const workspaceId = payload.data.metadata?.workspaceId;
+      const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
+      let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
+
+      if (!workspaceId && subscriptionId) {
+        const sub = await db.query.subscriptions.findFirst({
+          where: eq(subscriptions.dodoSubscriptionId, subscriptionId),
+        });
+        workspaceId = sub?.workspaceId;
+      }
+      if (!workspaceId && payload.data.customer_id) {
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.dodoCustomerId, payload.data.customer_id),
+        });
+        workspaceId = ws?.id;
+      }
+
+      if (!workspaceId) return new Response('Missing workspaceId', { status: 200 });
 
       if (subscriptionId) {
         await db.update(subscriptions)
@@ -232,11 +389,14 @@ export async function POST(req: Request) {
         dodoEventId: payload.id
       });
 
-      const workspace = await db.query.workspaces.findFirst({
-        where: eq(workspaces.id, workspaceId),
-        with: { owner: true }
-      });
-      const ownerEmail = workspace?.owner?.email;
+      let ownerEmail: string | undefined;
+      if (workspaceId) {
+        const wsForEmail = await db.query.workspaces.findFirst({
+          where: eq(workspaces.id, workspaceId),
+          with: { owner: true }
+        });
+        ownerEmail = wsForEmail?.owner?.email;
+      }
 
       if (ownerEmail) {
         try {
@@ -252,13 +412,34 @@ export async function POST(req: Request) {
       }
     }
     else if (eventType === 'subscription.trialing') {
-      const workspaceId = payload.data.metadata?.workspaceId;
+      let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
       const newPlan = payload.data.metadata?.plan as PlanKey;
-      const subscriptionId = payload.data.subscription_id;
-      
-      if (!workspaceId) return new Response('Missing workspaceId', { status: 200 });
+      const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
 
-      const trialEndsAt = payload.data.trial_end ? new Date(payload.data.trial_end) : new Date();
+      if (!workspaceId && subscriptionId) {
+        const sub = await db.query.subscriptions.findFirst({
+          where: eq(subscriptions.dodoSubscriptionId, subscriptionId),
+        });
+        workspaceId = sub?.workspaceId;
+      }
+      if (!workspaceId && payload.data.customer_id) {
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.dodoCustomerId, payload.data.customer_id),
+        });
+        workspaceId = ws?.id;
+      }
+
+      if (!workspaceId) {
+        console.warn('[Dodo Webhook] Missing workspaceId in subscription.trialing', {
+          id: payload?.id,
+          subscriptionId,
+          customerId: payload?.data?.customer_id,
+          metadata: payload?.data?.metadata,
+        });
+        return new Response('Missing workspaceId', { status: 200 });
+      }
+
+      const trialEndsAt = parseTs(payload.data.trial_end) ?? new Date();
 
       await db.update(workspaces)
         .set({ plan: newPlan, trialEndsAt })
@@ -278,6 +459,16 @@ export async function POST(req: Request) {
     }
     else {
       console.log(`[Dodo Webhook] Unhandled event type: ${eventType}`);
+      try {
+        await db.insert(billingEvents).values({
+          workspaceId: payload?.data?.metadata?.workspaceId,
+          eventType,
+          dodoEventId: payload.id,
+          metadata: payload as any,
+        });
+      } catch (err) {
+        console.error('[Dodo Webhook] Failed to persist unhandled event', err);
+      }
     }
 
     return new Response('OK', { status: 200 });

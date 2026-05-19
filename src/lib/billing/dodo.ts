@@ -94,11 +94,9 @@ export async function createBillingPortalSession(dodoCustomerId: string, workspa
 export async function cancelSubscription(dodoSubscriptionId: string) {
   // Cancel the Dodo subscription at period end (not immediately)
   try {
-    if ((dodo as any).subscriptions?.update) {
-       await (dodo as any).subscriptions.update(dodoSubscriptionId, { cancelAtPeriodEnd: true });
-    } else if ((dodo as any).subscriptions?.cancel) {
-       await (dodo as any).subscriptions.cancel(dodoSubscriptionId);
-    }
+    await dodo.subscriptions.update(dodoSubscriptionId, {
+      cancel_at_next_billing_date: true,
+    });
   } catch(e) {
     console.error("Dodo cancel error:", e);
   }

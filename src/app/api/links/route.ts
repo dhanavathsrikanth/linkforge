@@ -8,6 +8,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { trackLinkCreated } from "@/lib/posthog";
+import { getDefaultDomain } from "@/lib/utils";
 import { eq, sql } from "drizzle-orm";
 import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
@@ -168,7 +169,7 @@ export async function POST(req: Request) {
 
     trackLinkCreated({
       linkId: link.id,
-      domain: domain?.domain || "linkforge.app",
+      domain: domain?.domain || getDefaultDomain(),
       hasCustomSlug: !!v.slug && v.slug.trim().length > 0,
       hasUTM: !!(v.utmSource || v.utmMedium || v.utmCampaign || v.utmTerm || v.utmContent),
     });

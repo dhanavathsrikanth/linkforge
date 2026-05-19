@@ -15,12 +15,14 @@ import { RealtimeClicks } from "../analytics/RealtimeClicks";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
+import { getDefaultDomain } from "@/lib/utils";
 
 export function LinkCard({ link }: { link: any }) {
   const [copied, setCopied] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [qrPanelOpen, setQrPanelOpen] = useState(false);
-  const shortUrl = `https://linkforge.app/${link.slug}`;
+  const defaultDomain = getDefaultDomain();
+  const shortUrl = `https://${defaultDomain}/${link.slug}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shortUrl);
@@ -51,7 +53,7 @@ export function LinkCard({ link }: { link: any }) {
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 font-medium text-[#433BFF] hover:text-[#3730E6] transition-colors"
               >
-                linkforge.app/{link.slug}
+                {defaultDomain}/{link.slug}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <span className="text-slate-400">•</span>

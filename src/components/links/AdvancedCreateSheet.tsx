@@ -15,7 +15,7 @@ import {
   Tag,
 } from "lucide-react";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { cn } from "@/lib/utils";
+import { cn, getDefaultDomain } from "@/lib/utils";
 
 type TabKey = "general" | "utm" | "advanced";
 
@@ -63,7 +63,7 @@ function generateSlug() {
 
 export function AdvancedCreateSheet({
   workspaceId,
-  defaultDomain = "linkforge.app",
+  defaultDomain = getDefaultDomain(),
   open,
   onOpenChange,
   prefill,

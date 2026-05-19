@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const dbUser = await getOrCreateDbUser();
     if (!dbUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -41,7 +41,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
     }
 
-    if (workspace.ownerId !== userId) {
+    // Compare against the internal DB user ID, not the Clerk userId
+    if (workspace.ownerId !== dbUser.id) {
       return NextResponse.json({ error: 'Only owners can upgrade billing' }, { status: 403 });
     }
 

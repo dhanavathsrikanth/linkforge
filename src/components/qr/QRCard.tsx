@@ -20,8 +20,9 @@ interface Props {
   };
   defaultDomain?: string;
 }
+import { getDefaultDomain } from "@/lib/utils";
 
-export function QRCard({ link, defaultDomain = "linkforge.app" }: Props) {
+export function QRCard({ link, defaultDomain = getDefaultDomain() }: Props) {
   const shortUrl = `https://${defaultDomain}/${link.slug}`;
   const qrTargetUrl = `${shortUrl}?source=qr`;
   const settings: QRSettings = link.qrSettings ?? DEFAULT_QR_SETTINGS;

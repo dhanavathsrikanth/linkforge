@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { getDefaultDomain } from "@/lib/utils";
 
 const formSchema = z.object({
   destination: z.string().url({ message: "Please enter a valid URL" }),
@@ -115,7 +116,7 @@ export function CreateLinkModal({ workspaceId }: { workspaceId: string }) {
               </Label>
               <div className="flex items-center">
                 <span className="flex h-10 items-center rounded-l-md border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
-                  linkforge.app/
+                  {getDefaultDomain()}/
                 </span>
                 <Input
                   id="slug"

@@ -2,7 +2,7 @@
 // Maps Dodo Payments product_id <-> internal plan keys so webhooks and checkout
 // can translate between dashboard products and your app's plan enum.
 
-import type { PlanKey } from "./planLimits";
+import type { PlanKey } from "./plans";
 
 type PlanEnvKeys = {
     free?: string;
@@ -42,7 +42,7 @@ export function loadPlanMapFromEnv(): Record<string, PlanKey> {
     if (env.growth) map[env.growth] = "growth";
     if (env.agency) map[env.agency] = "agency";
     if (env.business) map[env.business] = "business";
-    if (env.enterprise) map[env.enterprise] = "enterprise";
+    if (env.enterprise) map[env.enterprise] = "business";
     return map;
 }
 
@@ -54,7 +54,7 @@ export function guessPlanFromName(name?: string | null): PlanKey | undefined {
     if (s.includes("growth") || s.includes("pro") || s.includes("premium")) return "growth";
     if (s.includes("agency")) return "agency";
     if (s.includes("business")) return "business";
-    if (s.includes("enterprise")) return "enterprise";
+    if (s.includes("enterprise")) return "business";
     if (s.includes("free")) return "free";
     return undefined;
 }

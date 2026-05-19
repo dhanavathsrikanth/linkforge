@@ -22,8 +22,9 @@ interface Props {
   links: LinkRow[];
   defaultDomain?: string;
 }
+import { getDefaultDomain } from "@/lib/utils";
 
-export function QRCodesClient({ links, defaultDomain = "linkforge.app" }: Props) {
+export function QRCodesClient({ links, defaultDomain = getDefaultDomain() }: Props) {
   const [standaloneUrl, setStandaloneUrl] = useState("");
   const [standaloneValid, setStandaloneValid] = useState(false);
   const [standaloneDownloading, setStandaloneDownloading] = useState(false);
