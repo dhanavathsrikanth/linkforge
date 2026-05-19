@@ -5,16 +5,23 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function getDefaultDomain() {
+export function getAppUrl() {
   if (typeof window !== "undefined") {
-    return window.location.host;
+    return `${window.location.protocol}//${window.location.host}`;
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
   }
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   }
   if (process.env.VERCEL_URL) {
-    return process.env.VERCEL_URL;
+    return `https://${process.env.VERCEL_URL}`;
   }
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return appUrl.replace(/^https?:\/\//, "");
+  return "http://localhost:3000";
+}
+
+export function getDefaultDomain() {
+  const url = getAppUrl();
+  return url.replace(/^https?:\/\//, "");
 }

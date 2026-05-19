@@ -11,6 +11,7 @@ import { resend } from '@/lib/resend';
 import { eq } from 'drizzle-orm';
 import { PLANS, PlanKey } from '@/lib/billing/plans';
 import { mapProductToPlan, guessPlanFromName } from '@/lib/billing/planMap';
+import { getAppUrl } from '@/lib/utils';
 
 // Handle seconds vs milliseconds timestamps safely
 function parseTs(input: unknown): Date | undefined {
@@ -404,7 +405,7 @@ export async function POST(req: Request) {
             from: process.env.RESEND_FROM_EMAIL || 'hello@linkforge.app',
             to: ownerEmail,
             subject: `Payment Failed - LinkForge`,
-            html: `<p>We were unable to process your recent payment. Please update your billing information in the portal.</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings/billing">Update Billing Info</a></p>`
+            html: `<p>We were unable to process your recent payment. Please update your billing information in the portal.</p><p><a href="${getAppUrl()}/dashboard/settings/billing">Update Billing Info</a></p>`
           });
         } catch (e) {
           console.error('Email error:', e);

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { PLANS, PlanKey } from "./plans";
+import { getAppUrl } from "@/lib/utils";
 
 if (!process.env.DODO_SECRET_KEY) {
   throw new Error('DODO_SECRET_KEY is not set');
@@ -63,8 +64,8 @@ export async function createCheckoutSession(params: {
   const customerId = workspace.dodoCustomerId;
   if (!customerId) throw new Error("Dodo customer not initialized");
 
-  const successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?billing=success&plan=${plan}`;
-  const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pricing`;
+  const successUrl = `${getAppUrl()}/dashboard?billing=success&plan=${plan}`;
+  const cancelUrl = `${getAppUrl()}/pricing`;
 
   // Call dodo to create a checkout session using the official method and snake_case parameters
   const session = await dodo.checkoutSessions.create({
@@ -81,7 +82,7 @@ export async function createCheckoutSession(params: {
 }
 
 export async function createBillingPortalSession(dodoCustomerId: string, workspaceId: string) {
-  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings/billing`;
+  const returnUrl = `${getAppUrl()}/dashboard/settings/billing`;
   
   // Create a Dodo customer portal session using the official method and parameters
   const portal = await dodo.customers.customerPortal.create(dodoCustomerId, {
