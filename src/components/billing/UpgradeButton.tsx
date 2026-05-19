@@ -15,13 +15,15 @@ export function UpgradeButton({ plan, billingCycle = "annual", label }: { plan: 
         body: JSON.stringify({ plan, billingCycle }),
       });
       const data = await res.json();
-      if (data.checkoutUrl) {
+      if (res.ok && data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
+        alert(`Checkout Failed: ${data.error || "Unknown Error"}`);
         setLoading(false);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(`Network Error: ${e.message || e}`);
       setLoading(false);
     }
   };
