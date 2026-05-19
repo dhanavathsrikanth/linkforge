@@ -66,37 +66,29 @@ export async function createCheckoutSession(params: {
   const successUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?billing=success&plan=${plan}`;
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pricing`;
 
-  // Call dodo to create a checkout/payment session
-  const session = await dodo.payments.create({
-    billing: {
-        country: 'US', // fallback required field
-        city: '',
-        state: '',
-        street: '',
-        zipcode: ''
+  // Call dodo to create a checkout session using the official method and snake_case parameters
+  const session = await dodo.checkoutSessions.create({
+    product_cart: [{ product_id: priceId, quantity: 1 }],
+    customer: {
+      email: params.email,
     },
-    customer: { customerId },
-    productCart: [{ productId: priceId, quantity: 1 }],
-    returnUrl: successUrl,
+    return_url: successUrl,
+    cancel_url: cancelUrl,
     metadata: { workspaceId, userId, plan, billingCycle }
-  } as any);
+  });
 
-  const s = session as any;
-  return { checkoutUrl: s.payment_link || s.paymentLink || s.checkoutUrl || s.url || '' };
+  return { checkoutUrl: session.checkout_url || '' };
 }
 
 export async function createBillingPortalSession(dodoCustomerId: string, workspaceId: string) {
   const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings/billing`;
   
-  // Create a Dodo customer portal session
-  const portal = await (dodo as any).customerPortalSessions?.create({
-    customerId: dodoCustomerId,
-    returnUrl,
-  }) || await (dodo as any).customerPortal?.create({
-    customerId: dodoCustomerId,
+  // Create a Dodo customer portal session using the official method and parameters
+  const portal = await dodo.customers.customerPortal.create(dodoCustomerId, {
+    return_url: returnUrl,
   });
 
-  return { portalUrl: portal?.customerPortalUrl || portal?.url || portal?.portalUrl || '' };
+  return { portalUrl: portal.link || '' };
 }
 
 export async function cancelSubscription(dodoSubscriptionId: string) {
