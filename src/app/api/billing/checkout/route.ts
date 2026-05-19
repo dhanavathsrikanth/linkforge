@@ -6,6 +6,7 @@ import { workspaces, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createCheckoutSession, getOrCreateDodoCustomer } from '@/lib/billing/dodo';
 import { PlanKey } from '@/lib/billing/plans';
+import { getOrCreateDbUser } from '@/lib/auth';
 
 const checkoutSchema = z.object({
   plan: z.enum(['free', 'starter', 'growth', 'agency', 'business'] as const),
@@ -19,12 +20,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const dbUser = await db.query.users.findFirst({
+    let dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, userId),
     });
 
     if (!dbUser) {
-      // No DB user found for this Clerk session
+      // Self-heal: If user is not yet in the DB, fetch from Clerk and create the row
+      const createdUser = await getOrCreateDbUser();
+      dbUser = createdUser || undefined;
+    }
+
+    if (!dbUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
