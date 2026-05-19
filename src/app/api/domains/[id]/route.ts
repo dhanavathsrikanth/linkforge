@@ -62,3 +62,52 @@ export async function DELETE(
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    const domainRecord = await db.query.domains.findFirst({
+      where: eq(domains.id, id),
+      with: {
+        workspace: true
+      }
+    });
+
+    if (!domainRecord) {
+      return NextResponse.json({ error: "Domain not found" }, { status: 404 });
+    }
+
+    if (domainRecord.workspace.ownerId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!domainRecord.verified) {
+      return NextResponse.json({ error: "Only verified domains can be set as primary" }, { status: 400 });
+    }
+
+    // Set all other domains in the workspace to not default
+    await db
+      .update(domains)
+      .set({ isDefault: false })
+      .where(eq(domains.workspaceId, domainRecord.workspaceId));
+
+    // Set this domain as default
+    const [updated] = await db
+      .update(domains)
+      .set({ isDefault: true, updatedAt: new Date() })
+      .where(eq(domains.id, id))
+      .returning();
+
+    return NextResponse.json(updated);
+  } catch (err) {
+    console.error("[PATCH /api/domains/:id]", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

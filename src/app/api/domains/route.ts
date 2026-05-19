@@ -99,6 +99,7 @@ export async function POST(req: Request) {
 
 
     return NextResponse.json({
+      id: newDomain.id,
       domain: newDomain.domain,
       verificationToken: newDomain.verificationToken,
       cnameTarget: "links.linkforge.app",

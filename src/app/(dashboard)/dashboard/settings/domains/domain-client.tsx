@@ -21,6 +21,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const [verifying, setVerifying] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState("");
   const [addedDomainData, setAddedDomainData] = useState<{
+    id: string;
     domain: string;
     verificationToken: string;
     cnameTarget: string;
@@ -121,6 +122,23 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     }
   }
 
+  async function handleSetPrimary(id: string) {
+    try {
+      const res = await fetch(`/api/domains/${id}`, {
+        method: "PATCH",
+      });
+      if (res.ok) {
+        fetchDomains();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to set domain as primary");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
+    }
+  }
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     // Could add toast here
@@ -179,13 +197,23 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
               
               <div className="mt-6 flex items-center justify-between">
                 {d.verified ? (
-                  <button className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-                    Set as Primary
-                  </button>
+                  d.isDefault ? (
+                    <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1">
+                      <Check className="h-4 w-4" /> Primary
+                    </span>
+                  ) : (
+                    <button 
+                      onClick={() => handleSetPrimary(d.id)}
+                      className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors"
+                    >
+                      Set as Primary
+                    </button>
+                  )
                 ) : (
                   <button 
                     onClick={() => {
                       setAddedDomainData({
+                        id: d.id,
                         domain: d.domain,
                         verificationToken: d.verificationToken,
                         cnameTarget: "links.linkforge.app",
@@ -309,7 +337,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
 
                 <div className="pt-6 border-t border-slate-800">
                   <button
-                    onClick={() => handleVerify(domains.find(d => d.domain === addedDomainData.domain)?.id || "")}
+                    onClick={() => handleVerify(addedDomainData.id)}
                     disabled={verifying}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 py-2.5 text-sm font-medium text-white hover:bg-slate-700 transition-colors disabled:opacity-50"
                   >
