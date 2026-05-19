@@ -30,6 +30,39 @@ export default async function BillingSettingsPage() {
 
   const summary = await getUsageSummary(workspace.id);
   
+  const formattedSummary = {
+    linksPerMonth: {
+      current: summary.current.linksPerMonth ?? 0,
+      limit: summary.limits.linksPerMonth as number,
+      allowed: (summary.current.linksPerMonth ?? 0) < ((summary.limits.linksPerMonth as number) === -1 ? Infinity : (summary.limits.linksPerMonth as number)),
+    },
+    clicksTrackedPerMonth: {
+      current: summary.current.clicksTrackedPerMonth ?? 0,
+      limit: summary.limits.clicksTrackedPerMonth as number,
+      allowed: (summary.current.clicksTrackedPerMonth ?? 0) < ((summary.limits.clicksTrackedPerMonth as number) === -1 ? Infinity : (summary.limits.clicksTrackedPerMonth as number)),
+    },
+    customDomains: {
+      current: summary.current.customDomains ?? 0,
+      limit: summary.limits.customDomains as number,
+      allowed: (summary.current.customDomains ?? 0) < ((summary.limits.customDomains as number) === -1 ? Infinity : (summary.limits.customDomains as number)),
+    },
+    teamMembers: {
+      current: summary.current.teamMembers ?? 0,
+      limit: summary.limits.teamMembers as number,
+      allowed: (summary.current.teamMembers ?? 0) < ((summary.limits.teamMembers as number) === -1 ? Infinity : (summary.limits.teamMembers as number)),
+    },
+    bioPages: {
+      current: summary.current.bioPages ?? 0,
+      limit: summary.limits.bioPages as number,
+      allowed: (summary.current.bioPages ?? 0) < ((summary.limits.bioPages as number) === -1 ? Infinity : (summary.limits.bioPages as number)),
+    },
+    qrCodesPerMonth: {
+      current: summary.current.qrCodesPerMonth ?? 0,
+      limit: summary.limits.qrCodesPerMonth as number,
+      allowed: (summary.current.qrCodesPerMonth ?? 0) < ((summary.limits.qrCodesPerMonth as number) === -1 ? Infinity : (summary.limits.qrCodesPerMonth as number)),
+    },
+  };
+  
   const sub = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.workspaceId, workspace.id),
     orderBy: [desc(subscriptions.createdAt)]
@@ -67,12 +100,12 @@ export default async function BillingSettingsPage() {
           </div>
           {sub?.currentPeriodEnd && !sub.cancelAtPeriodEnd && (
             <p className="text-sm text-muted-foreground">
-              Next billing date is {format(sub.currentPeriodEnd as Date, 'MMMM do, yyyy')}
+              Next billing date is {format(new Date(sub.currentPeriodEnd), 'MMMM do, yyyy')}
             </p>
           )}
           {sub?.cancelAtPeriodEnd && sub.currentPeriodEnd && (
             <p className="text-sm text-red-500 font-medium">
-              Cancels at end of period ({format(sub.currentPeriodEnd as Date, 'MMMM do, yyyy')})
+              Cancels at end of period ({format(new Date(sub.currentPeriodEnd), 'MMMM do, yyyy')})
             </p>
           )}
         </div>
@@ -90,7 +123,7 @@ export default async function BillingSettingsPage() {
 
       <div>
         <h2 className="text-xl font-bold mb-4">Current Usage</h2>
-        <UsageMeters summary={summary as any} plan={workspace.plan as PlanKey} />
+        <UsageMeters summary={formattedSummary as any} plan={workspace.plan as PlanKey} />
       </div>
 
       {!isBusiness && (
@@ -147,7 +180,7 @@ export default async function BillingSettingsPage() {
               <tbody className="divide-y divide-border">
                 {history.map((event) => (
                   <tr key={event.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-3">{event.createdAt ? format(event.createdAt as Date, 'MMM do, yyyy') : '-'}</td>
+                    <td className="px-4 py-3">{event.createdAt ? format(new Date(event.createdAt), 'MMM do, yyyy') : '-'}</td>
                     <td className="px-4 py-3 font-medium">LinkForge {event.toPlan} Plan</td>
                     <td className="px-4 py-3">
                       {event.amount && event.currency ? `${(Number(event.amount) / 100).toLocaleString('en-US', { style: 'currency', currency: event.currency })}` : '-'}
