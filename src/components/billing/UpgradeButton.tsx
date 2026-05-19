@@ -13,8 +13,15 @@ export function UpgradeButton({ plan, billingCycle = "annual", label }: { plan: 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan, billingCycle }),
+        credentials: "include",
       });
       const data = await res.json();
+
+      if (res.status === 401) {
+        window.location.href = "/sign-in?redirect_url=/dashboard/settings/billing";
+        return;
+      }
+
       if (res.ok && data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
@@ -29,7 +36,7 @@ export function UpgradeButton({ plan, billingCycle = "annual", label }: { plan: 
   };
 
   return (
-    <button 
+    <button
       onClick={handleUpgrade}
       disabled={loading}
       className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70 flex justify-center items-center"

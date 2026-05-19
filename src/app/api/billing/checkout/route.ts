@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { workspaces } from '@/lib/db/schema';
+import { workspaces, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createCheckoutSession, getOrCreateDodoCustomer } from '@/lib/billing/dodo';
-import { getOrCreateDbUser } from '@/lib/auth';
 import { PlanKey } from '@/lib/billing/plans';
 
 const checkoutSchema = z.object({
@@ -20,17 +19,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const dbUser = await getOrCreateDbUser();
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, userId),
+    });
+
     if (!dbUser) {
+      // No DB user found for this Clerk session
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
     const { plan, billingCycle } = checkoutSchema.parse(body);
 
-    const user = await currentUser();
-    const email = user?.emailAddresses[0]?.emailAddress || '';
-    const name = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || email;
+    const email = dbUser.email || '';
+    const name = (dbUser.name || dbUser.email || '').trim() || email;
 
     const userWorkspaces = await db.query.workspaces.findMany({
       where: eq(workspaces.ownerId, dbUser.id),
