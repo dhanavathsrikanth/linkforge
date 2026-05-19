@@ -5,17 +5,16 @@ import { eq } from "drizzle-orm";
 import { PLANS, PlanKey } from "./plans";
 import { getAppUrl } from "@/lib/utils";
 
-if (!process.env.DODO_SECRET_KEY) {
-  throw new Error('DODO_SECRET_KEY is not set');
-}
-
 export const dodo = new DodoPayments({
-  bearerToken: process.env.DODO_SECRET_KEY,
+  bearerToken: process.env.DODO_SECRET_KEY || 'dodo_secret_key_placeholder',
   // Use sandbox for development
   environment: process.env.NODE_ENV === 'production' ? 'live_mode' : 'test_mode',
 });
 
 export async function getOrCreateDodoCustomer(email: string, name: string, workspaceId: string) {
+  if (!process.env.DODO_SECRET_KEY) {
+    throw new Error("DODO_SECRET_KEY is not set in environment variables");
+  }
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.id, workspaceId),
   });
@@ -48,6 +47,9 @@ export async function createCheckoutSession(params: {
   plan: PlanKey;
   billingCycle: 'monthly' | 'annual';
 }) {
+  if (!process.env.DODO_SECRET_KEY) {
+    throw new Error("DODO_SECRET_KEY is not set in environment variables");
+  }
   const { workspaceId, userId, plan, billingCycle } = params;
 
   const priceId = PLANS[plan].dodoPriceId[billingCycle];
@@ -82,6 +84,9 @@ export async function createCheckoutSession(params: {
 }
 
 export async function createBillingPortalSession(dodoCustomerId: string, workspaceId: string) {
+  if (!process.env.DODO_SECRET_KEY) {
+    throw new Error("DODO_SECRET_KEY is not set in environment variables");
+  }
   const returnUrl = `${getAppUrl()}/dashboard/settings/billing`;
   
   // Create a Dodo customer portal session using the official method and parameters
