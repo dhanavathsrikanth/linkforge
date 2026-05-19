@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getOrCreateDbUser } from "@/lib/auth";
@@ -12,11 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default async function LinkInBioPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-
   const dbUser = await getOrCreateDbUser();
-  if (!dbUser) redirect("/sign-in");
+  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
 
   // Fetch gallery (the API route handles auto-create, but we do it server-side here for SSR)
   let gallery = await db.query.linkGallery.findFirst({

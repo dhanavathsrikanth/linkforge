@@ -1,5 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { DomainsClient } from "./domain-client";
@@ -9,15 +7,8 @@ export const metadata = {
 };
 
 export default async function DomainsPage() {
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/login");
-  }
-  
   const dbUser = await getOrCreateDbUser();
-  if (!dbUser) {
-    redirect("/login");
-  }
+  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
 
   // Get the user's first workspace (or default)
   // In a real app, this would be determined by the URL or a cookie

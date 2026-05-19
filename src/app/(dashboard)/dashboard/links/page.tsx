@@ -1,5 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import { getOrCreateDbUser } from "@/lib/auth";
@@ -19,16 +17,9 @@ function slugify(input: string) {
 }
 
 export default async function LinksPage() {
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/login");
-  }
-
   // Resolve the DB user (workspaces.ownerId is users.id UUID, not Clerk ID).
   const dbUser = await getOrCreateDbUser();
-  if (!dbUser) {
-    redirect("/login");
-  }
+  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
 
   // Get the user's first workspace, or create a default one.
   let workspace = await db.query.workspaces.findFirst({

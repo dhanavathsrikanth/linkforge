@@ -1,7 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { workspaces, subscriptions, billingEvents, users } from "@/lib/db/schema";
+import { workspaces, subscriptions, billingEvents } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getUsageSummary } from "@/lib/billing/usage";
 import { PLANS, PlanKey } from "@/lib/billing/plans";
@@ -11,22 +9,17 @@ import { UpgradeButton } from "@/components/billing/UpgradeButton";
 import { ManageSubscriptionButton } from "@/components/billing/ManageSubscriptionButton";
 import Link from "next/link";
 import { format } from "date-fns";
+import { getOrCreateDbUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function BillingSettingsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/login");
-
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, userId)
-  });
-  if (!dbUser) redirect("/login");
-
+  const dbUser = await getOrCreateDbUser();
+  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.ownerId, dbUser.id)
   });
-  if (!workspace) redirect("/dashboard");
+  if (!workspace) return <div className="p-6 text-muted-foreground">No workspace found.</div>;
 
   const summary = await getUsageSummary(workspace.id);
   

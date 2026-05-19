@@ -584,6 +584,60 @@ export const usageOverrides = pgTable('usage_overrides', {
   updatedBy: text('updated_by'), // admin user ID who set this override
 });
 
+// ─── waitlist ─────────────────────────────────────────────────────────────────
+// Stores email signups for beta features with gamification
+
+export const waitlist = pgTable(
+  "waitlist",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    email: text("email").notNull(),
+    feature: text("feature").notNull(),
+    points: integer("points").notNull().default(50),
+    referralCode: text("referral_code").notNull().unique(),
+    referredBy: text("referred_by"),
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    uniqueIndex("waitlist_email_feature_unique_idx").on(t.email, t.feature),
+    uniqueIndex("waitlist_referral_code_idx").on(t.referralCode),
+    index("waitlist_feature_idx").on(t.feature),
+  ]
+);
+
+// ─── api_keys ─────────────────────────────────────────────────────────────────
+// Developer API keys for programmatic access. Only prefix+hash stored — full key shown once.
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    keyHash: text("key_hash").notNull(),
+    keyType: text("key_type", { enum: ["secret", "publishable"] }).notNull().default("secret"),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    uniqueIndex("api_keys_key_hash_unique_idx").on(t.keyHash),
+    index("api_keys_workspace_idx").on(t.workspaceId),
+  ]
+);
+
 // ─── billing_events ───────────────────────────────────────────────────────────
 export const billingEvents = pgTable('billing_events', {
   id: uuid('id').primaryKey().defaultRandom(),

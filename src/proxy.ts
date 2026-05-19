@@ -9,7 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/links/resolve(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
+export const proxy = clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return;
 
   const { userId, redirectToSignIn } = await auth();

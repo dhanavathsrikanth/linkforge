@@ -1,5 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -11,15 +9,8 @@ export const metadata = {
 };
 
 export default async function UTMTemplatesPage() {
-  const { userId } = await auth();
-  if (!userId) {
-    redirect("/login");
-  }
-  
   const dbUser = await getOrCreateDbUser();
-  if (!dbUser) {
-    redirect("/login");
-  }
+  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
 
   // Get user's workspace
   const workspace = await db.query.workspaces.findFirst({

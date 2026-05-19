@@ -1,7 +1,7 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
-import { Bell, Search } from "lucide-react";
+import { UserButton, OrganizationSwitcher } from "@clerk/nextjs";
+import { Bell, Search, Building2, Plus, List } from "lucide-react";
 
 export function Header() {
   return (
@@ -16,6 +16,18 @@ export function Header() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <OrganizationSwitcher
+          afterCreateOrganizationUrl="/dashboard"
+          afterSelectOrganizationUrl="/dashboard"
+          afterSelectPersonalUrl="/dashboard"
+          organizationProfileUrl="/organization-profile"
+          createOrganizationUrl="/create-organization"
+          appearance={{
+            elements: {
+              organizationSwitcherTrigger: "h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground hover:bg-muted transition-colors",
+            },
+          }}
+        />
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -29,7 +41,14 @@ export function Header() {
                 avatarBox: "h-8 w-8",
               },
             }}
-          />
+          >
+            <UserButton.MenuItems>
+              <UserButton.Action label="manageAccount" />
+              <UserButton.Action label="signOut" />
+              <UserButton.Link label="Organizations" href="/organizations" labelIcon={<Building2 className="h-4 w-4" />} />
+              <UserButton.Link label="Create Organization" href="/create-organization" labelIcon={<Plus className="h-4 w-4" />} />
+            </UserButton.MenuItems>
+          </UserButton>
         </div>
       </div>
     </header>

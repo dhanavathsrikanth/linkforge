@@ -24,6 +24,8 @@ export {
   linkGallery,
   linkGalleryClicks,
   usageCounters,
+  waitlist,
+  apiKeys,
   // Enums
   planEnum,
   memberRoleEnum,
