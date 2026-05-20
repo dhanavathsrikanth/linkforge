@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
 import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
+import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import { RealtimeClicks } from "@/components/analytics/RealtimeClicks";
 import { KPICard } from "@/components/analytics/KPICard";
@@ -159,6 +160,9 @@ export function LinksDashboardClient({
   initialLinks,
   defaultDomain = getShortLinkBase(),
 }: Props) {
+  const { workspace } = useWorkspace();
+  const role = workspace?.role;
+  const isViewer = role === "viewer";
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -191,20 +195,27 @@ export function LinksDashboardClient({
         </div>
         <button
           type="button"
-          onClick={() => openAdvanced({})}
-          className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          onClick={() => !isViewer && openAdvanced({})}
+          disabled={isViewer}
+          className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         >
           <Plus className="h-4 w-4" />
           Create Link
         </button>
       </div>
 
-      <QuickCreateBar
-        workspaceId={workspaceId}
-        defaultDomain={defaultDomain}
-        onCreated={handleCreated}
-        onAdvanced={openAdvanced}
-      />
+      {isViewer ? (
+        <div className="rounded-xl border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+          You have read-only access. Contact a workspace admin to create or edit links.
+        </div>
+      ) : (
+        <QuickCreateBar
+          workspaceId={workspaceId}
+          defaultDomain={defaultDomain}
+          onCreated={handleCreated}
+          onAdvanced={openAdvanced}
+        />
+      )}
 
       {links.length === 0 ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 p-8 text-center dark:border-slate-700 dark:bg-slate-800/40">
@@ -353,14 +364,16 @@ export function LinksDashboardClient({
         </div>
       )}
 
-      <AdvancedCreateSheet
-        workspaceId={workspaceId}
-        defaultDomain={defaultDomain}
-        open={advancedOpen}
-        onOpenChange={setAdvancedOpen}
-        prefill={advancedPrefill}
-        onCreated={handleCreated}
-      />
+      {!isViewer && (
+        <AdvancedCreateSheet
+          workspaceId={workspaceId}
+          defaultDomain={defaultDomain}
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+          prefill={advancedPrefill}
+          onCreated={handleCreated}
+        />
+      )}
 
       {qrLink && (
         <QRCustomizePanel
