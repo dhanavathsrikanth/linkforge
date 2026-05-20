@@ -1,12 +1,12 @@
 "use client";
 
 import { UserButton, OrganizationSwitcher } from "@clerk/nextjs";
-import { Bell, Search, Building2, Plus, List } from "lucide-react";
+import { Bell, Search, Building2, Plus } from "lucide-react";
 
 export function Header() {
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-6">
-      <div className="relative flex-1 max-w-md">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3 sm:px-6">
+      <div className="relative flex-1 max-w-md hidden sm:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
@@ -15,7 +15,7 @@ export function Header() {
         />
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1 sm:gap-2">
         <OrganizationSwitcher
           afterCreateOrganizationUrl="/dashboard"
           afterSelectOrganizationUrl="/dashboard"
@@ -24,7 +24,7 @@ export function Header() {
           createOrganizationUrl="/create-organization"
           appearance={{
             elements: {
-              organizationSwitcherTrigger: "h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground hover:bg-muted transition-colors",
+              organizationSwitcherTrigger: "h-9 rounded-lg border border-border bg-background px-2 sm:px-3 text-sm text-foreground hover:bg-muted transition-colors max-w-[120px] sm:max-w-none truncate",
             },
           }}
         />
@@ -34,11 +34,11 @@ export function Header() {
         >
           <Bell className="h-4 w-4" />
         </button>
-        <div className="ml-1">
+        <div className="ml-0 sm:ml-1">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: "h-8 w-8",
+                avatarBox: "h-7 w-7 sm:h-8 sm:w-8",
               },
             }}
           >

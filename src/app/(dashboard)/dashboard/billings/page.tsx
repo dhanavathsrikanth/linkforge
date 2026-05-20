@@ -160,8 +160,8 @@ export default async function BillingsPage() {
             <p className="text-muted-foreground">No billing history yet.</p>
           </div>
         ) : (
-          <div className="bg-background border border-border rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left text-sm">
+          <div className="bg-background border border-border rounded-xl overflow-x-auto shadow-sm">
+            <table className="w-full text-left text-sm min-w-[500px]">
               <thead className="bg-muted text-muted-foreground border-b border-border">
                 <tr>
                   <th className="px-4 py-3 font-medium">Date</th>

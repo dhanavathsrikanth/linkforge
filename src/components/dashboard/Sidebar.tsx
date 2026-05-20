@@ -83,7 +83,7 @@ export function Sidebar() {
   const displayName = user?.fullName || user?.firstName || (user ? "User" : "");
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-background border-r border-border h-screen sticky top-0">
+    <aside className="hidden lg:flex w-60 shrink-0 flex-col bg-background border-r border-border h-screen sticky top-0">
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-5 h-14 shrink-0 border-b border-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">

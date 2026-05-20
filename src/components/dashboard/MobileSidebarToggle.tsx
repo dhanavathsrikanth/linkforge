@@ -1,0 +1,132 @@
+"use client";
+
+import { useState } from "react";
+import { X, Menu } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useUser } from "@clerk/nextjs";
+import { PlanBadge } from "@/components/billing/PlanBadge";
+import { useEffect } from "react";
+import {
+  Link2, LayoutDashboard, BarChart3, Settings, QrCode,
+  Globe, CreditCard, LayoutList, Zap,
+} from "lucide-react";
+
+const mainNav = [
+  { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
+  { name: "Links",       href: "/dashboard/links",            icon: Link2 },
+  { name: "Link in Bio", href: "/link-in-bio",                icon: LayoutList,      badge: "COMING SOON" },
+  { name: "QR Codes",    href: "/dashboard/qr",               icon: QrCode },
+  { name: "Analytics",   href: "/dashboard/analytics",        icon: BarChart3 },
+];
+
+const workspaceNav = [
+  { name: "Domains",     href: "/settings/domains",           icon: Globe,           badge: "COMING SOON" },
+  { name: "Billing",     href: "/dashboard/billings",         icon: CreditCard },
+  { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
+];
+
+export function MobileSidebarToggle() {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const { user } = useUser();
+  const [plan, setPlan] = useState("free");
+
+  useEffect(() => {
+    fetch("/api/workspaces/current")
+      .then((r) => r.json())
+      .then((d) => { if (d.workspace?.plan) setPlan(d.workspace.plan); })
+      .catch(() => {});
+  }, []);
+
+  function isActive(href: string) {
+    return href === "/dashboard"
+      ? pathname === href
+      : pathname === href || pathname.startsWith(href + "/");
+  }
+
+  const initial = user?.firstName?.charAt(0) ?? (user ? "U" : "");
+  const displayName = user?.fullName || user?.firstName || (user ? "User" : "");
+
+  const navLink = (item: (typeof mainNav)[number], onClose: () => void) => (
+    <Link
+      key={item.href}
+      href={item.href}
+      onClick={onClose}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+        isActive(item.href)
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      {isActive(item.href) && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-primary" />
+      )}
+      <item.icon className={cn("h-4 w-4 shrink-0", isActive(item.href) ? "text-primary" : "text-muted-foreground")} />
+      <span className="flex-1 leading-none">{item.name}</span>
+      {item.badge && (
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400">
+          {item.badge}
+        </span>
+      )}
+    </Link>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-4 left-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg lg:hidden dark:bg-slate-100 dark:text-slate-900"
+        aria-label="Open sidebar"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-60 flex-col bg-background border-r border-border shadow-xl">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5 px-5 h-14 shrink-0 border-b border-border">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <Zap className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <span className="text-base font-bold tracking-tight text-foreground">LinkForge</span>
+            </div>
+
+            <div className="flex items-center gap-3 px-4 py-4 shrink-0 border-b border-border">
+              {user?.imageUrl ? (
+                <img src={user.imageUrl} alt={displayName} className="h-9 w-9 rounded-full object-cover ring-2 ring-border" />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground ring-2 ring-border">
+                  {initial}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-sm font-semibold text-foreground">{displayName}</div>
+                <PlanBadge plan={plan} asLink />
+              </div>
+            </div>
+
+            <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4">
+              <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">Main</div>
+              {mainNav.map((item) => navLink(item, () => setOpen(false)))}
+              <div className="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">Workspace</div>
+              {workspaceNav.map((item) => navLink(item, () => setOpen(false)))}
+            </nav>
+          </aside>
+        </div>
+      )}
+    </>
+  );
+}
