@@ -138,13 +138,15 @@ export async function POST(req: Request) {
       const createdBy = data.created_by;
       let ownerId: string | undefined;
 
+      let ownerEmail: string | undefined;
       if (createdBy) {
         const [dbUser] = await db
-          .select({ id: users.id })
+          .select({ id: users.id, email: users.email })
           .from(users)
           .where(eq(users.clerkId, createdBy))
           .limit(1);
         ownerId = dbUser?.id;
+        ownerEmail = dbUser?.email;
       }
 
       if (!ownerId) {
@@ -173,6 +175,8 @@ export async function POST(req: Request) {
           workspaceId: ws.id,
           userId: ownerId,
           role: "admin",
+          email: ownerEmail,
+          workspaceName: orgName,
         }).onConflictDoNothing();
       }
 
@@ -191,31 +195,34 @@ export async function POST(req: Request) {
 
       // Ensure DB user exists (create on the fly if membership arrived before user.created)
       let [dbUser] = await db
-        .select({ id: users.id })
+        .select({ id: users.id, email: users.email })
         .from(users)
         .where(eq(users.clerkId, clerkUserId))
         .limit(1);
 
+      let memberEmail = dbUser?.email;
+      const pud = data.public_user_data || data.publicUserData || {};
+
       if (!dbUser) {
-        const pud = data.public_user_data || data.publicUserData || {};
         const firstName = pud.first_name || "";
         const lastName = pud.last_name || "";
-        const email = pud.identifier || `${clerkUserId}@clerk.local`;
+        memberEmail = pud.identifier || `${clerkUserId}@clerk.local`;
         const avatar = pud.image_url || pud.profile_image_url || null;
 
         [dbUser] = await db
           .insert(users)
           .values({
             clerkId: clerkUserId,
-            email,
+            email: memberEmail,
             name: [firstName, lastName].filter(Boolean).join(" ") || null,
             firstName: firstName || null,
             lastName: lastName || null,
             avatar,
           })
           .onConflictDoNothing({ target: users.clerkId })
-          .returning({ id: users.id });
+          .returning({ id: users.id, email: users.email });
 
+        if (dbUser && !memberEmail) memberEmail = dbUser.email;
         console.log("[clerk-webhook] user auto-created for membership", clerkUserId);
       }
 
@@ -226,25 +233,29 @@ export async function POST(req: Request) {
 
       // Ensure workspace exists (create on the fly if membership arrived before org.created)
       let [workspace] = await db
-        .select({ id: workspaces.id })
+        .select({ id: workspaces.id, name: workspaces.name })
         .from(workspaces)
         .where(eq(workspaces.clerkOrgId, orgId))
         .limit(1);
 
+      let workspaceName = workspace?.name;
+      const org = data.organization || {};
+
       if (!workspace) {
-        const org = data.organization || {};
         const orgName = org.name || org.slug || "Organization";
         const orgSlug = slugify(org.slug || org.name || "org");
         const createdBy = org.created_by;
         let ownerId: string | undefined;
+        let ownerEmail: string | undefined;
 
         if (createdBy) {
           const [owner] = await db
-            .select({ id: users.id })
+            .select({ id: users.id, email: users.email })
             .from(users)
             .where(eq(users.clerkId, createdBy))
             .limit(1);
           ownerId = owner?.id;
+          ownerEmail = owner?.email;
         }
 
         const slug = `${orgSlug}-${orgId.slice(0, 8)}`;
@@ -260,13 +271,15 @@ export async function POST(req: Request) {
             isDefault: true,
           })
           .onConflictDoNothing({ target: workspaces.clerkOrgId })
-          .returning({ id: workspaces.id });
+          .returning({ id: workspaces.id, name: workspaces.name });
 
         workspace = ws || (await db
-          .select({ id: workspaces.id })
+          .select({ id: workspaces.id, name: workspaces.name })
           .from(workspaces)
           .where(eq(workspaces.clerkOrgId, orgId))
           .limit(1))[0];
+
+        if (workspace) workspaceName = workspace.name;
 
         // Also add the creator as admin member
         if (ws && ownerId && ownerId !== dbUser.id) {
@@ -274,6 +287,8 @@ export async function POST(req: Request) {
             workspaceId: ws.id,
             userId: ownerId,
             role: "admin",
+            email: ownerEmail,
+            workspaceName,
           }).onConflictDoNothing();
         }
 
@@ -293,10 +308,12 @@ export async function POST(req: Request) {
           workspaceId: workspace.id,
           userId: dbUser.id,
           role,
+          email: memberEmail,
+          workspaceName,
         })
         .onConflictDoUpdate({
           target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-          set: { role },
+          set: { role, email: memberEmail, workspaceName },
         });
 
       console.log("[clerk-webhook] member added to workspace", workspace.id, dbUser.id, role);

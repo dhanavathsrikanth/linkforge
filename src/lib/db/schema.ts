@@ -145,6 +145,8 @@ export const workspaceMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    email: text("email"),
+    workspaceName: text("workspace_name"),
     role: memberRoleEnum("role").notNull().default("viewer"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()

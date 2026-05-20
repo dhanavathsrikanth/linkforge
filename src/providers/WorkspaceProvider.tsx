@@ -10,6 +10,8 @@ export interface WorkspaceMember {
   id: string;
   userId: string;
   role: MemberRole;
+  email?: string | null;
+  workspaceName?: string | null;
   user?: {
     id: string;
     name: string | null;

@@ -3,7 +3,7 @@
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 
 export default function MembersPage() {
-  const { workspace, isLoading, refetch } = useWorkspace();
+  const { workspace, isLoading } = useWorkspace();
 
   if (isLoading) {
     return <div className="text-sm text-muted-foreground">Loading members...</div>;
@@ -35,6 +35,8 @@ export default function MembersPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Member</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Workspace</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Role</th>
               </tr>
             </thead>
@@ -47,18 +49,19 @@ export default function MembersPage() {
                         <img src={member.user.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
                       ) : (
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-foreground">
-                          {member.user?.name?.charAt(0) || member.user?.email?.charAt(0) || "?"}
+                          {member.user?.name?.charAt(0) || member.email?.charAt(0) || "?"}
                         </div>
                       )}
-                      <div>
-                        <div className="font-medium text-foreground">
-                          {member.user?.name || "Unknown"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {member.user?.email || ""}
-                        </div>
+                      <div className="font-medium text-foreground">
+                        {member.user?.name || "Unknown"}
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {member.email || member.user?.email || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {member.workspaceName || workspace.name}
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-muted-foreground capitalize">

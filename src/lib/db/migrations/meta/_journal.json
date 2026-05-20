@@ -43,6 +43,13 @@
       "when": 1779295363383,
       "tag": "0005_steady_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779302128272,
+      "tag": "0006_windy_sinister_six",
+      "breakpoints": true
     }
   ]
 }

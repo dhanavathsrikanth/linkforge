@@ -60,6 +60,8 @@ export async function GET(request: Request) {
             id: m.id,
             userId: m.userId,
             role: m.role,
+            email: m.email,
+            workspaceName: m.workspaceName,
             user: m.user ? {
               id: m.user.id,
               name: m.user.name,
@@ -114,6 +116,8 @@ export async function GET(request: Request) {
           id: m.id,
           userId: m.userId,
           role: m.role,
+          email: m.email,
+          workspaceName: m.workspaceName,
           user: m.user ? {
             id: m.user.id,
             name: m.user.name,
