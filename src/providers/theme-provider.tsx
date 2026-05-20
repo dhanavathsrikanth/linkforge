@@ -6,7 +6,7 @@ import { type PropsWithChildren } from "react";
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const orig = console.error;
   console.error = (...args: any[]) => {
-    if (typeof args[0] === 'string' && args[0].includes('Encountered a script tag')) return;
+    if (typeof args[0] === 'string' && (args[0].includes('Encountered a script tag') || args[0].includes('A tree hydrated but some attributes'))) return;
     orig.apply(console, args);
   };
 }

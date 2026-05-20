@@ -11,6 +11,7 @@ export function Header() {
         <input
           type="text"
           placeholder="Search..."
+          suppressHydrationWarning
           className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </div>
@@ -30,6 +31,7 @@ export function Header() {
         />
         <button
           type="button"
+          suppressHydrationWarning
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <Bell className="h-4 w-4" />
