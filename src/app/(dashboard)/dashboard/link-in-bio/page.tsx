@@ -1,88 +1,27 @@
-import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import { getOrCreateDbUser } from "@/lib/auth";
-import { GalleryBuilder } from "@/components/gallery/GalleryBuilder";
-import type { GalleryPage } from "@/types/gallery";
-import { DEFAULT_APPEARANCE } from "@/types/gallery";
-import type { Metadata } from "next";
+import { WaitlistDashboard } from "@/components/waitlist/WaitlistDashboard";
 
-export const metadata: Metadata = {
-  title: "Link in Bio Builder",
+export const metadata = {
+  title: "Link in Bio - Beta Waitlist",
 };
 
-export default async function LinkInBioPage() {
-  const dbUser = await getOrCreateDbUser();
-  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
-
-  // Fetch gallery (the API route handles auto-create, but we do it server-side here for SSR)
-  let gallery = await db.query.linkGallery.findFirst({
-    where: (g, { eq }) => eq(g.userId, dbUser.id),
-  });
-
-  // Auto-create if none exists
-  if (!gallery) {
-    const { nanoid } = await import("nanoid");
-    const workspace = await db.query.workspaces.findFirst({
-      where: (w, { eq }) => eq(w.ownerId, dbUser.id),
-    });
-
-    if (workspace) {
-      const slug = dbUser.username
-        ? dbUser.username.toLowerCase().replace(/[^a-z0-9-_]/g, "-")
-        : nanoid(8);
-
-      const existing = await db.query.linkGallery.findFirst({
-        where: (g, { eq }) => eq(g.slug, slug),
-      });
-      const finalSlug = existing ? nanoid(8) : slug;
-
-      const { linkGallery } = await import("@/lib/db");
-      [gallery] = await db.insert(linkGallery).values({
-        userId: dbUser.id,
-        workspaceId: workspace.id,
-        slug: finalSlug,
-        displayName: dbUser.name ?? dbUser.firstName ?? "My Page",
-        bio: "Welcome to my page!",
-        avatarInitials: (dbUser.firstName?.charAt(0) ?? "U").toUpperCase(),
-        avatarBgColor: "#6366f1",
-        links: [],
-        appearance: DEFAULT_APPEARANCE,
-        showBranding: true,
-        isPublished: false,
-      }).returning();
-    }
-  }
-
-  if (!gallery) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">
-          No workspace found. Please create a workspace first.
-        </p>
-      </div>
-    );
-  }
-
-  // Fetch verified domains
-  const domains = await db.query.domains.findMany({
-    where: (d, { and, eq }) =>
-      and(eq(d.workspaceId, gallery!.workspaceId), eq(d.verified, true)),
-  });
-
-  const isPaidPlan = dbUser.plan !== "free";
-
-  const galleryPage: GalleryPage = {
-    ...gallery,
-    links: (gallery.links ?? []) as GalleryPage["links"],
-    appearance: (gallery.appearance ?? DEFAULT_APPEARANCE) as GalleryPage["appearance"],
-  };
-
+export default function LinkInBioWaitlistPage() {
   return (
-    <div className="h-full flex flex-col">
-      <GalleryBuilder
-        initialGallery={galleryPage}
-        domains={domains.map((d) => ({ id: d.id, domain: d.domain }))}
-        isPaidPlan={isPaidPlan}
+    <div className="py-8">
+      <WaitlistDashboard
+        feature="link-in-bio"
+        badge={{
+          label: "BETA — Limited Access",
+          className: "border-amber-500/20 bg-amber-500/10 text-amber-400",
+        }}
+        headline="Your branded bio page. All your links. One URL."
+        subtext="Build a beautiful branded page for your Instagram, TikTok, and YouTube bio. Choose from 5 premium templates, drag-and-drop your links, and track every click — all on your own domain."
+        bullets={[
+          "5 premium templates that beat Linktree on design",
+          "Drag-and-drop link ordering",
+          "Per-link click analytics for every button",
+        ]}
+        buttonLabel="Join Beta"
+        timelineLabel="Q3 2026 — invites going out to waitlist first"
       />
     </div>
   );
