@@ -154,14 +154,27 @@ export async function POST(req: Request) {
 
       const slug = `${orgSlug}-${orgId.slice(0, 8)}`;
 
-      await db.insert(workspaces).values({
-        name: orgName,
-        slug,
-        ownerId,
-        clerkOrgId: orgId,
-        clerkOrgName: orgName,
-        isDefault: true,
-      });
+      const [ws] = await db
+        .insert(workspaces)
+        .values({
+          name: orgName,
+          slug,
+          ownerId,
+          clerkOrgId: orgId,
+          clerkOrgName: orgName,
+          isDefault: true,
+        })
+        .returning({ id: workspaces.id });
+
+      // Also add the creator as an admin member (prevents race condition
+      // where membership.created arrives before org.created)
+      if (ws) {
+        await db.insert(workspaceMembers).values({
+          workspaceId: ws.id,
+          userId: ownerId,
+          role: "admin",
+        }).onConflictDoNothing();
+      }
 
       console.log("[clerk-webhook] workspace created for org", orgId, orgName);
     }
