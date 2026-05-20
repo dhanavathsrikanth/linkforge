@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, CreditCard, Globe } from "lucide-react";
+import { Settings, CreditCard, Globe, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { name: "General", href: "/dashboard/settings", icon: Settings },
+  { name: "Members", href: "/dashboard/settings/members", icon: Users },
   { name: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
   { name: "Domains", href: "/dashboard/domain", icon: Globe },
 ];

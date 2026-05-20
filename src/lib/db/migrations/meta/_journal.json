@@ -36,6 +36,13 @@
       "when": 1779196000000,
       "tag": "0004_rebuild_remaining_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779295363383,
+      "tag": "0005_steady_spencer_smythe",
+      "breakpoints": true
     }
   ]
 }

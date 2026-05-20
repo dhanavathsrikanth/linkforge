@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { PlanBadge } from "@/components/billing/PlanBadge";
+import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { useEffect } from "react";
 import {
   Link2, LayoutDashboard, BarChart3, Settings, QrCode,
@@ -37,14 +38,8 @@ export function MobileSidebarToggle() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useUser();
-  const [plan, setPlan] = useState("free");
-
-  useEffect(() => {
-    fetch("/api/workspaces/current")
-      .then((r) => r.json())
-      .then((d) => { if (d.workspace?.plan) setPlan(d.workspace.plan); })
-      .catch(() => {});
-  }, []);
+  const { workspace } = useWorkspace();
+  const plan = workspace?.plan || "free";
 
   function isActive(href: string) {
     return href === "/dashboard"
@@ -119,8 +114,17 @@ export function MobileSidebarToggle() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="truncate text-sm font-semibold text-foreground">{displayName}</div>
-                <PlanBadge plan={plan} asLink />
+                <div className="truncate text-sm font-semibold text-foreground">
+                  {workspace && !workspace.isPersonal ? workspace.name : displayName}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <PlanBadge plan={plan} asLink />
+                  {workspace && !workspace.isPersonal && workspace.members.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground/60">
+                      · {workspace.members.length} {workspace.members.length === 1 ? "member" : "members"}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

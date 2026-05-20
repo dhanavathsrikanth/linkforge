@@ -101,6 +101,8 @@ export const workspaces = pgTable(
     ownerId: uuid("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    clerkOrgId: text("clerk_org_id").unique(),
+    clerkOrgName: text("clerk_org_name"),
     plan: planEnum("plan").notNull().default("free"),
     logo: text("logo"),
     customDomain: text("custom_domain").unique(),
@@ -125,7 +127,10 @@ export const workspaces = pgTable(
     defaultUtmTemplateId: uuid("default_utm_template_id"),
     ...timestamps,
   },
-  (t) => [index("workspaces_owner_idx").on(t.ownerId)]
+  (t) => [
+    index("workspaces_owner_idx").on(t.ownerId),
+    index("workspaces_clerk_org_idx").on(t.clerkOrgId),
+  ]
 );
 
 // ─── workspaceMembers ─────────────────────────────────────────────────────────

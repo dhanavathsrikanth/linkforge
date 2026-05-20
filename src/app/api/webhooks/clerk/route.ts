@@ -1,37 +1,13 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db";
+import { users, workspaces, workspaceMembers } from "@/lib/db";
+import { eq, and } from "drizzle-orm";
 import { sendWelcomeEmail } from "@/lib/email";
 
 type ClerkWebhookEvent = {
   type: string;
-  data: {
-    birthday: string | null;
-    created_at: number | null;
-    id: string;
-    email_addresses: unknown[];
-    external_accounts: unknown[];
-    external_id: string | null;
-    first_name: string | null;
-    gender: string | null;
-    image_url: string | null;
-    last_sign_in_at: number | null;
-    last_name: string | null;
-    password_enabled: boolean | null;
-    phone_numbers: unknown[];
-    primary_email_address_id: string | null;
-    primary_phone_number_id: string | null;
-    primary_web3_wallet_id: string | null;
-    private_metadata: Record<string, unknown>;
-    profile_image_url: string | null;
-    public_metadata: Record<string, unknown>;
-    two_factor_enabled: boolean | null;
-    unsafe_metadata: Record<string, unknown>;
-    updated_at: number | null;
-    username: string | null;
-    web3_wallets: unknown[];
-  };
+  data: Record<string, any>;
 };
 
 type ClerkEmailAddress = {
@@ -41,6 +17,14 @@ type ClerkEmailAddress = {
 
 function fromClerkTimestamp(value: number | null | undefined) {
   return value ? new Date(value) : null;
+}
+
+function slugify(input: string) {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .slice(0, 40) || "workspace";
 }
 
 export async function POST(req: Request) {
@@ -77,6 +61,7 @@ export async function POST(req: Request) {
   const { type, data } = event;
 
   try {
+    // ─── User created/updated ───────────────────────────────
     if (type === "user.created" || type === "user.updated") {
       const primaryEmail =
         (data.email_addresses as ClerkEmailAddress[]).find(
@@ -119,16 +104,11 @@ export async function POST(req: Request) {
         .values(userValues)
         .onConflictDoUpdate({
           target: users.clerkId,
-          set: {
-            ...userValues,
-            updatedAt: new Date(),
-          },
+          set: { ...userValues, updatedAt: new Date() },
         });
 
-      // Fire welcome email in background — only on first creation
       if (type === "user.created" && primaryEmail) {
         const displayName = fullName || primaryEmail.split("@")[0];
-        // setTimeout keeps the webhook response fast
         setTimeout(() => {
           sendWelcomeEmail(primaryEmail, displayName).catch(() => {});
         }, 0);
@@ -136,8 +116,151 @@ export async function POST(req: Request) {
     }
 
     if (type === "user.deleted") {
-      // Soft-delete or mark inactive — links are retained for analytics
       console.log("[clerk-webhook] user.deleted", data.id);
+    }
+
+    // ─── Organization created ───────────────────────────────
+    if (type === "organization.created") {
+      const orgId = data.id;
+      const orgName = data.name || data.slug || "Organization";
+      const orgSlug = slugify(data.slug || data.name || "org");
+
+      // Check if a workspace for this org already exists
+      const existing = await db.query.workspaces.findFirst({
+        where: eq(workspaces.clerkOrgId, orgId),
+      });
+      if (existing) {
+        console.log("[clerk-webhook] workspace already exists for org", orgId);
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the creator (owner) of the org
+      const createdBy = data.created_by;
+      let ownerId: string | undefined;
+
+      if (createdBy) {
+        const [dbUser] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.clerkId, createdBy))
+          .limit(1);
+        ownerId = dbUser?.id;
+      }
+
+      if (!ownerId) {
+        console.warn("[clerk-webhook] No DB user found for org creator", createdBy);
+        return NextResponse.json({ error: "Creator not found" }, { status: 200 });
+      }
+
+      const slug = `${orgSlug}-${orgId.slice(0, 8)}`;
+
+      await db.insert(workspaces).values({
+        name: orgName,
+        slug,
+        ownerId,
+        clerkOrgId: orgId,
+        clerkOrgName: orgName,
+        isDefault: true,
+      });
+
+      console.log("[clerk-webhook] workspace created for org", orgId, orgName);
+    }
+
+    // ─── Organization membership created ────────────────────
+    if (type === "organizationMembership.created") {
+      const orgId = data.organization?.id;
+      const clerkUserId = data.public_user_data?.user_id || data.publicUserData?.userId;
+
+      if (!orgId || !clerkUserId) {
+        console.warn("[clerk-webhook] Missing orgId or userId in membership.created");
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the DB workspace linked to this org
+      const [workspace] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.clerkOrgId, orgId))
+        .limit(1);
+
+      if (!workspace) {
+        console.warn("[clerk-webhook] No workspace found for org", orgId);
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the DB user
+      const [dbUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.clerkId, clerkUserId))
+        .limit(1);
+
+      if (!dbUser) {
+        console.warn("[clerk-webhook] No DB user found for clerk user", clerkUserId);
+        return NextResponse.json({ ok: true });
+      }
+
+      const role = data.role === "org:admin" ? "admin" : data.role === "org:member" ? "editor" : "viewer";
+
+      // Upsert workspace membership
+      await db
+        .insert(workspaceMembers)
+        .values({
+          workspaceId: workspace.id,
+          userId: dbUser.id,
+          role,
+        })
+        .onConflictDoUpdate({
+          target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+          set: { role },
+        });
+
+      console.log("[clerk-webhook] member added to workspace", workspace.id, dbUser.id, role);
+    }
+
+    // ─── Organization membership deleted ────────────────────
+    if (type === "organizationMembership.deleted") {
+      const orgId = data.organization?.id;
+      const clerkUserId = data.public_user_data?.user_id || data.publicUserData?.userId;
+
+      if (!orgId || !clerkUserId) {
+        console.warn("[clerk-webhook] Missing orgId or userId in membership.deleted");
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the DB workspace linked to this org
+      const [workspace] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.clerkOrgId, orgId))
+        .limit(1);
+
+      if (!workspace) {
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the DB user
+      const [dbUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.clerkId, clerkUserId))
+        .limit(1);
+
+      if (!dbUser) {
+        return NextResponse.json({ ok: true });
+      }
+
+      // Remove membership
+      await db
+        .delete(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace.id),
+            eq(workspaceMembers.userId, dbUser.id)
+          )
+        );
+
+      console.log("[clerk-webhook] member removed from workspace", workspace.id, dbUser.id);
     }
 
     return NextResponse.json({ ok: true });

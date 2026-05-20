@@ -48,8 +48,9 @@ export default function DashboardPage() {
     queryKey: ["workspace", "current"],
     queryFn: async () => {
       const res = await fetch("/api/workspaces/current");
+      if (!res.ok) return null;
       const data = await res.json();
-      return data.workspace?.id as string | undefined;
+      return (data.workspace?.id as string) ?? null;
     },
   });
 
