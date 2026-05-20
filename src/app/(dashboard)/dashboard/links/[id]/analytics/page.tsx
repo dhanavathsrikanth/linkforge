@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { links, workspaces } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { links, workspaces, workspaceMembers } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { LinkAnalyticsClient } from "./LinkAnalyticsClient";
 import { getOrCreateDbUser } from "@/lib/auth";
 
@@ -31,8 +31,24 @@ export default async function LinkAnalyticsPage({ params }: PageProps) {
     where: eq(workspaces.id, link.workspaceId),
   });
 
-  if (!workspace || workspace.ownerId !== dbUser.id) {
+  if (!workspace) {
     notFound();
+  }
+
+  if (workspace.ownerId !== dbUser.id) {
+    const [membership] = await db
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspace.id),
+          eq(workspaceMembers.userId, dbUser.id)
+        )
+      )
+      .limit(1);
+    if (!membership) {
+      notFound();
+    }
   }
 
   return <LinkAnalyticsClient linkId={id} workspaceId={workspace.id} />;

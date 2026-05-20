@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Separator } from "@/components/ui/separator";
+import { useWorkspace } from "@/providers/WorkspaceProvider";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -42,19 +43,10 @@ const topLinkVariants = [
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const { workspace } = useWorkspace();
   const firstName = user?.firstName || user?.fullName || "there";
 
-  const workspaceIdQuery = useQuery({
-    queryKey: ["workspace", "current"],
-    queryFn: async () => {
-      const res = await fetch("/api/workspaces/current");
-      if (!res.ok) return null;
-      const data = await res.json();
-      return (data.workspace?.id as string) ?? null;
-    },
-  });
-
-  const wsId = workspaceIdQuery.data;
+  const wsId = workspace?.id;
 
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
     queryKey: ["analytics", "overview", wsId, "30d"],

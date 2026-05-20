@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { clicks, links, users, workspaces, domains } from "@/lib/db/schema";
+import { clicks, links, users, workspaces, domains, workspaceMembers } from "@/lib/db/schema";
 import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 import { getDefaultDomain } from "@/lib/utils";
 
@@ -73,8 +73,25 @@ export async function GET(request: NextRequest) {
     const dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, userId),
     });
-    if (!workspace || !dbUser || workspace.ownerId !== dbUser.id) {
+    if (!workspace || !dbUser) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+
+    // Allow access if user is owner OR a workspace member
+    if (workspace.ownerId !== dbUser.id) {
+      const [membership] = await db
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace.id),
+            eq(workspaceMembers.userId, dbUser.id)
+          )
+        )
+        .limit(1);
+      if (!membership) {
+        return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      }
     }
 
     const { start, end } = getDateRange(range, from, to);

@@ -12,6 +12,7 @@ import { getDefaultDomain } from "@/lib/utils";
 import { eq, sql } from "drizzle-orm";
 import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
+import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -43,8 +44,8 @@ function emptyToNull<T extends string | undefined | null>(v: T): string | null {
   return s.length === 0 ? null : s;
 }
 
-// GET /api/links — list user's links (in their workspaces)
-export async function GET() {
+// GET /api/links — list user's links scoped to workspace
+export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -52,12 +53,17 @@ export async function GET() {
     const dbUser = await getOrCreateDbUser();
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
 
+    const { searchParams } = new URL(request.url);
+    const workspaceId = searchParams.get("workspaceId");
+
+    const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
+
     const userLinks = await db.query.links.findMany({
-      where: (l, { eq }) => eq(l.userId, dbUser.id),
+      where: (l, { eq }) => eq(l.workspaceId, ws.id),
       orderBy: (l, { desc }) => [desc(l.createdAt)],
       limit: 100,
     });
-    return NextResponse.json({ links: userLinks });
+    return NextResponse.json({ links: userLinks, workspaceId: ws.id });
   } catch (err) {
     console.error("[GET /api/links]", err);
     return NextResponse.json({ error: "Failed to fetch links" }, { status: 500 });
@@ -82,10 +88,15 @@ export async function POST(req: Request) {
     const v = parsed.data;
     const slug = (v.slug && v.slug.trim().length > 0) ? v.slug.trim() : nanoid(7);
 
-    // Enforce plan link limits (total links per workspace)
-    const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, v.workspaceId) });
-    if (!ws) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    // Validate workspace membership and write permission
+    let ws;
+    try {
+      ws = await resolveUserWorkspace(dbUser.id, v.workspaceId);
+      if (!canWrite(ws.role)) {
+        return NextResponse.json({ error: "You don't have permission to create links in this workspace" }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Workspace not found or access denied" }, { status: 404 });
     }
 
     const limits = await getEffectiveLimits(v.workspaceId);

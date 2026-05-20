@@ -1,63 +1,52 @@
-import { db } from "@/lib/db";
-import { workspaces } from "@/lib/db/schema";
-import { getOrCreateDbUser } from "@/lib/auth";
+"use client";
+
+import { useWorkspace } from "@/providers/WorkspaceProvider";
+import { useQuery } from "@tanstack/react-query";
 import { LinksDashboardClient } from "@/components/links/LinksDashboardClient";
+import { useEffect, useState } from "react";
 
-export const metadata = {
-  title: "Links - LinkForge",
-};
+export default function LinksPage() {
+  const { workspace, isLoading: wsLoading } = useWorkspace();
+  const [initialLinks, setInitialLinks] = useState<any[]>([]);
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "")
-    .slice(0, 40) || "workspace";
-}
+  const wsId = workspace?.id;
 
-export default async function LinksPage() {
-  const dbUser = await getOrCreateDbUser();
-  if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
-
-  let workspace = await db.query.workspaces.findFirst({
-    where: (w, { eq }) => eq(w.ownerId, dbUser.id),
+  const { data: linksData, isLoading } = useQuery<any[]>({
+    queryKey: ["links", wsId],
+    queryFn: async () => {
+      const res = await fetch(`/api/links?workspaceId=${wsId}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.links || [];
+    },
+    enabled: !!wsId,
   });
 
-  if (!workspace) {
-    const baseName = dbUser.firstName || dbUser.name || dbUser.email || "My";
-    const slug = `${slugify(baseName)}-${dbUser.id.slice(0, 8)}`;
-    const [created] = await db
-      .insert(workspaces)
-      .values({
-        name: `${baseName}'s Workspace`,
-        slug,
-        ownerId: dbUser.id,
-        isDefault: true,
-      })
-      .returning();
-    workspace = created;
+  if (wsLoading || isLoading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="text-sm text-muted-foreground">Loading links...</div>
+      </div>
+    );
   }
 
-  if (!workspace) {
+  const links = linksData || initialLinks;
+
+  if (!wsId) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white">
+      <div className="flex min-h-[400px] items-center justify-center rounded-xl border border-dashed border-border">
         <div className="text-center">
-          <h2 className="text-lg font-medium text-slate-950">No workspace found</h2>
-          <p className="mt-1 text-sm text-slate-600">Please create a workspace to manage links.</p>
+          <h2 className="text-lg font-medium text-foreground">No workspace found</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Create a workspace to manage links.</p>
         </div>
       </div>
     );
   }
 
-  const userLinks = await db.query.links.findMany({
-    where: (l, { eq }) => eq(l.workspaceId, workspace.id),
-    orderBy: (l, { desc }) => [desc(l.createdAt)],
-  });
-
   return (
     <LinksDashboardClient
-      workspaceId={workspace.id}
-      initialLinks={userLinks as any}
+      workspaceId={wsId}
+      initialLinks={links as any}
     />
   );
 }
