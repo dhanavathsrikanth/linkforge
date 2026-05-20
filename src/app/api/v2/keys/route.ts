@@ -2,8 +2,25 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { apiKeys, workspaces } from "@/lib/db/schema";
+import { apiKeys, workspaces, users } from "@/lib/db/schema";
 import { createApiKey } from "@/lib/api-auth";
+
+async function getWorkspaceId(userId: string): Promise<string | null> {
+  const [dbUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.clerkId, userId))
+    .limit(1);
+  if (!dbUser) return null;
+
+  const [workspace] = await db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(eq(workspaces.ownerId, dbUser.id))
+    .limit(1);
+
+  return workspace?.id ?? null;
+}
 
 export async function GET() {
   const { userId } = await auth();
@@ -11,13 +28,8 @@ export async function GET() {
     return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Not authenticated." } }, { status: 401 });
   }
 
-  const [workspace] = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(eq(workspaces.ownerId, userId))
-    .limit(1);
-
-  if (!workspace) {
+  const workspaceId = await getWorkspaceId(userId);
+  if (!workspaceId) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "No workspace found." } }, { status: 404 });
   }
 
@@ -33,7 +45,7 @@ export async function GET() {
       createdAt: apiKeys.createdAt,
     })
     .from(apiKeys)
-    .where(eq(apiKeys.workspaceId, workspace.id))
+    .where(eq(apiKeys.workspaceId, workspaceId))
     .orderBy(apiKeys.createdAt);
 
   return NextResponse.json({ data: keys });
@@ -45,13 +57,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Not authenticated." } }, { status: 401 });
   }
 
-  const [workspace] = await db
-    .select({ id: workspaces.id, plan: workspaces.plan })
-    .from(workspaces)
-    .where(eq(workspaces.ownerId, userId))
-    .limit(1);
-
-  if (!workspace) {
+  const workspaceId = await getWorkspaceId(userId);
+  if (!workspaceId) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "No workspace found." } }, { status: 404 });
   }
 
@@ -73,7 +80,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { plaintextKey, keyPrefix } = await createApiKey(workspace.id, name.trim(), keyType);
+    const { plaintextKey, keyPrefix } = await createApiKey(workspaceId, name.trim(), keyType);
 
     return NextResponse.json({
       data: {

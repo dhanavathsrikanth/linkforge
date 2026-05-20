@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
-import { apiKeys, workspaces } from "@/lib/db/schema";
+import { apiKeys, workspaces, users } from "@/lib/db/schema";
 
 export async function DELETE(
   _req: Request,
@@ -13,10 +13,19 @@ export async function DELETE(
     return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Not authenticated." } }, { status: 401 });
   }
 
+  const [dbUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.clerkId, userId))
+    .limit(1);
+  if (!dbUser) {
+    return NextResponse.json({ error: { code: "NOT_FOUND", message: "No workspace found." } }, { status: 404 });
+  }
+
   const [workspace] = await db
     .select({ id: workspaces.id })
     .from(workspaces)
-    .where(eq(workspaces.ownerId, userId))
+    .where(eq(workspaces.ownerId, dbUser.id))
     .limit(1);
 
   if (!workspace) {
