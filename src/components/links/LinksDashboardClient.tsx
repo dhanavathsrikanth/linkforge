@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, MousePointerClick, Globe, Monitor, Smartphone, TrendingUp } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, MousePointerClick, Globe, Monitor, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
@@ -47,11 +47,11 @@ function OverviewCards({ linkId, workspaceId }: { linkId: string; workspaceId: s
   });
 
   const cards = [
-    { label: "Total Clicks", value: data?.totalClicks ?? 0, icon: MousePointerClick, color: "text-violet-600 bg-violet-50" },
-    { label: "Unique Clicks", value: data?.uniqueClicks ?? 0, icon: TrendingUp, color: "text-emerald-600 bg-emerald-50" },
-    { label: "Today", value: data?.clicksToday ?? 0, icon: BarChart2, color: "text-blue-600 bg-blue-50" },
-    { label: "Top Device", value: data?.topDevice || "—", icon: Monitor, color: "text-amber-600 bg-amber-50" },
-    { label: "Top Country", value: data?.topCountry || "—", icon: Globe, color: "text-rose-600 bg-rose-50" },
+    { label: "Total Clicks", value: data?.totalClicks ?? 0, icon: MousePointerClick, iconBg: "bg-violet-100 dark:bg-violet-900/40", iconColor: "text-violet-600 dark:text-violet-400" },
+    { label: "Unique Clicks", value: data?.uniqueClicks ?? 0, icon: TrendingUp, iconBg: "bg-emerald-100 dark:bg-emerald-900/40", iconColor: "text-emerald-600 dark:text-emerald-400" },
+    { label: "Today", value: data?.clicksToday ?? 0, icon: BarChart2, iconBg: "bg-blue-100 dark:bg-blue-900/40", iconColor: "text-blue-600 dark:text-blue-400" },
+    { label: "Top Device", value: data?.topDevice || "—", icon: Monitor, iconBg: "bg-amber-100 dark:bg-amber-900/40", iconColor: "text-amber-600 dark:text-amber-400" },
+    { label: "Top Country", value: data?.topCountry || "—", icon: Globe, iconBg: "bg-rose-100 dark:bg-rose-900/40", iconColor: "text-rose-600 dark:text-rose-400" },
   ];
 
   return (
@@ -59,7 +59,7 @@ function OverviewCards({ linkId, workspaceId }: { linkId: string; workspaceId: s
       {cards.map((c) => (
         <div key={c.label} className="rounded-lg border border-border bg-card p-3">
           <div className="flex items-center gap-2 mb-1.5">
-            <div className={`flex h-6 w-6 items-center justify-center rounded-md ${c.color}`}>
+            <div className={`flex h-6 w-6 items-center justify-center rounded-md ${c.iconBg} ${c.iconColor}`}>
               <c.icon className="h-3.5 w-3.5" />
             </div>
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{c.label}</span>
@@ -97,20 +97,24 @@ function BreakdownBars({ linkId, workspaceId, dimension, label }: { linkId: stri
     <div className="rounded-lg border border-border bg-card p-3">
       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</h4>
       <div className="space-y-1.5">
-        {items.map((item: any) => (
-          <div key={item.label}>
-            <div className="flex items-center justify-between text-xs mb-0.5">
-              <span className="font-medium text-foreground">{item.label}</span>
-              <span className="text-muted-foreground tabular-nums">{item.clicks}</span>
+        {items.map((item: any, i: number) => {
+          const hues = ["from-blue-500 to-indigo-500", "from-emerald-500 to-teal-500", "from-violet-500 to-purple-500", "from-amber-500 to-orange-500"];
+          const gradient = hues[i % hues.length];
+          return (
+            <div key={item.label}>
+              <div className="flex items-center justify-between text-xs mb-0.5">
+                <span className="font-medium text-foreground">{item.label}</span>
+                <span className="text-muted-foreground tabular-nums">{item.clicks}</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all`}
+                  style={{ width: `${Math.max(item.percentage, 3)}%` }}
+                />
+              </div>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary/60 transition-all"
-                style={{ width: `${Math.max(item.percentage, 3)}%` }}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -146,7 +150,7 @@ function MiniSparkline({ linkId, workspaceId }: { linkId: string; workspaceId: s
         {points.map((p: any, i: number) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
             <div
-              className="w-full rounded-t-sm bg-primary/60 hover:bg-primary/80 transition-all min-h-[2px]"
+              className="w-full rounded-t-sm bg-gradient-to-t from-blue-500 to-indigo-400 hover:from-blue-600 hover:to-indigo-500 transition-all min-h-[2px]"
               style={{ height: `${(p.clicks / max) * 100}%` }}
             />
             <span className="text-[9px] text-muted-foreground tabular-nums">
@@ -223,7 +227,7 @@ export function LinksDashboardClient({
         <button
           type="button"
           onClick={() => openAdvanced({})}
-          className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90"
+          className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         >
           <Plus className="h-4 w-4" />
           Create Link
@@ -239,10 +243,10 @@ export function LinksDashboardClient({
 
       {links.length === 0 ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary mb-4">
-            <BarChart2 className="h-6 w-6 text-primary" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+            <BarChart2 className="h-6 w-6 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold">Create your first link</h3>
+          <h3 className="text-lg font-semibold text-foreground">Create your first link</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             Paste a URL above to instantly shorten it, or click Create Link for advanced options.
           </p>
@@ -294,7 +298,7 @@ export function LinksDashboardClient({
                             {link.title || link.destination.replace(/^https?:\/\//, "")}
                           </p>
                           {link.password && (
-                            <span className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-600 border border-amber-200">
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                               Locked
                             </span>
                           )}
@@ -308,11 +312,11 @@ export function LinksDashboardClient({
                           <button
                             type="button"
                             onClick={() => copy(shortUrl, link.id)}
-                            className="group inline-flex items-center gap-1 rounded-md bg-primary/5 px-2 py-1 font-mono text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+                            className="group inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                             title="Click to copy"
                           >
                             {defaultDomain}/{link.slug}
-                            <span className="text-muted-foreground group-hover:text-primary">
+                            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
                               {isCopied ? (
                                 <Check className="h-3 w-3 text-emerald-500" />
                               ) : (
@@ -324,7 +328,7 @@ export function LinksDashboardClient({
                             href={shortUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-foreground"
+                            className="text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
@@ -344,7 +348,7 @@ export function LinksDashboardClient({
                           <button
                             type="button"
                             onClick={() => toggleExpand(link.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-slate-600 hover:bg-slate-100 transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-800"
                             title="Analytics"
                           >
                             <BarChart2 className="h-3.5 w-3.5" />
@@ -360,7 +364,7 @@ export function LinksDashboardClient({
                           <button
                             type="button"
                             onClick={() => setQrLinkId(link.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-slate-600 hover:bg-slate-100 transition-colors dark:hover:text-slate-300 dark:hover:bg-slate-800"
                             title="QR Code"
                           >
                             <QrCode className="h-3.5 w-3.5" />
