@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy } from "lucide-react";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { cn, getDefaultDomain } from "@/lib/utils";
+import { cn, getShortLinkBase } from "@/lib/utils";
 
 type Props = {
   workspaceId: string;
@@ -14,7 +14,7 @@ type Props = {
 
 export function QuickCreateBar({
   workspaceId,
-  defaultDomain = getDefaultDomain(),
+  defaultDomain = getShortLinkBase(),
   onCreated,
   onAdvanced,
 }: Props) {

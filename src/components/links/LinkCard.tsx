@@ -15,13 +15,13 @@ import { RealtimeClicks } from "../analytics/RealtimeClicks";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
-import { getDefaultDomain } from "@/lib/utils";
+import { getShortLinkBase } from "@/lib/utils";
 
 export function LinkCard({ link }: { link: any }) {
   const [copied, setCopied] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [qrPanelOpen, setQrPanelOpen] = useState(false);
-  const defaultDomain = getDefaultDomain();
+  const defaultDomain = getShortLinkBase();
   const shortUrl = `https://${defaultDomain}/${link.slug}`;
 
   const handleCopy = () => {

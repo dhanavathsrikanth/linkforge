@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Download, Settings2, QrCode, Scan } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getShortLinkBase } from "@/lib/utils";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { QRCustomizePanel } from "./QRCustomizePanel";
@@ -20,9 +20,7 @@ interface Props {
   };
   defaultDomain?: string;
 }
-import { getDefaultDomain } from "@/lib/utils";
-
-export function QRCard({ link, defaultDomain = getDefaultDomain() }: Props) {
+export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
   const shortUrl = `https://${defaultDomain}/${link.slug}`;
   const qrTargetUrl = `${shortUrl}?source=qr`;
   const settings: QRSettings = link.qrSettings ?? DEFAULT_QR_SETTINGS;

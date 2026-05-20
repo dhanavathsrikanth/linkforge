@@ -25,3 +25,7 @@ export function getDefaultDomain() {
   const url = getAppUrl();
   return url.replace(/^https?:\/\//, "");
 }
+
+export function getShortLinkBase() {
+  return `${getDefaultDomain()}/s`;
+}

@@ -22,9 +22,9 @@ interface Props {
   links: LinkRow[];
   defaultDomain?: string;
 }
-import { getDefaultDomain } from "@/lib/utils";
+import { getShortLinkBase } from "@/lib/utils";
 
-export function QRCodesClient({ links, defaultDomain = getDefaultDomain() }: Props) {
+export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Props) {
   const [standaloneUrl, setStandaloneUrl] = useState("");
   const [standaloneValid, setStandaloneValid] = useState(false);
   const [standaloneDownloading, setStandaloneDownloading] = useState(false);
