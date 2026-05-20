@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",     // Dodo & Clerk webhooks (must stay public)
   "/p/(.*)",
   "/api/links/resolve(.*)",
+  "/api/internal(.*)",
 ]);
 
 export const proxy = clerkMiddleware(async (auth, req) => {

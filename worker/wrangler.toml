@@ -1,26 +1,25 @@
-name            = "linkforge-worker"
+name            = "linkforge"
 main            = "src/index.ts"
-compatibility_date  = "2025-05-12"
+compatibility_date  = "2025-07-18"
 compatibility_flags = ["nodejs_compat"]
 
-# ─── KV Namespaces ────────────────────────────────────────────────────────────
-# Create via: wrangler kv:namespace create LINKS_KV
+# ─── KV Namespace ─────────────────────────────────────────────────────────────
+# Created via Cloudflare Dashboard → Workers & Pages → KV
 [[kv_namespaces]]
 binding = "LINKS_KV"
-id      = "your_kv_namespace_id"          # Replace with real ID after creation
+id      = "d42094ab250442ec82ba7cdea8afc573"
 
 # ─── Environment Variables ────────────────────────────────────────────────────
-# Set secrets via: wrangler secret put WORKER_SECRET
 [vars]
-API_URL = "https://linkforge.app"
-# WORKER_SECRET is set as a Cloudflare secret (not a plain var)
-# Run: wrangler secret put WORKER_SECRET
+API_URL = "https://linkforge-jet.vercel.app"
+# WORKER_SECRET is set via Cloudflare Dashboard (not in this file)
 
 # ─── Local dev overrides ──────────────────────────────────────────────────────
 [env.development]
 [[env.development.kv_namespaces]]
 binding = "LINKS_KV"
-id = "your_kv_namespace_id"
+id = "d42094ab250442ec82ba7cdea8afc573"
 
 [env.development.vars]
 API_URL = "http://localhost:3000"
+# WORKER_SECRET is loaded from .dev.vars for local dev
