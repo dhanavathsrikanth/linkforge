@@ -99,6 +99,8 @@ export async function GET(
       const browser = parseBrowser(ua);
       const os = parseOs(ua);
       const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "XX";
+      const city = req.headers.get("cf-ipcity") || req.headers.get("x-vercel-ip-city") || null;
+      const region = req.headers.get("cf-region") || req.headers.get("x-vercel-ip-country-region") || null;
       const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
       const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
       const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return ""; } })() : "";
@@ -116,6 +118,8 @@ export async function GET(
           browser,
           os,
           country,
+          city,
+          region,
           referrer,
           referrerDomain,
           isQrScan,

@@ -9,6 +9,11 @@ import { QuickCreateBar } from "./QuickCreateBar";
 import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import { RealtimeClicks } from "@/components/analytics/RealtimeClicks";
+import { KPICard } from "@/components/analytics/KPICard";
+import { ClicksChart } from "@/components/analytics/ClicksChart";
+import { TopCountries } from "@/components/analytics/TopCountries";
+import { DonutChart } from "@/components/analytics/DonutChart";
+import { TopReferrers } from "@/components/analytics/TopReferrers";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { getShortLinkBase } from "@/lib/utils";
@@ -35,135 +40,57 @@ type Props = {
   defaultDomain?: string;
 };
 
-function OverviewCards({ linkId, workspaceId }: { linkId: string; workspaceId: string }) {
-  const { data } = useQuery<any>({
-    queryKey: ["analytics", "overview", workspaceId, "7d", linkId],
+function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string }) {
+  const { data: overview, isLoading: overviewLoading } = useQuery<any>({
+    queryKey: ["analytics", "overview", workspaceId, "7d", link.id],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/analytics/overview?workspaceId=${workspaceId}&range=7d&linkId=${linkId}`);
+      const res = await fetch(`/api/v1/analytics/overview?workspaceId=${workspaceId}&range=7d&linkId=${link.id}`);
       if (!res.ok) return null;
       return res.json();
     },
     enabled: !!workspaceId,
   });
 
-  const cards = [
-    { label: "Total Clicks", value: data?.totalClicks ?? 0, icon: MousePointerClick, iconBg: "bg-violet-100 dark:bg-violet-900/40", iconColor: "text-violet-600 dark:text-violet-400" },
-    { label: "Unique Clicks", value: data?.uniqueClicks ?? 0, icon: TrendingUp, iconBg: "bg-emerald-100 dark:bg-emerald-900/40", iconColor: "text-emerald-600 dark:text-emerald-400" },
-    { label: "Today", value: data?.clicksToday ?? 0, icon: BarChart2, iconBg: "bg-blue-100 dark:bg-blue-900/40", iconColor: "text-blue-600 dark:text-blue-400" },
-    { label: "Top Device", value: data?.topDevice || "—", icon: Monitor, iconBg: "bg-amber-100 dark:bg-amber-900/40", iconColor: "text-amber-600 dark:text-amber-400" },
-    { label: "Top Country", value: data?.topCountry || "—", icon: Globe, iconBg: "bg-rose-100 dark:bg-rose-900/40", iconColor: "text-rose-600 dark:text-rose-400" },
-  ];
-
-  return (
-    <div className="grid grid-cols-5 gap-3">
-      {cards.map((c) => (
-        <div key={c.label} className="rounded-lg border border-border bg-card p-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className={`flex h-6 w-6 items-center justify-center rounded-md ${c.iconBg} ${c.iconColor}`}>
-              <c.icon className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{c.label}</span>
-          </div>
-          <p className="text-lg font-bold text-foreground tabular-nums">{c.value}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BreakdownBars({ linkId, workspaceId, dimension, label }: { linkId: string; workspaceId: string; dimension: "device" | "country"; label: string }) {
-  const { data } = useQuery<any[]>({
-    queryKey: ["analytics", "breakdown", workspaceId, linkId, "7d", dimension],
+  const { data: timeSeries, isLoading: timeSeriesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "timeseries", workspaceId, link.id, "7d"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${linkId}&dimension=${dimension}`);
+      const res = await fetch(`/api/v1/analytics/timeseries?workspaceId=${workspaceId}&range=7d&linkId=${link.id}`);
       if (!res.ok) return [];
       return res.json();
     },
     enabled: !!workspaceId,
   });
 
-  const items = data?.slice(0, dimension === "device" ? 4 : 6) ?? [];
-
-  if (items.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-3">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</h4>
-        <p className="text-xs text-muted-foreground">No data yet</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</h4>
-      <div className="space-y-1.5">
-        {items.map((item: any, i: number) => {
-          const hues = ["from-blue-500 to-indigo-500", "from-emerald-500 to-teal-500", "from-violet-500 to-purple-500", "from-amber-500 to-orange-500"];
-          const gradient = hues[i % hues.length];
-          return (
-            <div key={item.label}>
-              <div className="flex items-center justify-between text-xs mb-0.5">
-                <span className="font-medium text-foreground">{item.label}</span>
-                <span className="text-muted-foreground tabular-nums">{item.clicks}</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                <div
-                  className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all`}
-                  style={{ width: `${Math.max(item.percentage, 3)}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function MiniSparkline({ linkId, workspaceId }: { linkId: string; workspaceId: string }) {
-  const { data } = useQuery<any[]>({
-    queryKey: ["analytics", "timeseries", workspaceId, linkId, "7d"],
+  const { data: countries, isLoading: countriesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "country"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/analytics/timeseries?workspaceId=${workspaceId}&range=7d&linkId=${linkId}`);
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=country`);
       if (!res.ok) return [];
       return res.json();
     },
     enabled: !!workspaceId,
   });
 
-  const points = data ?? [];
-  const max = Math.max(...points.map((p: any) => p.clicks), 1);
+  const { data: devices, isLoading: devicesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "device"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=device`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
 
-  if (points.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-3">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Last 7 Days</h4>
-        <p className="text-xs text-muted-foreground">No data yet</p>
-      </div>
-    );
-  }
+  const { data: referrers, isLoading: referrersLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "referrer"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=referrer`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
 
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Last 7 Days</h4>
-      <div className="flex items-end gap-1 h-16 pt-1">
-        {points.map((p: any, i: number) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-            <div
-              className="w-full rounded-t-sm bg-gradient-to-t from-blue-500 to-indigo-400 hover:from-blue-600 hover:to-indigo-500 transition-all min-h-[2px]"
-              style={{ height: `${(p.clicks / max) * 100}%` }}
-            />
-            <span className="text-[9px] text-muted-foreground tabular-nums">
-              {new Date(p.date).getDate()}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -173,15 +100,53 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       className="overflow-hidden"
     >
       <div className="border-t border-border bg-muted/20 px-5 py-4 space-y-4">
-        <OverviewCards linkId={link.id} workspaceId={workspaceId} />
-
-        <div className="grid grid-cols-3 gap-3">
-          <MiniSparkline linkId={link.id} workspaceId={workspaceId} />
-          <BreakdownBars linkId={link.id} workspaceId={workspaceId} dimension="device" label="Devices" />
-          <BreakdownBars linkId={link.id} workspaceId={workspaceId} dimension="country" label="Countries" />
+        {/* KPI Cards Row */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <KPICard label="Total Clicks" value={overview?.totalClicks || 0} growth={overview?.clicksGrowth} isLoading={overviewLoading} />
+          <KPICard label="Unique Visitors" value={overview?.uniqueClicks || 0} isLoading={overviewLoading} />
+          <KPICard label="Today" value={overview?.clicksToday || 0} isLoading={overviewLoading} />
+          <KPICard label="Top Device" value={0} subValue={overview?.topDevice && overview.topDevice !== "unknown" ? overview.topDevice : "—"} isLoading={overviewLoading} />
+          <KPICard label="Top Country" value={0} subValue={overview?.topCountry && overview.topCountry !== "Unknown" ? overview.topCountry : "—"} isLoading={overviewLoading} />
         </div>
 
-        <div className="rounded-lg border border-border bg-card">
+        {/* Clicks Chart */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Clicks Over Time</h3>
+            <span className="text-[11px] text-muted-foreground">Last 7 days</span>
+          </div>
+          <ClicksChart data={timeSeries || []} isLoading={timeSeriesLoading} />
+        </div>
+
+        {/* Three Column Row */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Top Countries</h3>
+            <TopCountries data={countries || []} isLoading={countriesLoading} />
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Device Breakdown</h3>
+            <DonutChart data={devices || []} isLoading={devicesLoading} />
+            {devices && devices.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-3">
+                {devices.slice(0, 3).map((d: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: ["#8b5cf6", "#3b82f6", "#10b981"][i] }} />
+                    <span className="text-xs text-muted-foreground">{d.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Top Referrers</h3>
+            <TopReferrers data={referrers || []} isLoading={referrersLoading} />
+          </div>
+        </div>
+
+        {/* Live Activity */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Live Activity</h3>
           <RealtimeClicks slug={link.slug} />
         </div>
       </div>
