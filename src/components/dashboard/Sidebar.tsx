@@ -23,13 +23,13 @@ import { useEffect, useState } from "react";
 const mainNav = [
   { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
   { name: "Links",       href: "/dashboard/links",            icon: Link2 },
-  { name: "Link in Bio", href: "/link-in-bio",                icon: LayoutList,      badge: "COMING SOON" },
+  { name: "Link in Bio", href: "/dashboard/link-in-bio",      icon: LayoutList,      badge: "COMING SOON" },
   { name: "QR Codes",    href: "/dashboard/qr",               icon: QrCode },
   { name: "Analytics",   href: "/dashboard/analytics",        icon: BarChart3 },
 ];
 
 const workspaceNav = [
-  { name: "Domains",     href: "/settings/domains",           icon: Globe,           badge: "COMING SOON" },
+  { name: "Domains",     href: "/dashboard/domain",           icon: Globe,           badge: "COMING SOON" },
   { name: "Billing",     href: "/dashboard/billings",         icon: CreditCard },
   { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
 ];

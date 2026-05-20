@@ -71,7 +71,7 @@ export function CommandPalette() {
             <BarChartIcon />
             <span>Analytics</span>
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/settings/domains"))}>
+          <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/domain"))}>
             <Globe />
             <span>Custom Domains</span>
           </CommandItem>

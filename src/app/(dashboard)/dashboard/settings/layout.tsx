@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { name: "General", href: "/dashboard/settings", icon: Settings },
   { name: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
-  { name: "Domains", href: "/dashboard/settings/domains", icon: Globe },
+  { name: "Domains", href: "/dashboard/domain", icon: Globe },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
