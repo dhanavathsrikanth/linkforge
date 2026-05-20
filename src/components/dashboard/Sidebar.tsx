@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
+import { WorkspaceSwitcher } from "@/components/dashboard/WorkspaceSwitcher";
 import { useEffect, useState } from "react";
 
 const mainNav = [
@@ -82,39 +83,16 @@ export function Sidebar() {
 
   return (
     <aside className="hidden lg:flex w-60 shrink-0 flex-col bg-background border-r border-border h-screen sticky top-0">
-      {/* Brand */}
-      <div className="flex items-center gap-2.5 px-5 h-14 shrink-0 border-b border-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Zap className="h-4 w-4 text-primary-foreground" />
+      {/* Brand + Workspace Switcher */}
+      <div className="flex flex-col shrink-0 border-b border-border">
+        <div className="flex items-center gap-2.5 px-5 h-11">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+            <Zap className="h-3.5 w-3.5 text-primary-foreground" />
+          </div>
+          <span className="text-sm font-bold tracking-tight text-foreground">LinkForge</span>
         </div>
-        <span className="text-base font-bold tracking-tight text-foreground">LinkForge</span>
-      </div>
-
-      {/* User / Workspace profile */}
-      <div className="flex items-center gap-3 px-4 py-4 shrink-0 border-b border-border">
-        {user?.imageUrl ? (
-          <img
-            src={user.imageUrl}
-            alt={displayName}
-            className="h-9 w-9 rounded-full object-cover ring-2 ring-border"
-          />
-        ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground ring-2 ring-border">
-            {initial}
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="truncate text-sm font-semibold text-foreground">
-            {workspace && !workspace.isPersonal ? workspace.name : displayName}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <PlanBadge plan={plan} asLink />
-            {workspace && !workspace.isPersonal && workspace.members.length > 0 && (
-              <span className="text-[10px] text-muted-foreground/60">
-                · {workspace.members.length} {workspace.members.length === 1 ? "member" : "members"}
-              </span>
-            )}
-          </div>
+        <div className="px-2 pb-2">
+          <WorkspaceSwitcher />
         </div>
       </div>
 

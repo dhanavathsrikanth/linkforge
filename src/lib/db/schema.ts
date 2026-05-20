@@ -663,3 +663,28 @@ export const billingEvents = pgTable('billing_events', {
   index('billing_events_workspace_idx').on(t.workspaceId),
   index('billing_events_dodo_id_idx').on(t.dodoEventId)
 ]);
+
+// ─── audit_logs ────────────────────────────────────────────────────────────────
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("audit_logs_workspace_idx").on(t.workspaceId),
+    index("audit_logs_entity_idx").on(t.entityType, t.entityId),
+    index("audit_logs_created_at_idx").on(t.createdAt),
+  ]
+);

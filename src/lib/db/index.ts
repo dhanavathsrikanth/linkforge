@@ -43,6 +43,7 @@ export {
   subscriptions,
   usageOverrides,
   billingEvents,
+  auditLogs,
 } from "./schema";
 
 export type Subscription = typeof schema.subscriptions.$inferSelect;
