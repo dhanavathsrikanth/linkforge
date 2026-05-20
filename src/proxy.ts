@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/s/(.*)",
   "/api/links/resolve(.*)",
   "/api/internal(.*)",
+  "/api/v2(.*)",           // v2 routes handle auth internally (API keys or Clerk)
 ]);
 
 export const proxy = clerkMiddleware(async (auth, req) => {
