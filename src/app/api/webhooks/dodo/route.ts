@@ -46,12 +46,12 @@ export async function POST(req: Request) {
     const rawBody = await req.text();
     const headersList = req.headers;
 
-    const svix_id = headersList.get("svix-id");
-    const svix_timestamp = headersList.get("svix-timestamp");
-    const svix_signature = headersList.get("svix-signature");
+    const svix_id = headersList.get("webhook-id");
+    const svix_timestamp = headersList.get("webhook-timestamp");
+    const svix_signature = headersList.get("webhook-signature");
 
     if (!svix_id || !svix_timestamp || !svix_signature) {
-      return new Response('Missing svix headers', { status: 400 });
+      return new Response('Missing webhook headers', { status: 400 });
     }
 
     const wh = new Webhook(
