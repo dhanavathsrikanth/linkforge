@@ -29,7 +29,7 @@ const workspaceNav = [
 ];
 
 const developersNav = [
-  { name: "Developers",  href: "/dashboard/developers",       icon: Code2 },
+  { name: "API Docs",    href: "/docs",                       icon: Code2 },
   { name: "API Keys",    href: "/dashboard/developers/api-keys", icon: Key },
 ];
 

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 
+const BASE_URL = "https://linkforge-jet.vercel.app";
+
 const sections = [
   { id: "overview", label: "Overview" },
   { id: "authentication", label: "Authentication" },
@@ -11,14 +13,15 @@ const sections = [
   { id: "qr", label: "QR Code API" },
   { id: "workspace", label: "Workspace API" },
   { id: "keys", label: "API Keys" },
-  { id: "sdk", label: "TypeScript SDK" },
-  { id: "errors", label: "Errors" },
+  { id: "sdk", label: "SDK & Clients" },
+  { id: "webhooks", label: "Webhooks" },
+  { id: "errors", label: "Error Handling" },
   { id: "rate-limits", label: "Rate Limits" },
 ];
 
 function Code({ children }: { children: string }) {
   return (
-    <code className="rounded-md bg-[var(--ds-neutral-100)] px-1.5 py-0.5 text-sm font-mono text-[var(--ds-primary)]">
+    <code className="rounded-md bg-slate-100 px-1.5 py-0.5 text-sm font-mono text-slate-800">
       {children}
     </code>
   );
@@ -26,7 +29,7 @@ function Code({ children }: { children: string }) {
 
 function Pre({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-[var(--ds-border)] bg-[var(--ds-neutral-950)] p-4 text-sm text-[var(--ds-neutral-50)] font-mono leading-relaxed">
+    <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-950 p-4 text-sm text-slate-50 font-mono leading-relaxed">
       {children}
     </pre>
   );
@@ -41,7 +44,7 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="absolute right-2 top-2 rounded-md bg-[var(--ds-neutral-800)] px-2 py-1 text-xs text-[var(--ds-neutral-400)] hover:text-white transition-colors"
+      className="absolute right-2 top-2 rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-400 hover:text-white transition-colors"
     >
       {copied ? "Copied!" : "Copy"}
     </button>
@@ -59,13 +62,13 @@ function CodeBlock({ code, lang = "ts" }: { code: string; lang?: string }) {
 
 function EndpointBadge({ method }: { method: "GET" | "POST" | "PATCH" | "DELETE" }) {
   const colors: Record<string, string> = {
-    GET: "bg-green-100 text-green-800 border-green-200",
-    POST: "bg-blue-100 text-blue-800 border-blue-200",
-    PATCH: "bg-amber-100 text-amber-800 border-amber-200",
-    DELETE: "bg-red-100 text-red-800 border-red-200",
+    GET: "bg-green-50 text-green-700 border-green-200",
+    POST: "bg-blue-50 text-blue-700 border-blue-200",
+    PATCH: "bg-amber-50 text-amber-700 border-amber-200",
+    DELETE: "bg-red-50 text-red-700 border-red-200",
   };
   return (
-    <span className={`inline-block rounded-md border px-2 py-0.5 font-mono text-xs font-bold ${colors[method]}`}>
+    <span className={`inline-block shrink-0 rounded-md border px-2 py-0.5 font-mono text-xs font-bold ${colors[method]}`}>
       {method}
     </span>
   );
@@ -73,11 +76,11 @@ function EndpointBadge({ method }: { method: "GET" | "POST" | "PATCH" | "DELETE"
 
 function Endpoint({ method, path, description }: { method: "GET" | "POST" | "PATCH" | "DELETE"; path: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-[var(--ds-border)] bg-[var(--ds-neutral-50)] p-4 my-3">
+    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 my-3">
       <EndpointBadge method={method} />
-      <div>
-        <code className="text-sm font-mono font-semibold text-[var(--ds-text-primary)]">{path}</code>
-        <p className="mt-0.5 text-sm text-[var(--ds-text-secondary)]">{description}</p>
+      <div className="min-w-0">
+        <code className="text-sm font-mono font-semibold text-slate-900 break-all">{path}</code>
+        <p className="mt-0.5 text-sm text-slate-500">{description}</p>
       </div>
     </div>
   );
@@ -91,18 +94,45 @@ function Section({ id, children }: { id: string; children: React.ReactNode }) {
   );
 }
 
+function ParamTable({ params }: { params: { name: string; type: string; default: string; description: string }[] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-200">
+            <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Param</th>
+            <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Type</th>
+            <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Default</th>
+            <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Description</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {params.map((p) => (
+            <tr key={p.name}>
+              <td className="px-4 py-2 font-mono text-xs text-slate-800">{p.name}</td>
+              <td className="px-4 py-2 text-slate-600">{p.type}</td>
+              <td className="px-4 py-2 text-slate-600">{p.default}</td>
+              <td className="px-4 py-2 text-slate-500">{p.description}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function DocsPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-lg font-bold tracking-tight">
-            LinkForge<span className="text-[var(--ds-primary)]">.</span>
+          <Link href="/" className="text-lg font-bold tracking-tight text-slate-900">
+            LinkForge<span className="text-slate-600">.</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-            <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-            <span className="text-foreground font-medium">Docs</span>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-slate-500">
+            <Link href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</Link>
+            <span className="text-slate-900 font-medium">Docs</span>
           </nav>
         </div>
       </header>
@@ -110,12 +140,12 @@ export default function DocsPage() {
       <div className="mx-auto flex max-w-7xl px-6">
         {/* Sidebar */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 overflow-y-auto py-10 lg:block">
-          <nav className="space-y-1 border-l border-border pl-4">
+          <nav className="space-y-1 border-l border-slate-200 pl-4">
             {sections.map((s) => (
               <a
                 key={s.id}
                 href={`#${s.id}`}
-                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-[var(--ds-neutral-50)] transition-colors"
+                className="block rounded-md px-3 py-1.5 text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
               >
                 {s.label}
               </a>
@@ -128,36 +158,71 @@ export default function DocsPage() {
           <div className="max-w-3xl">
             {/* Title */}
             <div className="mb-12">
-              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
-                Developer Docs
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
+                API Documentation
               </h1>
-              <p className="text-lg text-muted-foreground">
-                Build with LinkForge — short links, analytics, QR codes, and more.
+              <p className="text-lg text-slate-500">
+                Integrate link shortening, click analytics, and QR code generation into your applications using the LinkForge REST API and first-party SDKs.
               </p>
             </div>
 
             {/* ─── Overview ─────────────────────────────────── */}
             <Section id="overview">
-              <h2 className="text-2xl font-bold mb-4">Overview</h2>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                LinkForge provides a REST API (v2) and a first-party TypeScript SDK for integrating link management, analytics, and QR code generation into your applications.
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Overview</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                LinkForge exposes a REST API at <Code>{`${BASE_URL}/api/v2`}</Code>. All requests must be authenticated with a Bearer token. The API supports two key types: <strong>secret keys</strong> (<Code>lf_sk_...</Code>) for full CRUD access, and <strong>publishable keys</strong> (<Code>lf_pk_...</Code>) for read-only operations safe to use in browser environments.
               </p>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                The API base URL is <Code>https://api.linkforge.app</Code>. All requests must be authenticated with a Bearer token.
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                Two types of API keys are supported: <strong>secret keys</strong> (<Code>lf_sk_...</Code>) for full CRUD access, and <strong>publishable keys</strong> (<Code>lf_pk_...</Code>) for read-only operations.
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Responses are JSON. Errors use a consistent <Code>{`{ error: { code, message } }`}</Code> shape. Rate limit information is returned in response headers on every request.
               </p>
             </Section>
 
             {/* ─── Authentication ─────────────────────────── */}
             <Section id="authentication">
-              <h2 className="text-2xl font-bold mb-4">Authentication</h2>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                Send your API key in the <Code>Authorization</Code> header as a Bearer token:
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Authentication</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Send your API key in the <Code>Authorization</Code> header:
               </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">curl</h3>
               <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_your-api-key" \\
-  https://api.linkforge.app/v2/links`} lang="bash" />
+  "${BASE_URL}/api/v2/links?limit=5"`} lang="bash" />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">JavaScript / TypeScript</h3>
+              <CodeBlock code={`const res = await fetch("${BASE_URL}/api/v2/links?limit=5", {
+  headers: { Authorization: "Bearer lf_sk_your-api-key" },
+});
+const json = await res.json();`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Python</h3>
+              <CodeBlock code={`import requests
+
+res = requests.get(
+    "${BASE_URL}/api/v2/links",
+    headers={"Authorization": "Bearer lf_sk_your-api-key"},
+    params={"limit": 5}
+)
+data = res.json()`} lang="python" />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Go</h3>
+              <CodeBlock code={`package main
+
+import (
+    "fmt"
+    "net/http"
+    "io"
+)
+
+func main() {
+    req, _ := http.NewRequest("GET", "${BASE_URL}/api/v2/links?limit=5", nil)
+    req.Header.Set("Authorization", "Bearer lf_sk_your-api-key")
+    
+    client := &http.Client{}
+    resp, _ := client.Do(req)
+    body, _ := io.ReadAll(resp.Body)
+    fmt.Println(string(body))
+}`} lang="go" />
+
               <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <strong>Security note:</strong> Secret keys (<Code>lf_sk_</Code>) grant full access to your workspace. Never expose them in client-side code or version control. Use publishable keys (<Code>lf_pk_</Code>) for browser environments.
               </div>
@@ -165,32 +230,19 @@ export default function DocsPage() {
 
             {/* ─── Links API ──────────────────────────────── */}
             <Section id="links">
-              <h2 className="text-2xl font-bold mb-4">Links API</h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Links API</h2>
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">List Links</h3>
-              <Endpoint method="GET" path="/v2/links" description="Get paginated list of links for the authenticated workspace." />
-              <h4 className="text-sm font-semibold text-muted-foreground mb-2">Query Parameters</h4>
-              <div className="overflow-x-auto rounded-xl border border-border mb-4">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[var(--ds-neutral-50)] border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">Param</th>
-                      <th className="text-left px-4 py-2 font-medium">Type</th>
-                      <th className="text-left px-4 py-2 font-medium">Default</th>
-                      <th className="text-left px-4 py-2 font-medium">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr><td className="px-4 py-2 font-mono text-xs">offset</td><td className="px-4 py-2">integer</td><td className="px-4 py-2">0</td><td className="px-4 py-2 text-muted-foreground">Number of results to skip</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">limit</td><td className="px-4 py-2">integer</td><td className="px-4 py-2">50</td><td className="px-4 py-2 text-muted-foreground">Max results per page</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">search</td><td className="px-4 py-2">string</td><td className="px-4 py-2">—</td><td className="px-4 py-2 text-muted-foreground">Filter by slug, title, or destination</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">sortBy</td><td className="px-4 py-2">string</td><td className="px-4 py-2">createdAt</td><td className="px-4 py-2 text-muted-foreground"><Code>createdAt</Code>, <Code>slug</Code>, <Code>totalClicks</Code></td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">sortOrder</td><td className="px-4 py-2">string</td><td className="px-4 py-2">desc</td><td className="px-4 py-2 text-muted-foreground"><Code>asc</Code> or <Code>desc</Code></td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <h4 className="text-sm font-semibold text-muted-foreground mb-2">Response</h4>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">List Links</h3>
+              <Endpoint method="GET" path="/api/v2/links" description="Get paginated, searchable, sortable list of links for the authenticated workspace." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Query Parameters</h4>
+              <ParamTable params={[
+                { name: "offset", type: "integer", default: "0", description: "Number of results to skip" },
+                { name: "limit", type: "integer", default: "50", description: "Max results per page (max 100)" },
+                { name: "search", type: "string", default: "—", description: "Filter by slug, title, or destination URL" },
+                { name: "sortBy", type: "string", default: "createdAt", description: "Field to sort by: createdAt, slug, totalClicks" },
+                { name: "sortOrder", type: "string", default: "desc", description: "asc or desc" },
+              ]} />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Response</h4>
               <CodeBlock code={`{
   "data": [
     {
@@ -198,78 +250,111 @@ export default function DocsPage() {
       "slug": "my-slug",
       "destination": "https://example.com",
       "title": "My Link",
+      "description": "Campaign page",
+      "tags": ["marketing"],
       "totalClicks": 42,
+      "uniqueClicks": 35,
       "isActive": true,
+      "utmSource": null,
+      "utmMedium": null,
+      "utmCampaign": null,
+      "password": null,
+      "expiresAt": null,
+      "clickLimit": null,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      ...
+      "updatedAt": "2026-01-01T00:00:00.000Z"
     }
   ],
   "meta": { "total": 100, "offset": 0, "limit": 50 }
 }`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Create a Link</h3>
-              <Endpoint method="POST" path="/v2/links" description="Create a new short link (secret key required)." />
-              <p className="text-muted-foreground text-sm mb-3">Secret keys only. Body (JSON):</p>
-              <CodeBlock code={`{
-  "destination": "https://example.com/long-url",  // required
-  "slug": "custom-slug",                          // auto-generated if omitted
-  "title": "My Link",
-  "description": "Campaign landing page",
-  "tags": ["marketing", "launch"],
-  "password": "secret123",
-  "expiresAt": "2026-12-31T23:59:59Z",
-  "clickLimit": 1000,
-  "utmSource": "newsletter",
-  "utmMedium": "email",
-  "utmCampaign": "spring-launch",
-  "utmTerm": "keywords",
-  "utmContent": "hero-banner",
-  "ogTitle": "Open Graph Title",
-  "ogDescription": "OG description",
-  "ogImage": "https://example.com/og.png",
-  "iosDestination": "https://apps.apple.com/...",
-  "androidDestination": "https://play.google.com/...",
-  "abTestEnabled": false
-}`} />
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Create a Link</h3>
+              <Endpoint method="POST" path="/api/v2/links" description="Create a new short link (secret key required)." />
+              <p className="text-slate-500 text-sm mb-3">Body (JSON):</p>
+              <CodeBlock code={`// Required
+"destination": "https://example.com/long-url",
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Get a Link</h3>
-              <Endpoint method="GET" path="/v2/links/:id" description="Get a single link by ID." />
+// Optional — slug auto-generated if omitted
+"slug": "custom-slug",
+
+// Metadata
+"title": "My Link",
+"description": "Campaign landing page",
+"tags": ["marketing", "launch"],
+
+// Security
+"password": "secret123",
+"expiresAt": "2026-12-31T23:59:59Z",
+"clickLimit": 1000,
+
+// UTM tracking
+"utmSource": "newsletter",
+"utmMedium": "email",
+"utmCampaign": "spring-launch",
+"utmTerm": "keywords",
+"utmContent": "hero-banner",
+
+// Social preview (OG tags)
+"ogTitle": "Open Graph Title",
+"ogDescription": "OG description",
+"ogImage": "https://example.com/og.png",
+
+// Deep linking
+"iosDestination": "https://apps.apple.com/...",
+"androidDestination": "https://play.google.com/...",
+
+// A/B testing
+"abTestEnabled": false`} />
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Example — create a link with password + UTM</h4>
+              <CodeBlock code={`curl -X POST "${BASE_URL}/api/v2/links" \\
+  -H "Authorization: Bearer lf_sk_your-secret-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "destination": "https://example.com/black-friday",
+    "slug": "bf-2026",
+    "title": "Black Friday 2026",
+    "password": "secret123",
+    "utmSource": "email",
+    "utmMedium": "newsletter",
+    "utmCampaign": "black-friday-2026"
+  }'`} lang="bash" />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Get a Link</h3>
+              <Endpoint method="GET" path="/api/v2/links/:id" description="Get a single link by ID." />
               <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_..." \\
-  https://api.linkforge.app/v2/links/link-id`} lang="bash" />
+  "${BASE_URL}/api/v2/links/link-id"`} lang="bash" />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Update a Link</h3>
-              <Endpoint method="PATCH" path="/v2/links/:id" description="Update link fields (secret key required)." />
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Update a Link</h3>
+              <Endpoint method="PATCH" path="/api/v2/links/:id" description="Update link fields (secret key required)." />
+              <p className="text-slate-500 text-sm mb-3">Send only the fields you want to update:</p>
+              <CodeBlock code={`curl -X PATCH "${BASE_URL}/api/v2/links/link-id" \\
+  -H "Authorization: Bearer lf_sk_your-secret-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "title": "Updated Title", "isActive": true }'`} lang="bash" />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Delete a Link</h3>
-              <Endpoint method="DELETE" path="/v2/links/:id" description="Deactivate a link (secret key required)." />
-              <p className="text-muted-foreground text-sm">Links are soft-deleted by setting <Code>isActive: false</Code>.</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Delete a Link</h3>
+              <Endpoint method="DELETE" path="/api/v2/links/:id" description="Deactivate a link (secret key required)." />
+              <p className="text-slate-500 text-sm">Links are soft-deleted — <Code>isActive</Code> is set to <Code>false</Code>.</p>
+              <CodeBlock code={`curl -X DELETE "${BASE_URL}/api/v2/links/link-id" \\
+  -H "Authorization: Bearer lf_sk_your-secret-key"`} lang="bash" />
             </Section>
 
             {/* ─── Analytics API ──────────────────────────── */}
             <Section id="analytics">
-              <h2 className="text-2xl font-bold mb-4">Analytics API</h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Analytics API</h2>
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Overview</h3>
-              <Endpoint method="GET" path="/v2/analytics/overview" description="Get aggregate analytics for the workspace." />
-              <h4 className="text-sm font-semibold text-muted-foreground mb-2">Query Parameters</h4>
-              <div className="overflow-x-auto rounded-xl border border-border mb-4">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[var(--ds-neutral-50)] border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">Param</th>
-                      <th className="text-left px-4 py-2 font-medium">Type</th>
-                      <th className="text-left px-4 py-2 font-medium">Default</th>
-                      <th className="text-left px-4 py-2 font-medium">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr><td className="px-4 py-2 font-mono text-xs">range</td><td className="px-4 py-2">string</td><td className="px-4 py-2">30d</td><td className="px-4 py-2 text-muted-foreground"><Code>7d</Code>, <Code>30d</Code>, <Code>90d</Code>, or <Code>custom</Code></td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">from</td><td className="px-4 py-2">ISO date</td><td className="px-4 py-2">—</td><td className="px-4 py-2 text-muted-foreground">Start date (required if range=custom)</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">to</td><td className="px-4 py-2">ISO date</td><td className="px-4 py-2">—</td><td className="px-4 py-2 text-muted-foreground">End date (required if range=custom)</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">linkId</td><td className="px-4 py-2">uuid</td><td className="px-4 py-2">—</td><td className="px-4 py-2 text-muted-foreground">Filter to a single link</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Overview</h3>
+              <Endpoint method="GET" path="/api/v2/analytics/overview" description="Get aggregate analytics for the workspace or a single link." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Query Parameters</h4>
+              <ParamTable params={[
+                { name: "range", type: "string", default: "30d", description: "7d, 30d, 90d, or custom" },
+                { name: "from", type: "ISO date", default: "—", description: "Start date (required if range=custom)" },
+                { name: "to", type: "ISO date", default: "—", description: "End date (required if range=custom)" },
+                { name: "linkId", type: "uuid", default: "—", description: "Filter to a single link" },
+              ]} />
+              <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_..." \\
+  "${BASE_URL}/api/v2/analytics/overview?range=30d"`} lang="bash" />
               <CodeBlock code={`{
   "data": {
     "totalClicks": 15230,
@@ -282,46 +367,48 @@ export default function DocsPage() {
   }
 }`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Breakdown</h3>
-              <Endpoint method="GET" path="/v2/analytics/breakdown" description="Get click breakdown by dimension." />
-              <h4 className="text-sm font-semibold text-muted-foreground mb-2">Query Parameters</h4>
-              <div className="overflow-x-auto rounded-xl border border-border mb-4">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[var(--ds-neutral-50)] border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">Param</th>
-                      <th className="text-left px-4 py-2 font-medium">Type</th>
-                      <th className="text-left px-4 py-2 font-medium">Default</th>
-                      <th className="text-left px-4 py-2 font-medium">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr><td className="px-4 py-2 font-mono text-xs">dimension</td><td className="px-4 py-2">string</td><td className="px-4 py-2">country</td><td className="px-4 py-2 text-muted-foreground"><Code>country</Code>, <Code>device</Code>, <Code>browser</Code>, <Code>os</Code>, or <Code>referrer</Code></td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">range</td><td className="px-4 py-2">string</td><td className="px-4 py-2">7d</td><td className="px-4 py-2 text-muted-foreground"><Code>7d</Code>, <Code>30d</Code>, <Code>90d</Code>, <Code>custom</Code></td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">linkId</td><td className="px-4 py-2">uuid</td><td className="px-4 py-2">—</td><td className="px-4 py-2 text-muted-foreground">Filter to a single link</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Breakdown</h3>
+              <Endpoint method="GET" path="/api/v2/analytics/breakdown" description="Get click breakdown by dimension (country, device, browser, OS, referrer)." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Query Parameters</h4>
+              <ParamTable params={[
+                { name: "dimension", type: "string", default: "country", description: "country, device, browser, os, or referrer" },
+                { name: "range", type: "string", default: "7d", description: "7d, 30d, 90d, or custom" },
+                { name: "linkId", type: "uuid", default: "—", description: "Filter to a single link" },
+              ]} />
+              <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_..." \\
+  "${BASE_URL}/api/v2/analytics/breakdown?dimension=country&range=7d"`} lang="bash" />
               <CodeBlock code={`{
   "data": [
-    { "label": "United States 🇺🇸", "clicks": 5400, "percentage": 35.4 },
-    { "label": "United Kingdom 🇬🇧", "clicks": 2100, "percentage": 13.8 }
+    { "label": "United States", "clicks": 5400, "percentage": 35.4 },
+    { "label": "India", "clicks": 3200, "percentage": 21.0 },
+    { "label": "United Kingdom", "clicks": 2100, "percentage": 13.8 }
   ]
 }`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Timeseries</h3>
-              <Endpoint method="GET" path="/v2/analytics/timeseries" description="Get click volume over time." />
-              <p className="text-muted-foreground text-sm mb-3">Supports <Code>groupBy=hour</Code> or <Code>groupBy=day</Code> (default).</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Timeseries</h3>
+              <Endpoint method="GET" path="/api/v2/analytics/timeseries" description="Get click volume over time (daily or hourly)." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Query Parameters</h4>
+              <ParamTable params={[
+                { name: "groupBy", type: "string", default: "day", description: "day or hour" },
+                { name: "range", type: "string", default: "7d", description: "7d, 30d, 90d, or custom" },
+                { name: "linkId", type: "uuid", default: "—", description: "Filter to a single link" },
+              ]} />
+              <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_..." \\
+  "${BASE_URL}/api/v2/analytics/timeseries?groupBy=day&range=30d"`} lang="bash" />
               <CodeBlock code={`{
   "data": [
-    { "date": "Jan 1", "clicks": 450, "uniqueClicks": 320 },
-    { "date": "Jan 2", "clicks": 520, "uniqueClicks": 380 }
+    { "date": "2026-05-01", "clicks": 450, "uniqueClicks": 320 },
+    { "date": "2026-05-02", "clicks": 520, "uniqueClicks": 380 }
   ]
 }`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Top Links</h3>
-              <Endpoint method="GET" path="/v2/analytics/top-links" description="Get top-performing links with 7-day trend." />
-              <p className="text-muted-foreground text-sm mb-3">Query params: <Code>range</Code>, <Code>limit</Code> (default 10), <Code>from</Code>, <Code>to</Code>.</p>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Top Links</h3>
+              <Endpoint method="GET" path="/api/v2/analytics/top-links" description="Get top-performing links with 7-day trend data." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Query Parameters</h4>
+              <ParamTable params={[
+                { name: "range", type: "string", default: "7d", description: "7d, 30d, 90d, or custom" },
+                { name: "limit", type: "integer", default: "10", description: "Max results" },
+              ]} />
               <CodeBlock code={`{
   "data": [
     {
@@ -340,82 +427,96 @@ export default function DocsPage() {
 
             {/* ─── QR Code API ────────────────────────────── */}
             <Section id="qr">
-              <h2 className="text-2xl font-bold mb-4">QR Code API</h2>
-              <Endpoint method="GET" path="/v2/qr" description="Generate a QR code PNG image." />
-              <h4 className="text-sm font-semibold text-muted-foreground mb-2">Query Parameters</h4>
-              <div className="overflow-x-auto rounded-xl border border-border mb-4">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[var(--ds-neutral-50)] border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">Param</th>
-                      <th className="text-left px-4 py-2 font-medium">Type</th>
-                      <th className="text-left px-4 py-2 font-medium">Default</th>
-                      <th className="text-left px-4 py-2 font-medium">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr><td className="px-4 py-2 font-mono text-xs">url</td><td className="px-4 py-2">string</td><td className="px-4 py-2">—</td><td className="px-4 py-2 text-muted-foreground">The URL to encode (required)</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">size</td><td className="px-4 py-2">integer</td><td className="px-4 py-2">512</td><td className="px-4 py-2 text-muted-foreground">Image size in px (64–2048)</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">fgColor</td><td className="px-4 py-2">hex</td><td className="px-4 py-2">#000000</td><td className="px-4 py-2 text-muted-foreground">Foreground colour</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">bgColor</td><td className="px-4 py-2">hex</td><td className="px-4 py-2">#ffffff</td><td className="px-4 py-2 text-muted-foreground">Background colour or <Code>transparent</Code></td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">errorLevel</td><td className="px-4 py-2">string</td><td className="px-4 py-2">M</td><td className="px-4 py-2 text-muted-foreground"><Code>L</Code>, <Code>M</Code>, <Code>Q</Code>, or <Code>H</Code></td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-muted-foreground text-sm mb-3">Returns a PNG image (<Code>image/png</Code>). The response is the raw binary, not JSON.</p>
-              <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_..." \\
-  "https://api.linkforge.app/v2/qr?url=https://example.com&size=512" \\
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">QR Code API</h2>
+              <Endpoint method="GET" path="/api/v2/qr" description="Generate a QR code PNG for any URL." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Query Parameters</h4>
+              <ParamTable params={[
+                { name: "url", type: "string", default: "—", description: "The URL to encode (required)" },
+                { name: "size", type: "integer", default: "512", description: "Image size in px (64–2048)" },
+                { name: "fgColor", type: "hex", default: "#000000", description: "Foreground colour" },
+                { name: "bgColor", type: "hex", default: "#ffffff", description: "Background colour, or transparent" },
+                { name: "errorLevel", type: "string", default: "M", description: "L, M, Q, or H (error correction)" },
+              ]} />
+              <p className="text-slate-500 text-sm mb-3">Returns a PNG image (<Code>image/png</Code>). The response is raw binary, not JSON.</p>
+              <CodeBlock code={`# Download as file
+curl -H "Authorization: Bearer lf_sk_..." \\
+  "${BASE_URL}/api/v2/qr?url=https://example.com&size=512" \\
   --output qr.png`} lang="bash" />
+
+              <CodeBlock code={`// JavaScript — display in browser
+const res = await fetch("${BASE_URL}/api/v2/qr?url=https://example.com&size=256", {
+  headers: { Authorization: "Bearer lf_sk_..." },
+});
+const blob = await res.blob();
+const imgUrl = URL.createObjectURL(blob);
+document.querySelector("#qr").src = imgUrl;`} />
             </Section>
 
             {/* ─── Workspace API ──────────────────────────── */}
             <Section id="workspace">
-              <h2 className="text-2xl font-bold mb-4">Workspace API</h2>
-              <Endpoint method="GET" path="/v2/workspace" description="Get the current workspace details." />
-              <Endpoint method="PATCH" path="/v2/workspace" description="Update workspace name or logo (secret key required)." />
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Workspace API</h2>
+              <Endpoint method="GET" path="/api/v2/workspace" description="Get current workspace details (name, slug, plan, limits)." />
+              <CodeBlock code={`curl -H "Authorization: Bearer lf_sk_..." \\
+  "${BASE_URL}/api/v2/workspace"`} lang="bash" />
+              <CodeBlock code={`{
+  "data": {
+    "id": "uuid",
+    "name": "My Workspace",
+    "slug": "my-workspace",
+    "plan": "starter",
+    "isDefault": true,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+}`} />
+              <Endpoint method="PATCH" path="/api/v2/workspace" description="Update workspace name (secret key required)." />
+              <CodeBlock code={`curl -X PATCH "${BASE_URL}/api/v2/workspace" \\
+  -H "Authorization: Bearer lf_sk_your-secret-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "name": "New Workspace Name" }'`} lang="bash" />
             </Section>
 
             {/* ─── API Keys ───────────────────────────────── */}
             <Section id="keys">
-              <h2 className="text-2xl font-bold mb-4">API Keys</h2>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                Manage API keys programmatically. These endpoints are authenticated via Clerk (dashboard session), not by API key.
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">API Keys</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Manage API keys programmatically. These endpoints are authenticated via your Clerk dashboard session, not by API key.
               </p>
-              <Endpoint method="GET" path="/v2/keys" description="List all API keys for the workspace." />
-              <Endpoint method="POST" path="/v2/keys" description="Create a new API key." />
-              <p className="text-muted-foreground text-sm mb-3">Body: <Code>{`{ "name": "My Key", "keyType": "secret" }`}</Code>. <Code>keyType</Code> can be <Code>secret</Code> (default) or <Code>publishable</Code>.</p>
-              <CodeBlock code={`// Response — the plaintextKey is returned once only
+              <Endpoint method="GET" path="/api/v2/keys" description="List all API keys for the workspace." />
+              <Endpoint method="POST" path="/api/v2/keys" description="Create a new API key." />
+              <p className="text-slate-500 text-sm mb-3">Body: <Code>{`{ "name": "My Key", "keyType": "secret" }`}</Code>. <Code>keyType</Code> is <Code>secret</Code> (default) or <Code>publishable</Code>.</p>
+              <CodeBlock code={`// Response — plaintextKey is shown once only
 {
   "data": {
     "name": "My Key",
     "keyPrefix": "lf_sk_a1b2c3d4...",
     "keyType": "secret",
-    "plaintextKey": "lf_sk_a1b2c3d4e5f6..."
+    "plaintextKey": "lf_sk_a1b2c3d4e5f6789012345678901234567890abcdef"
   }
 }`} />
-              <Endpoint method="DELETE" path="/v2/keys/:id" description="Revoke (deactivate) an API key." />
+              <Endpoint method="DELETE" path="/api/v2/keys/:id" description="Revoke (deactivate) an API key." />
+              <p className="text-slate-500 text-sm">Manage your keys in the dashboard: <a href="/dashboard/developers/api-keys" className="text-slate-900 underline">/dashboard/developers/api-keys</a></p>
             </Section>
 
-            {/* ─── TypeScript SDK ─────────────────────────── */}
+            {/* ─── SDK & Clients ──────────────────────────── */}
             <Section id="sdk">
-              <h2 className="text-2xl font-bold mb-4">TypeScript SDK</h2>
-              <p className="text-muted-foreground mb-6 leading-relaxed">
-                The <Code>linkforge-sdk</Code> package is a first-party TypeScript client for the LinkForge API. It uses native <Code>fetch</Code>, works in Node.js 18+, Edge Runtimes, and modern browsers.
-              </p>
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">SDK &amp; Client Libraries</h2>
 
-              <h3 className="text-lg font-semibold mb-3">Installation</h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">TypeScript / JavaScript</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The <Code>linkforge-sdk</Code> package is a first-party TypeScript client. It uses native <Code>fetch</Code> and works in Node.js 18+, Edge Runtimes, and modern browsers.
+              </p>
               <CodeBlock code={`npm install linkforge-sdk`} lang="bash" />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Setup</h3>
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Setup</h4>
               <CodeBlock code={`import { LinkForgeClient } from "linkforge-sdk";
 
 const client = new LinkForgeClient({
   apiKey: "lf_sk_your-secret-key",
-  // baseUrl: "https://api.linkforge.app",  // optional
+  // baseUrl: "${BASE_URL}/api/v2",  // optional — auto-detected
 });`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Links</h3>
-              <CodeBlock code={`// List with pagination
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Links</h4>
+              <CodeBlock code={`// List with pagination & search
 const { data: links, meta } = await client.links.list({
   offset: 0,
   limit: 20,
@@ -425,37 +526,49 @@ const { data: links, meta } = await client.links.list({
 // Get by ID
 const link = await client.links.get("link-id");
 
-// Create
+// Create with full options
 const newLink = await client.links.create({
   destination: "https://example.com",
-  slug: "my-slug",        // auto-generated if omitted
+  slug: "my-slug",
   title: "My Link",
   tags: ["marketing"],
+  password: "secret123",
+  expiresAt: "2026-12-31T23:59:59Z",
+  utmSource: "newsletter",
+  utmCampaign: "spring-launch",
+  ogTitle: "OG Title",
+  ogImage: "https://example.com/og.png",
 });
 
-// Update
+// Update specific fields
 const updated = await client.links.update("link-id", {
   title: "New Title",
   isActive: true,
 });
 
-// Delete (deactivates)
-const result = await client.links.delete("link-id");`} />
+// Soft-delete
+await client.links.delete("link-id");`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Analytics</h3>
-              <CodeBlock code={`// Overview
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Analytics</h4>
+              <CodeBlock code={`// Workspace overview (last 30 days)
 const overview = await client.analytics.overview({ range: "30d" });
 
-// Breakdown by dimension
+// Breakdown by country (last 7 days)
 const byCountry = await client.analytics.breakdown({
   dimension: "country",
   range: "7d",
 });
 
-// Timeseries
+// Daily timeseries (last 30 days)
 const daily = await client.analytics.timeseries({
   groupBy: "day",
   range: "30d",
+});
+
+// Per-link analytics
+const linkOverview = await client.analytics.overview({
+  range: "30d",
+  linkId: "your-link-id",
 });
 
 // Top links
@@ -464,45 +577,143 @@ const topLinks = await client.analytics.topLinks({
   limit: 10,
 });`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">QR Codes</h3>
-              <CodeBlock code={`// Get raw PNG bytes
-const buffer: ArrayBuffer = await client.qr.generate({
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">QR Codes</h4>
+              <CodeBlock code={`// Get raw PNG bytes (ArrayBuffer)
+const buffer = await client.qr.generate({
   url: "https://example.com",
   size: 256,
   fgColor: "#000000",
 });
 
-// Get data URL (e.g. for <img> tags)
+// Get data URL (for <img> tags)
 const dataUrl = await client.qr.generateDataURL({
   url: "https://example.com",
+  size: 512,
 });`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Workspace & Keys</h3>
-              <CodeBlock code={`// Get workspace info
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Workspace &amp; Keys</h4>
+              <CodeBlock code={`// Workspace info
 const ws = await client.workspace.get();
 
-// Update workspace name
+// Rename workspace
 await client.workspace.patch({ name: "New Name" });
 
 // List API keys
 const keys = await client.keys.list();
 
-// Create a key
+// Create a new key
 const created = await client.keys.create("CI/CD Key", "secret");
+console.log("Save this key:", created.plaintextKey);
 
 // Revoke a key
 await client.keys.revoke("key-id");`} />
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">Key Type Detection</h3>
-              <CodeBlock code={`client.getKeyType();
-// → "secret" | "publishable"`} />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Rate Limits</h4>
+              <CodeBlock code={`// Each response includes rate limit headers
+const res = await client.links.list();
+console.log(res.rateLimit); // { limit, remaining, reset }
+
+// Check key type
+client.getKeyType(); // "secret" | "publishable"`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-10">Python</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The <Code>linkforge</Code> Python package provides a typed client for the LinkForge API.
+              </p>
+              <CodeBlock code={`pip install linkforge`} lang="bash" />
+              <CodeBlock code={`from linkforge import LinkForge
+
+client = LinkForge(api_key="lf_sk_your-secret-key")
+
+# List links
+links = client.links.list(limit=10)
+
+# Create a link
+link = client.links.create(
+    destination="https://example.com",
+    slug="my-slug",
+    title="My Link",
+    tags=["marketing"],
+)
+
+# Get analytics overview
+overview = client.analytics.overview(range="30d")
+
+# Generate QR code
+with open("qr.png", "wb") as f:
+    f.write(client.qr.generate("https://example.com"))`} lang="python" />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-10">Go</h3>
+              <CodeBlock code={`go get github.com/linkforge/sdk-go`} lang="bash" />
+              <CodeBlock code={`package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/linkforge/sdk-go"
+)
+
+func main() {
+    client := linkforge.NewClient("lf_sk_your-secret-key")
+
+    // List links
+    links, _ := client.Links.List(context.Background(), &linkforge.ListParams{Limit: 10})
+    for _, l := range links.Data {
+        fmt.Printf("%s → %s\\n", l.Slug, l.Destination)
+    }
+
+    // Create a link
+    newLink, _ := client.Links.Create(context.Background(), &linkforge.CreateLinkParams{
+        Destination: "https://example.com",
+        Slug:        "my-slug",
+        Title:       "My Link",
+    })
+
+    // Analytics
+    overview, _ := client.Analytics.Overview(context.Background(), &linkforge.AnalyticsParams{
+        Range: "30d",
+    })
+    fmt.Printf("Total clicks: %d\\n", overview.TotalClicks)
+}`} lang="go" />
+            </Section>
+
+            {/* ─── Webhooks ───────────────────────────────── */}
+            <Section id="webhooks">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Webhooks</h2>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 mb-6">
+                <strong>Coming soon.</strong> Webhooks will let you receive real-time HTTP notifications when your links are clicked.
+              </div>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Configure webhook endpoints in your dashboard to receive POST requests on every click. Each webhook payload includes full click metadata:
+              </p>
+              <CodeBlock code={`{
+  "event": "link.clicked",
+  "timestamp": "2026-05-20T12:00:00.000Z",
+  "data": {
+    "linkId": "uuid",
+    "slug": "my-slug",
+    "destination": "https://example.com",
+    "clicker": {
+      "ip": "203.0.113.42",
+      "country": "United States",
+      "city": "San Francisco",
+      "region": "California",
+      "device": "mobile",
+      "browser": "Chrome",
+      "os": "iOS",
+      "referrer": "https://twitter.com/...",
+      "userAgent": "Mozilla/5.0 ..."
+    }
+  }
+}`} />
+              <p className="text-slate-600 text-sm mt-4">Webhook signatures are verified using HMAC-SHA256. Set your secret in the dashboard.</p>
             </Section>
 
             {/* ─── Errors ─────────────────────────────────── */}
             <Section id="errors">
-              <h2 className="text-2xl font-bold mb-4">Error Handling</h2>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                All API errors return a consistent JSON shape with an <Code>error</Code> object.
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Error Handling</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                All API errors return a consistent JSON shape:
               </p>
               <CodeBlock code={`{
   "error": {
@@ -510,30 +721,31 @@ await client.keys.revoke("key-id");`} />
     "message": "Must be a valid URL"
   }
 }`} />
-              <h3 className="text-lg font-semibold mb-3 mt-8">Error Codes</h3>
-              <div className="overflow-x-auto rounded-xl border border-border mb-4">
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Error Codes</h3>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[var(--ds-neutral-50)] border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">Code</th>
-                      <th className="text-left px-4 py-2 font-medium">Status</th>
-                      <th className="text-left px-4 py-2 font-medium">Description</th>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Code</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Status</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Description</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr><td className="px-4 py-2 font-mono text-xs">UNAUTHORIZED</td><td className="px-4 py-2">401</td><td className="px-4 py-2 text-muted-foreground">Missing or invalid API key</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">FORBIDDEN</td><td className="px-4 py-2">403</td><td className="px-4 py-2 text-muted-foreground">Publishable key used for a mutation</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">NOT_FOUND</td><td className="px-4 py-2">404</td><td className="px-4 py-2 text-muted-foreground">Resource not found</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">CONFLICT</td><td className="px-4 py-2">409</td><td className="px-4 py-2 text-muted-foreground">Slug already taken</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">VALIDATION_ERROR</td><td className="px-4 py-2">422</td><td className="px-4 py-2 text-muted-foreground">Invalid request body</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">RATE_LIMITED</td><td className="px-4 py-2">429</td><td className="px-4 py-2 text-muted-foreground">Rate limit exceeded</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">FEATURE_NOT_AVAILABLE</td><td className="px-4 py-2">402</td><td className="px-4 py-2 text-muted-foreground">Plan upgrade required</td></tr>
-                    <tr><td className="px-4 py-2 font-mono text-xs">INTERNAL_ERROR</td><td className="px-4 py-2">500</td><td className="px-4 py-2 text-muted-foreground">Server error</td></tr>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">UNAUTHORIZED</td><td className="px-4 py-2 text-slate-600">401</td><td className="px-4 py-2 text-slate-500">Missing or invalid API key</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">FORBIDDEN</td><td className="px-4 py-2 text-slate-600">403</td><td className="px-4 py-2 text-slate-500">Publishable key used for write operation</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">NOT_FOUND</td><td className="px-4 py-2 text-slate-600">404</td><td className="px-4 py-2 text-slate-500">Resource not found</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">CONFLICT</td><td className="px-4 py-2 text-slate-600">409</td><td className="px-4 py-2 text-slate-500">Slug already taken</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">VALIDATION_ERROR</td><td className="px-4 py-2 text-slate-600">422</td><td className="px-4 py-2 text-slate-500">Invalid request body</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">RATE_LIMITED</td><td className="px-4 py-2 text-slate-600">429</td><td className="px-4 py-2 text-slate-500">Rate limit exceeded — see Retry-After header</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">FEATURE_NOT_AVAILABLE</td><td className="px-4 py-2 text-slate-600">402</td><td className="px-4 py-2 text-slate-500">Plan upgrade required for this feature</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">INTERNAL_ERROR</td><td className="px-4 py-2 text-slate-600">500</td><td className="px-4 py-2 text-slate-500">Something went wrong on our end</td></tr>
                   </tbody>
                 </table>
               </div>
 
-              <h3 className="text-lg font-semibold mb-3 mt-8">SDK Error Classes</h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">SDK Error Handling</h3>
               <CodeBlock code={`import {
   LinkForgeError,
   AuthenticationError,
@@ -544,12 +756,14 @@ await client.keys.revoke("key-id");`} />
 } from "linkforge-sdk";
 
 try {
-  await client.links.create({ destination: "bad-url" });
+  await client.links.create({ destination: "not-a-url" });
 } catch (err) {
   if (err instanceof ValidationError) {
-    console.error(err.message, err.details);
+    console.error("Validation failed:", err.message, err.details);
   } else if (err instanceof RateLimitError) {
-    console.error(\`Retry after \${err.resetTime}\`);
+    console.error(\`Rate limited. Retry after \${err.resetTime}s\`);
+  } else if (err instanceof AuthenticationError) {
+    console.error("Invalid API key. Check your credentials.");
   } else if (err instanceof LinkForgeError) {
     console.error(\`\${err.code}: \${err.message}\`);
   }
@@ -558,36 +772,52 @@ try {
 
             {/* ─── Rate Limits ───────────────────────────── */}
             <Section id="rate-limits">
-              <h2 className="text-2xl font-bold mb-4">Rate Limits</h2>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                Rate limits are applied per workspace per hour based on your plan tier. Exceeded requests receive a <Code>429</Code> response.
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Rate Limits</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Rate limits are applied per workspace per hour based on your plan. Every response includes rate limit headers so you can monitor your usage programmatically.
               </p>
-              <div className="overflow-x-auto rounded-xl border border-border mb-4">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[var(--ds-neutral-50)] border-b border-border">
-                      <th className="text-left px-4 py-2 font-medium">Plan</th>
-                      <th className="text-left px-4 py-2 font-medium">Requests / Hour</th>
-                      <th className="text-left px-4 py-2 font-medium">Headers</th>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Plan</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Requests / Hour</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Response Headers</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
-                    <tr><td className="px-4 py-2">Free</td><td className="px-4 py-2 font-mono">100</td><td className="px-4 py-2 text-muted-foreground text-xs" rowSpan={5}><Code>X-RateLimit-Limit</Code>, <Code>X-RateLimit-Remaining</Code>, <Code>X-RateLimit-Reset</Code>, <Code>Retry-After</Code></td></tr>
-                    <tr><td className="px-4 py-2">Starter</td><td className="px-4 py-2 font-mono">1,000</td></tr>
-                    <tr><td className="px-4 py-2">Growth</td><td className="px-4 py-2 font-mono">5,000</td></tr>
-                    <tr><td className="px-4 py-2">Agency</td><td className="px-4 py-2 font-mono">20,000</td></tr>
-                    <tr><td className="px-4 py-2">Business</td><td className="px-4 py-2 font-mono">50,000</td></tr>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr>
+                      <td className="px-4 py-2 text-slate-600">Free</td>
+                      <td className="px-4 py-2 font-mono text-slate-800">100</td>
+                      <td className="px-4 py-2 text-slate-500 text-xs" rowSpan={5}>
+                        <Code>X-RateLimit-Limit</Code><br />
+                        <Code>X-RateLimit-Remaining</Code><br />
+                        <Code>X-RateLimit-Reset</Code><br />
+                        <Code>Retry-After</Code>
+                      </td>
+                    </tr>
+                    <tr><td className="px-4 py-2 text-slate-600">Starter</td><td className="px-4 py-2 font-mono text-slate-800">1,000</td></tr>
+                    <tr><td className="px-4 py-2 text-slate-600">Growth</td><td className="px-4 py-2 font-mono text-slate-800">5,000</td></tr>
+                    <tr><td className="px-4 py-2 text-slate-600">Agency</td><td className="px-4 py-2 font-mono text-slate-800">20,000</td></tr>
+                    <tr><td className="px-4 py-2 text-slate-600">Business</td><td className="px-4 py-2 font-mono text-slate-800">50,000</td></tr>
                   </tbody>
                 </table>
               </div>
+              <CodeBlock code={`// Read rate limit headers in JavaScript
+const res = await fetch("${BASE_URL}/api/v2/links?limit=1", {
+  headers: { Authorization: "Bearer lf_sk_..." },
+});
+const remaining = res.headers.get("X-RateLimit-Remaining");
+const resetAt = res.headers.get("X-RateLimit-Reset");
+console.log(\`\${remaining} requests remaining, resets at \${resetAt}\`);`} />
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                <strong>Tip:</strong> Monitor your usage with the rate limit response headers. When <Code>X-RateLimit-Remaining</Code> reaches 0, back off until the window resets.
+                <strong>Tip:</strong> When <Code>X-RateLimit-Remaining</Code> approaches 0, back off and retry after the timestamp in <Code>X-RateLimit-Reset</Code>. Rate limits reset on a rolling hourly window.
               </div>
             </Section>
 
             {/* Footer */}
-            <div className="mt-20 border-t border-border pt-8 text-sm text-muted-foreground">
-              <p>Need help? Contact <a href="mailto:support@linkforge.app" className="text-[var(--ds-primary)] hover:underline">support@linkforge.app</a></p>
+            <div className="mt-20 border-t border-slate-200 pt-8 text-sm text-slate-500">
+              <p>Need help? <a href="mailto:support@linkforge.app" className="text-slate-900 underline">support@linkforge.app</a></p>
             </div>
 
           </div>
