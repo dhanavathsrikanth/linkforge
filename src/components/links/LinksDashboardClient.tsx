@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2 } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
@@ -166,6 +166,8 @@ export function LinksDashboardClient({
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, startDelete] = useTransition();
   const [advancedPrefill, setAdvancedPrefill] = useState<{ destination?: string; slug?: string }>({});
   const [qrLinkId, setQrLinkId] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
@@ -178,6 +180,26 @@ export function LinksDashboardClient({
   function openAdvanced(prefill: { destination?: string; slug?: string }) {
     setAdvancedPrefill(prefill);
     setAdvancedOpen(true);
+  }
+
+  function handleDelete(linkId: string) {
+    startDelete(async () => {
+      try {
+        const res = await fetch(`/api/links/${linkId}?workspaceId=${workspaceId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          console.error("Delete failed", err);
+          return;
+        }
+        setLinks((prev) => prev.filter((l) => l.id !== linkId));
+      } catch (e) {
+        console.error("Delete error", e);
+      } finally {
+        setDeleteId(null);
+      }
+    });
   }
 
   function toggleExpand(id: string) {
@@ -345,6 +367,16 @@ export function LinksDashboardClient({
                             >
                               <QrCode className="h-3.5 w-3.5" />
                             </button>
+                            {!isViewer && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteId(link.id)}
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30"
+                                title="Delete link"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </motion.tr>
@@ -402,6 +434,36 @@ export function LinksDashboardClient({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground">Delete link?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This action cannot be undone. All analytics data for this link will also be removed.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteId(null)}
+                disabled={deleting}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(deleteId)}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

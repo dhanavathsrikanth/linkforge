@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, CreditCard, Globe, Users } from "lucide-react";
+import { Settings, CreditCard, Globe, Users, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -10,6 +10,7 @@ const tabs = [
   { name: "Members", href: "/dashboard/settings/members", icon: Users },
   { name: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
   { name: "Domains", href: "/dashboard/domain", icon: Globe },
+  { name: "Audit Logs", href: "/dashboard/settings/audit-logs", icon: History },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
