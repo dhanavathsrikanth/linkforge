@@ -6,6 +6,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhooks(.*)",     // Dodo & Clerk webhooks (must stay public)
   "/p/(.*)",
+  "/s/(.*)",
   "/api/links/resolve(.*)",
   "/api/internal(.*)",
 ]);
