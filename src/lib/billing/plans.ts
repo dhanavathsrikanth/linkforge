@@ -3,6 +3,7 @@ export const PLANS = {
     name: 'Free', price: 0, annualPrice: 0,
     dodoPriceId: { monthly: null, annual: null },
     limits: {
+      maxOrganizations: 0,
       linksPerMonth: 500,
       clicksTrackedPerMonth: 5000,
       customDomains: 0,
@@ -23,6 +24,7 @@ export const PLANS = {
       annual:  process.env.DODO_PRICE_STARTER_ANNUAL!,
     },
     limits: {
+      maxOrganizations: 1,
       linksPerMonth: 5000,
       clicksTrackedPerMonth: 100000,
       customDomains: 2,
@@ -43,6 +45,7 @@ export const PLANS = {
       annual:  process.env.DODO_PRICE_GROWTH_ANNUAL!,
     },
     limits: {
+      maxOrganizations: 3,
       linksPerMonth: 25000,
       clicksTrackedPerMonth: 1000000,
       customDomains: 5,
@@ -63,6 +66,7 @@ export const PLANS = {
       annual:  process.env.DODO_PRICE_AGENCY_ANNUAL!,
     },
     limits: {
+      maxOrganizations: -1,
       linksPerMonth: -1,
       clicksTrackedPerMonth: -1,
       customDomains: 15,
@@ -83,6 +87,7 @@ export const PLANS = {
       annual:  process.env.DODO_PRICE_BUSINESS_ANNUAL!,
     },
     limits: {
+      maxOrganizations: -1,
       linksPerMonth: -1,
       clicksTrackedPerMonth: -1,
       customDomains: 25,

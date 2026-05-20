@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Check, ChevronsUpDown, Plus, User } from "lucide-react";
-import { useOrganization, useOrganizationList, useClerk } from "@clerk/nextjs";
+import { Check, ChevronsUpDown, Plus, User, ArrowUp } from "lucide-react";
+import { useOrganization, useOrganizationList, useClerk, useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { PlanBadge } from "@/components/billing/PlanBadge";
+import { useQuery } from "@tanstack/react-query";
 
 export function WorkspaceSwitcher() {
   const [open, setOpen] = useState(false);
@@ -25,10 +26,23 @@ export function WorkspaceSwitcher() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const { user } = useUser();
   const orgs =
     listLoaded && userMemberships?.data
       ? userMemberships.data.map((m) => m.organization)
       : [];
+
+  const { data: limitInfo } = useQuery({
+    queryKey: ["workspace-limit"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/workspace-limit");
+      if (!res.ok) return null;
+      return res.json() as Promise<{ allowed: boolean; current: number; limit: number; reason: string | null }>;
+    },
+    enabled: !!user,
+  });
+
+  const atLimit = limitInfo && !limitInfo.allowed && limitInfo.limit !== -1;
 
   return (
     <div ref={ref} className="relative">
@@ -121,6 +135,20 @@ export function WorkspaceSwitcher() {
                 </button>
               ))}
             </>
+          )}
+          {limitInfo && limitInfo.limit > 0 && (
+            <div className="px-3 py-1.5 text-xs text-muted-foreground">
+              {limitInfo.current} of {limitInfo.limit} workspaces used
+            </div>
+          )}
+          {atLimit && (
+            <a
+              href="/dashboard/billings"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+              Upgrade to create more workspaces
+            </a>
           )}
         </div>
       )}

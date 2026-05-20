@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { users, workspaces, workspaceMembers } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { sendWelcomeEmail } from "@/lib/email";
+import { checkUserWorkspaceLimit } from "@/lib/billing/workspace-limits";
 
 type ClerkWebhookEvent = {
   type: string;
@@ -154,6 +155,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Creator not found" }, { status: 200 });
       }
 
+      // Check workspace limit for the user's plan
+      const limitCheck = await checkUserWorkspaceLimit(createdBy);
+      if (!limitCheck.allowed) {
+        console.warn(`[clerk-webhook] Workspace limit reached for ${createdBy}: ${limitCheck.current}/${limitCheck.limit}`);
+        return NextResponse.json({ error: "Workspace limit reached. Upgrade your plan." }, { status: 200 });
+      }
+
       const slug = `${orgSlug}-${orgId.slice(0, 8)}`;
 
       const [ws] = await db
@@ -249,6 +257,13 @@ export async function POST(req: Request) {
         let ownerEmail: string | undefined;
 
         if (createdBy) {
+          // Check workspace limit before auto-creating
+          const limitCheck = await checkUserWorkspaceLimit(createdBy);
+          if (!limitCheck.allowed) {
+            console.warn(`[clerk-webhook] Workspace limit reached for ${createdBy}, skipping auto-create`);
+            return NextResponse.json({ ok: true });
+          }
+
           const [owner] = await db
             .select({ id: users.id, email: users.email })
             .from(users)
