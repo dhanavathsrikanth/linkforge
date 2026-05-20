@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
-import { workspaces } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { workspaces, workspaceMembers } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { createBillingPortalSession } from '@/lib/billing/dodo';
 import { getOrCreateDbUser } from '@/lib/auth';
 
@@ -18,13 +18,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userWorkspaces = await db.query.workspaces.findMany({
-      where: eq(workspaces.ownerId, dbUser.id),
-    });
+    const { workspaceId } = await req.json().catch(() => ({}));
 
-    const workspace = userWorkspaces[0];
+    let workspace;
+    if (workspaceId) {
+      workspace = await db.query.workspaces.findFirst({
+        where: eq(workspaces.id, workspaceId),
+      });
+    } else {
+      const [ws] = await db
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.ownerId, dbUser.id))
+        .limit(1);
+      workspace = ws;
+    }
+
     if (!workspace) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
+    }
+
+    // Only owner or admin can access billing portal
+    if (workspace.ownerId !== dbUser.id) {
+      const [membership] = await db
+        .select({ role: workspaceMembers.role })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace.id),
+            eq(workspaceMembers.userId, dbUser.id)
+          )
+        )
+        .limit(1);
+
+      if (!membership || (membership.role !== 'admin' && membership.role !== 'owner')) {
+        return NextResponse.json({ error: 'Only workspace owners and admins can manage billing' }, { status: 403 });
+      }
     }
 
     if (!workspace.dodoCustomerId) {

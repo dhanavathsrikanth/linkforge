@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { workspaces, users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { workspaces, workspaceMembers, users } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { createCheckoutSession, getOrCreateDodoCustomer } from '@/lib/billing/dodo';
 import { PlanKey } from '@/lib/billing/plans';
 import { getOrCreateDbUser } from '@/lib/auth';
@@ -11,6 +11,7 @@ import { getOrCreateDbUser } from '@/lib/auth';
 const checkoutSchema = z.object({
   plan: z.enum(['free', 'starter', 'growth', 'agency', 'business'] as const),
   billingCycle: z.enum(['monthly', 'annual']),
+  workspaceId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -25,7 +26,6 @@ export async function POST(req: Request) {
     });
 
     if (!dbUser) {
-      // Self-heal: If user is not yet in the DB, fetch from Clerk and create the row
       const createdUser = await getOrCreateDbUser();
       dbUser = createdUser || undefined;
     }
@@ -35,23 +35,46 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { plan, billingCycle } = checkoutSchema.parse(body);
+    const { plan, billingCycle, workspaceId } = checkoutSchema.parse(body);
 
     const email = dbUser.email || '';
     const name = (dbUser.name || dbUser.email || '').trim() || email;
 
-    const userWorkspaces = await db.query.workspaces.findMany({
-      where: eq(workspaces.ownerId, dbUser.id),
-    });
+    // Resolve workspace: use provided workspaceId or fall back to personal workspace
+    let workspace;
+    if (workspaceId) {
+      workspace = await db.query.workspaces.findFirst({
+        where: eq(workspaces.id, workspaceId),
+      });
+    } else {
+      const [ws] = await db
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.ownerId, dbUser.id))
+        .limit(1);
+      workspace = ws;
+    }
 
-    const workspace = userWorkspaces[0];
     if (!workspace) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
     }
 
-    // Compare against the internal DB user ID, not the Clerk userId
+    // Only owner or admin role can upgrade billing
     if (workspace.ownerId !== dbUser.id) {
-      return NextResponse.json({ error: 'Only owners can upgrade billing' }, { status: 403 });
+      const [membership] = await db
+        .select({ role: workspaceMembers.role })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace.id),
+            eq(workspaceMembers.userId, dbUser.id)
+          )
+        )
+        .limit(1);
+
+      if (!membership || (membership.role !== 'admin' && membership.role !== 'owner')) {
+        return NextResponse.json({ error: 'Only workspace owners and admins can upgrade billing' }, { status: 403 });
+      }
     }
 
     await getOrCreateDodoCustomer(email, name, workspace.id);

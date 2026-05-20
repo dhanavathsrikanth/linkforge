@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { workspaces, subscriptions, billingEvents } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { workspaces, workspaceMembers, subscriptions, billingEvents } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { getUsageSummary } from "@/lib/billing/usage";
 import { PLANS, PlanKey } from "@/lib/billing/plans";
 import { UsageMeters } from "@/components/billing/UsageMeters";
@@ -13,12 +13,39 @@ import { getOrCreateDbUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function BillingsPage() {
+type Props = {
+  searchParams: Promise<{ workspaceId?: string }>;
+};
+
+export default async function BillingsPage(props: Props) {
+  const searchParams = await props.searchParams;
   const dbUser = await getOrCreateDbUser();
   if (!dbUser) return <div className="p-6 text-muted-foreground">Loading...</div>;
-  const workspace = await db.query.workspaces.findFirst({
-    where: eq(workspaces.ownerId, dbUser.id)
-  });
+
+  let workspace;
+  if (searchParams.workspaceId) {
+    workspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, searchParams.workspaceId),
+    });
+    if (workspace && workspace.ownerId !== dbUser.id) {
+      const [membership] = await db
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace.id),
+            eq(workspaceMembers.userId, dbUser.id)
+          )
+        )
+        .limit(1);
+      if (!membership) workspace = undefined;
+    }
+  } else {
+    workspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.ownerId, dbUser.id)
+    });
+  }
+
   if (!workspace) return <div className="p-6 text-muted-foreground">No workspace found.</div>;
 
   const summary = await getUsageSummary(workspace.id);
