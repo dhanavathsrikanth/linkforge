@@ -12,6 +12,8 @@ import {
   CreditCard,
   LayoutList,
   Zap,
+  Code2,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
@@ -30,6 +32,11 @@ const workspaceNav = [
   { name: "Domains",     href: "/settings/domains",           icon: Globe,           badge: "COMING SOON" },
   { name: "Billing",     href: "/dashboard/billings",         icon: CreditCard },
   { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
+];
+
+const developersNav = [
+  { name: "Developers",  href: "/dashboard/developers",       icon: Code2 },
+  { name: "API Keys",    href: "/dashboard/developers/api-keys", icon: Key },
 ];
 
 function NavItem({ item, active }: { item: typeof mainNav[number]; active: boolean }) {
@@ -126,6 +133,13 @@ export function Sidebar() {
           Workspace
         </div>
         {workspaceNav.map((item) => (
+          <NavItem key={item.href} item={item} active={isActive(item.href)} />
+        ))}
+
+        <div className="mt-auto mb-1 pt-4 border-t border-border px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          Developers
+        </div>
+        {developersNav.map((item) => (
           <NavItem key={item.href} item={item} active={isActive(item.href)} />
         ))}
       </nav>

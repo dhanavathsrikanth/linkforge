@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import {
   Link2, LayoutDashboard, BarChart3, Settings, QrCode,
   Globe, CreditCard, LayoutList, Zap,
+  Code2, Key,
 } from "lucide-react";
 
 const mainNav = [
@@ -25,6 +26,11 @@ const workspaceNav = [
   { name: "Domains",     href: "/settings/domains",           icon: Globe,           badge: "COMING SOON" },
   { name: "Billing",     href: "/dashboard/billings",         icon: CreditCard },
   { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
+];
+
+const developersNav = [
+  { name: "Developers",  href: "/dashboard/developers",       icon: Code2 },
+  { name: "API Keys",    href: "/dashboard/developers/api-keys", icon: Key },
 ];
 
 export function MobileSidebarToggle() {
@@ -123,6 +129,8 @@ export function MobileSidebarToggle() {
               {mainNav.map((item) => navLink(item, () => setOpen(false)))}
               <div className="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">Workspace</div>
               {workspaceNav.map((item) => navLink(item, () => setOpen(false)))}
+              <div className="mt-auto mb-1 pt-4 border-t border-border px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">Developers</div>
+              {developersNav.map((item) => navLink(item, () => setOpen(false)))}
             </nav>
           </aside>
         </div>
