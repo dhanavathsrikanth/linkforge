@@ -189,33 +189,104 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      // Find the DB workspace linked to this org
-      const [workspace] = await db
-        .select({ id: workspaces.id })
-        .from(workspaces)
-        .where(eq(workspaces.clerkOrgId, orgId))
-        .limit(1);
-
-      if (!workspace) {
-        console.warn("[clerk-webhook] No workspace found for org", orgId);
-        return NextResponse.json({ ok: true });
-      }
-
-      // Find the DB user
-      const [dbUser] = await db
+      // Ensure DB user exists (create on the fly if membership arrived before user.created)
+      let [dbUser] = await db
         .select({ id: users.id })
         .from(users)
         .where(eq(users.clerkId, clerkUserId))
         .limit(1);
 
       if (!dbUser) {
-        console.warn("[clerk-webhook] No DB user found for clerk user", clerkUserId);
+        const pud = data.public_user_data || data.publicUserData || {};
+        const firstName = pud.first_name || "";
+        const lastName = pud.last_name || "";
+        const email = pud.identifier || `${clerkUserId}@clerk.local`;
+        const avatar = pud.image_url || pud.profile_image_url || null;
+
+        [dbUser] = await db
+          .insert(users)
+          .values({
+            clerkId: clerkUserId,
+            email,
+            name: [firstName, lastName].filter(Boolean).join(" ") || null,
+            firstName: firstName || null,
+            lastName: lastName || null,
+            avatar,
+          })
+          .onConflictDoNothing({ target: users.clerkId })
+          .returning({ id: users.id });
+
+        console.log("[clerk-webhook] user auto-created for membership", clerkUserId);
+      }
+
+      if (!dbUser) {
+        console.warn("[clerk-webhook] Could not create/find DB user for", clerkUserId);
+        return NextResponse.json({ ok: true });
+      }
+
+      // Ensure workspace exists (create on the fly if membership arrived before org.created)
+      let [workspace] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.clerkOrgId, orgId))
+        .limit(1);
+
+      if (!workspace) {
+        const org = data.organization || {};
+        const orgName = org.name || org.slug || "Organization";
+        const orgSlug = slugify(org.slug || org.name || "org");
+        const createdBy = org.created_by;
+        let ownerId: string | undefined;
+
+        if (createdBy) {
+          const [owner] = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.clerkId, createdBy))
+            .limit(1);
+          ownerId = owner?.id;
+        }
+
+        const slug = `${orgSlug}-${orgId.slice(0, 8)}`;
+
+        const [ws] = await db
+          .insert(workspaces)
+          .values({
+            name: orgName,
+            slug,
+            ownerId: ownerId || dbUser.id,
+            clerkOrgId: orgId,
+            clerkOrgName: orgName,
+            isDefault: true,
+          })
+          .onConflictDoNothing({ target: workspaces.clerkOrgId })
+          .returning({ id: workspaces.id });
+
+        workspace = ws || (await db
+          .select({ id: workspaces.id })
+          .from(workspaces)
+          .where(eq(workspaces.clerkOrgId, orgId))
+          .limit(1))[0];
+
+        // Also add the creator as admin member
+        if (ws && ownerId && ownerId !== dbUser.id) {
+          await db.insert(workspaceMembers).values({
+            workspaceId: ws.id,
+            userId: ownerId,
+            role: "admin",
+          }).onConflictDoNothing();
+        }
+
+        console.log("[clerk-webhook] workspace auto-created for membership", orgId, orgName);
+      }
+
+      if (!workspace) {
+        console.warn("[clerk-webhook] Could not create/find workspace for org", orgId);
         return NextResponse.json({ ok: true });
       }
 
       const role = data.role === "org:admin" ? "admin" : data.role === "org:member" ? "editor" : "viewer";
 
-      // Upsert workspace membership
       await db
         .insert(workspaceMembers)
         .values({
