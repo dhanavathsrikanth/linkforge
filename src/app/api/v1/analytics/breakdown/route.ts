@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { clicks, workspaces } from "@/lib/db/schema";
+import { clicks, users, workspaces } from "@/lib/db/schema";
 import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 
 interface BreakdownData {
@@ -123,7 +123,10 @@ export async function GET(request: NextRequest) {
       where: eq(workspaces.id, workspaceId),
     });
 
-    if (!workspace || workspace.ownerId !== userId) {
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, userId),
+    });
+    if (!workspace || !dbUser || workspace.ownerId !== dbUser.id) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 

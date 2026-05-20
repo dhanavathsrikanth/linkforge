@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { clicks, links, workspaces } from "@/lib/db/schema";
+import { clicks, links, users, workspaces } from "@/lib/db/schema";
 import { sql, eq, and, gte, lte, count, desc } from "drizzle-orm";
 
 interface OverviewResponse {
@@ -49,6 +49,14 @@ function getDateRange(
   return { start, end, previousStart, previousEnd };
 }
 
+function buildWhere(workspaceId: string, linkId?: string, start?: Date, end?: Date) {
+  const conditions = [eq(clicks.workspaceId, workspaceId)];
+  if (linkId) conditions.push(eq(clicks.linkId, linkId));
+  if (start) conditions.push(gte(clicks.createdAt, start));
+  if (end) conditions.push(lte(clicks.createdAt, end));
+  return and(...conditions);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -58,6 +66,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const workspaceId = searchParams.get("workspaceId");
+    const linkId = searchParams.get("linkId") || undefined;
     const range = searchParams.get("range") || "30d";
     const from = searchParams.get("from") || undefined;
     const to = searchParams.get("to") || undefined;
@@ -66,178 +75,123 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
     }
 
-    // Verify workspace ownership
     const workspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.id, workspaceId),
     });
 
-    if (!workspace || workspace.ownerId !== userId) {
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, userId),
+    });
+    if (!workspace || !dbUser || workspace.ownerId !== dbUser.id) {
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
     const { start, end, previousStart, previousEnd } = getDateRange(range, from, to);
 
-    // Current period clicks
     const currentClicks = await db
-      .select({
-        totalClicks: count(),
-      })
+      .select({ totalClicks: count() })
       .from(clicks)
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
-        )
-      );
+      .where(buildWhere(workspaceId, linkId, start, end));
 
-    // Previous period clicks for growth calculation
     const previousClicks = await db
-      .select({
-        totalClicks: count(),
-      })
+      .select({ totalClicks: count() })
       .from(clicks)
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, previousStart),
-          lte(clicks.createdAt, previousEnd)
-        )
-      );
+      .where(buildWhere(workspaceId, linkId, previousStart, previousEnd));
 
     const totalClicks = currentClicks[0]?.totalClicks || 0;
     const previousTotalClicks = previousClicks[0]?.totalClicks || 0;
 
-    // Calculate growth percentage
     let clicksGrowth = 0;
     if (previousTotalClicks > 0) {
       clicksGrowth = Math.round(((totalClicks - previousTotalClicks) / previousTotalClicks) * 100);
     }
 
-    // Clicks today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayClicks = await db
-      .select({
-        totalClicks: count(),
-      })
+      .select({ totalClicks: count() })
       .from(clicks)
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, today)
-        )
-      );
+      .where(buildWhere(workspaceId, linkId, today));
 
     const clicksToday = todayClicks[0]?.totalClicks || 0;
 
-    // Unique clicks (count distinct IPs)
     const uniqueClicksResult = await db
-      .select({
-        uniqueClicks: sql<number>`count(distinct ${clicks.ip})`,
-      })
+      .select({ uniqueClicks: sql<number>`count(distinct ${clicks.ip})` })
       .from(clicks)
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
-        )
-      );
+      .where(buildWhere(workspaceId, linkId, start, end));
 
     const uniqueClicks = uniqueClicksResult[0]?.uniqueClicks || 0;
 
-    // Top link
-    const topLinkData = await db
-      .select({
-        linkId: clicks.linkId,
-        slug: links.slug,
-        clicks: sql<number>`count(*)::int`,
-      })
-      .from(clicks)
-      .leftJoin(links, eq(clicks.linkId, links.id))
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
-        )
-      )
-      .groupBy(clicks.linkId, links.slug)
-      .orderBy(desc(sql`count(*)`))
-      .limit(1);
-
-    // Get full link details
     let topLink: OverviewResponse["topLink"] = null;
-    if (topLinkData[0]?.linkId) {
-      const linkDetails = await db.query.links.findFirst({
-        where: eq(links.id, topLinkData[0].linkId),
-      });
-      topLink = {
-        id: topLinkData[0].linkId,
-        slug: linkDetails?.slug || topLinkData[0].slug || "unknown",
-        clicks: topLinkData[0].clicks,
-      };
+    if (!linkId) {
+      const topLinkData = await db
+        .select({
+          linkId: clicks.linkId,
+          slug: links.slug,
+          clicks: sql<number>`count(*)::int`,
+        })
+        .from(clicks)
+        .leftJoin(links, eq(clicks.linkId, links.id))
+        .where(buildWhere(workspaceId, undefined, start, end))
+        .groupBy(clicks.linkId, links.slug)
+        .orderBy(desc(sql`count(*)`))
+        .limit(1);
+
+      if (topLinkData[0]?.linkId) {
+        const linkDetails = await db.query.links.findFirst({
+          where: eq(links.id, topLinkData[0].linkId),
+        });
+        topLink = {
+          id: topLinkData[0].linkId,
+          slug: linkDetails?.slug || topLinkData[0].slug || "unknown",
+          clicks: topLinkData[0].clicks,
+        };
+      }
     }
 
-    // Top country
     const topCountryData = await db
       .select({
         country: clicks.country,
         count: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
-        )
-      )
+      .where(buildWhere(workspaceId, linkId, start, end))
       .groupBy(clicks.country)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
     const topCountry = topCountryData[0]?.country || "Unknown";
 
-    // Top device
     const topDeviceData = await db
       .select({
         device: clicks.device,
         count: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(
-        and(
-          eq(clicks.workspaceId, workspaceId),
-          gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
-        )
-      )
+      .where(buildWhere(workspaceId, linkId, start, end))
       .groupBy(clicks.device)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
     const topDevice = topDeviceData[0]?.device || "unknown";
 
-    // Calculate average CTR
-    const linksWithClicks = await db
-      .select({
-        totalClicks: links.totalClicks,
-      })
-      .from(links)
-      .where(eq(links.workspaceId, workspaceId));
+    let averageCTR = 0;
+    if (!linkId) {
+      const linksWithClicks = await db
+        .select({ totalClicks: links.totalClicks })
+        .from(links)
+        .where(eq(links.workspaceId, workspaceId));
 
-    let totalLinkClicks = 0;
-    let linkCount = 0;
-    for (const link of linksWithClicks) {
-      if (link.totalClicks > 0) {
-        totalLinkClicks += link.totalClicks;
-        linkCount++;
+      let totalLinkClicks = 0;
+      let linkCount = 0;
+      for (const link of linksWithClicks) {
+        if (link.totalClicks > 0) {
+          totalLinkClicks += link.totalClicks;
+          linkCount++;
+        }
       }
+      averageCTR = linkCount > 0 ? Math.round((totalLinkClicks / linkCount) * 100) / 100 : 0;
     }
-
-    const averageCTR = linkCount > 0 ? Math.round((totalLinkClicks / linkCount) * 100) / 100 : 0;
 
     const response: OverviewResponse = {
       totalClicks,
