@@ -1,5 +1,6 @@
 "use client";
 
+import QRCode from "qrcode";
 import type { QRSettings } from "@/types/qr";
 import { trackQRDownloaded } from "@/lib/posthog";
 
@@ -22,97 +23,74 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function buildFullSvg(
-  svgEl: SVGSVGElement,
+async function renderToCanvas(
+  text: string,
   settings: QRSettings,
   outputSize: number,
-): SVGSVGElement {
-  const clone = svgEl.cloneNode(true) as SVGSVGElement;
-  const viewBox = clone.getAttribute("viewBox") || "0 0 256 256";
-  const parts = viewBox.split(" ");
-  const qrW = parseFloat(parts[2] || "256");
-  const qrH = parseFloat(parts[3] || "256");
+): Promise<HTMLCanvasElement> {
+  // 1. Render QR pattern on a temporary canvas using the qrcode library
+  const qrCanvas = document.createElement("canvas");
+  await QRCode.toCanvas(qrCanvas, text, {
+    width: outputSize,
+    margin: settings.marginSize ?? 0,
+    color: {
+      dark: settings.fgColor,
+      light: settings.bgColor === "transparent" ? "#ffffff" : settings.bgColor,
+    },
+    errorCorrectionLevel: settings.errorLevel,
+  });
 
+  // 2. Determine output dimensions
   const hasFrame = settings.frameStyle === "scan-me";
-  const extraH = hasFrame ? Math.round(outputSize * 0.07) : 0;
-  const totalH = outputSize + extraH;
+  const frameH = hasFrame ? Math.round(outputSize * 0.08) : 0;
+  const totalH = outputSize + frameH;
 
-  clone.setAttribute("width", String(outputSize));
-  clone.setAttribute("height", String(totalH));
-  clone.setAttribute("viewBox", `0 0 ${qrW} ${qrH + (hasFrame ? Math.round(qrH * 0.07) : 0)}`);
-
-  const ns = "http://www.w3.org/2000/svg";
-
-  if (hasFrame) {
-    const text = document.createElementNS(ns, "text");
-    text.setAttribute("x", String(qrW / 2));
-    text.setAttribute("y", String(qrH + Math.round(qrH * 0.045)));
-    text.setAttribute("text-anchor", "middle");
-    text.setAttribute("font-size", String(Math.round(qrW * 0.055)));
-    text.setAttribute("font-weight", "bold");
-    text.setAttribute("font-family", "sans-serif");
-    text.setAttribute("fill", settings.fgColor);
-    text.textContent = settings.frameText || "SCAN ME";
-    clone.appendChild(text);
-  }
-
-  if (settings.rounded) {
-    const defs = document.createElementNS(ns, "defs");
-    const clipPath = document.createElementNS(ns, "clipPath");
-    clipPath.setAttribute("id", "qr-rounded-clip");
-    const rect = document.createElementNS(ns, "rect");
-    const r = Math.round(qrW * 0.06);
-    rect.setAttribute("width", String(qrW));
-    rect.setAttribute("height", String(qrH + (hasFrame ? Math.round(qrH * 0.07) : 0)));
-    rect.setAttribute("rx", String(r));
-    rect.setAttribute("ry", String(r));
-    clipPath.appendChild(rect);
-    defs.appendChild(clipPath);
-    clone.insertBefore(defs, clone.firstChild);
-    const g = document.createElementNS(ns, "g");
-    g.setAttribute("clip-path", "url(#qr-rounded-clip)");
-    while (clone.childNodes.length > 0) {
-      const child = clone.childNodes[0]!;
-      if (child !== defs) {
-        clone.removeChild(child);
-        g.appendChild(child);
-      } else {
-        break;
-      }
-    }
-    clone.appendChild(g);
-  }
-
-  return clone;
-}
-
-async function svgToPngBlob(svg: SVGSVGElement, width: number, height: number): Promise<Blob> {
-  const raw = new XMLSerializer().serializeToString(svg);
-  const withNS = raw.startsWith("<svg")
-    ? raw.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"')
-    : raw;
-  const svgBlob = new Blob([withNS], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
+  // 3. Create final canvas
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = outputSize;
+  canvas.height = totalH;
   const ctx = canvas.getContext("2d")!;
 
-  // Fill background (PNG doesn't support transparency well for clipboard)
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
+  // 4. Fill background (pure white for frame area too)
+  ctx.fillStyle = settings.bgColor === "transparent" ? "#ffffff" : settings.bgColor;
+  ctx.fillRect(0, 0, outputSize, totalH);
 
-  const img = await loadImage(url);
-  URL.revokeObjectURL(url);
-  ctx.drawImage(img, 0, 0, width, height);
+  // 5. Draw the QR pattern
+  ctx.drawImage(qrCanvas, 0, 0);
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => {
-      if (b) resolve(b);
-      else reject(new Error("Canvas toBlob failed"));
-    }, "image/png");
-  });
+  // 6. Overlay logo in centre
+  if (settings.logoUrl) {
+    try {
+      const img = await loadImage(settings.logoUrl);
+      const logoRatio =
+        settings.logoSize === "small" ? 0.15 :
+        settings.logoSize === "large" ? 0.30 : 0.20;
+      const logoW = Math.round(outputSize * logoRatio);
+      const logoH = Math.round(outputSize * logoRatio);
+      const logoX = Math.round((outputSize - logoW) / 2);
+      const logoY = Math.round((outputSize - logoH) / 2);
+
+      // Excavate — fill a white square behind the logo
+      ctx.fillStyle = settings.bgColor === "transparent" ? "#ffffff" : settings.bgColor;
+      ctx.fillRect(logoX, logoY, logoW, logoH);
+      ctx.globalAlpha = settings.logoOpacity ?? 1;
+      ctx.drawImage(img, logoX, logoY, logoW, logoH);
+      ctx.globalAlpha = 1;
+    } catch (e) {
+      console.warn("Logo overlay skipped", e);
+    }
+  }
+
+  // 7. Frame text below the QR code
+  if (hasFrame && (settings.frameText ?? "SCAN ME")) {
+    ctx.fillStyle = settings.fgColor;
+    ctx.font = `bold ${Math.round(outputSize * 0.032)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(settings.frameText || "SCAN ME", outputSize / 2, outputSize + frameH / 2);
+  }
+
+  return canvas;
 }
 
 export async function downloadPNG(
@@ -120,22 +98,16 @@ export async function downloadPNG(
   slug: string,
   settings: QRSettings,
   linkId?: string,
-  svgRef?: SVGSVGElement | null,
 ): Promise<void> {
-  if (!svgRef) {
-    throw new Error("QR SVG not rendered");
-  }
-
-  const outputSize = 1024;
-  const fullSvg = buildFullSvg(svgRef, settings, outputSize);
-  const hasFrame = settings.frameStyle === "scan-me";
-  const extraH = hasFrame ? Math.round(outputSize * 0.07) : 0;
-  const blob = await svgToPngBlob(fullSvg, outputSize, outputSize + extraH);
+  const canvas = await renderToCanvas(targetUrl, settings, 1024);
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => {
+      if (b) resolve(b);
+      else reject(new Error("Canvas toBlob failed"));
+    }, "image/png");
+  });
   triggerDownload(blob, `${slug}-qr.png`);
-
-  if (linkId) {
-    trackQRDownloaded({ linkId, format: "png" });
-  }
+  if (linkId) trackQRDownloaded({ linkId, format: "png" });
 }
 
 export function downloadSVG(
@@ -144,35 +116,26 @@ export function downloadSVG(
   settings: QRSettings,
   linkId?: string,
 ): void {
-  const outputSize = 1024;
-  const fullSvg = buildFullSvg(svgElement, settings, outputSize);
-  const raw = new XMLSerializer().serializeToString(fullSvg);
+  const raw = new XMLSerializer().serializeToString(svgElement);
   const withNS = raw.startsWith("<svg")
     ? raw.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"')
     : raw;
   const blob = new Blob([withNS], { type: "image/svg+xml;charset=utf-8" });
   triggerDownload(blob, `${slug}-qr.svg`);
-
-  if (linkId) {
-    trackQRDownloaded({ linkId, format: "svg" });
-  }
+  if (linkId) trackQRDownloaded({ linkId, format: "svg" });
 }
 
 export async function copyPNGToClipboard(
   targetUrl: string,
   settings: QRSettings,
-  svgRef?: SVGSVGElement | null,
 ): Promise<void> {
-  if (!svgRef) {
-    throw new Error("QR SVG not rendered");
-  }
-
-  const outputSize = 512;
-  const fullSvg = buildFullSvg(svgRef, settings, outputSize);
-  const hasFrame = settings.frameStyle === "scan-me";
-  const extraH = hasFrame ? Math.round(outputSize * 0.07) : 0;
-  const blob = await svgToPngBlob(fullSvg, outputSize, outputSize + extraH);
-
+  const canvas = await renderToCanvas(targetUrl, settings, 512);
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => {
+      if (b) resolve(b);
+      else reject(new Error("Canvas toBlob failed"));
+    }, "image/png");
+  });
   try {
     await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
   } catch {
