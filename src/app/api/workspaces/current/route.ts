@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { workspaces, users, workspaceMembers } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getOrCreateDbUser } from '@/lib/auth';
 
 export async function GET(request: Request) {
   try {
@@ -14,10 +15,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get('orgId');
 
-    const dbUser = await db.query.users.findFirst({
-      where: eq(users.clerkId, userId)
-    });
-
+    // Use getOrCreateDbUser which also auto-creates personal workspace if missing
+    const dbUser = await getOrCreateDbUser();
     if (!dbUser) {
       return NextResponse.json({ error: 'User not found in DB' }, { status: 404 });
     }
@@ -34,7 +33,6 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Workspace not found for org' }, { status: 404 });
       }
 
-      // Get the requesting user's role in this workspace
       const [membership] = await db
         .select({ role: workspaceMembers.role })
         .from(workspaceMembers)
@@ -46,7 +44,6 @@ export async function GET(request: Request) {
         )
         .limit(1);
 
-      // Get all members
       const members = await db.query.workspaceMembers.findMany({
         where: eq(workspaceMembers.workspaceId, workspace.id),
         with: { user: true },
@@ -73,14 +70,13 @@ export async function GET(request: Request) {
       });
     }
 
-    // Personal workspace lookup (existing behavior)
+    // Personal workspace lookup (already auto-created by getOrCreateDbUser)
     let [workspace] = await db
       .select()
       .from(workspaces)
       .where(eq(workspaces.ownerId, dbUser.id))
       .limit(1);
 
-    // Check if user is a member of any workspace via workspaceMembers
     if (!workspace) {
       const [membership] = await db
         .select({ workspaceId: workspaceMembers.workspaceId })
@@ -102,7 +98,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
     }
 
-    // Get members for personal workspace too
     const members = await db.query.workspaceMembers.findMany({
       where: eq(workspaceMembers.workspaceId, workspace.id),
       with: { user: true },
