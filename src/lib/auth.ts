@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { db } from "./db";
-import { users } from "./db";
+import { db, users, workspaces } from "./db";
+import { eq } from "drizzle-orm";
 
 /**
  * Get the current Clerk user ID (server-side, throws if unauthenticated).
@@ -65,6 +65,25 @@ export async function getOrCreateDbUser() {
       },
     })
     .returning();
+
+  // Ensure user has a personal workspace
+  if (user) {
+    const existing = await db.query.workspaces.findFirst({
+      where: eq(workspaces.ownerId, user.id),
+    });
+    if (!existing) {
+      const slugBase = (user.name || user.email || "personal").toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)+/g, "")
+        .slice(0, 32) || "personal";
+      await db.insert(workspaces).values({
+        name: "Personal",
+        slug: `${slugBase}-${user.id.slice(0, 8)}`,
+        ownerId: user.id,
+        isDefault: true,
+      }).onConflictDoNothing();
+    }
+  }
 
   return user;
 }

@@ -108,11 +108,37 @@ export async function POST(req: Request) {
           set: { ...userValues, updatedAt: new Date() },
         });
 
-      if (type === "user.created" && primaryEmail) {
-        const displayName = fullName || primaryEmail.split("@")[0];
-        setTimeout(() => {
-          sendWelcomeEmail(primaryEmail, displayName).catch(() => {});
-        }, 0);
+      if (type === "user.created") {
+        const [createdUser] = await db
+          .select({ id: users.id, name: users.name, email: users.email })
+          .from(users)
+          .where(eq(users.clerkId, data.id))
+          .limit(1);
+
+        if (createdUser) {
+          const existingWs = await db.query.workspaces.findFirst({
+            where: eq(workspaces.ownerId, createdUser.id),
+          });
+          if (!existingWs) {
+            const slugBase = (createdUser.name || createdUser.email || "personal").toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/(^-|-$)+/g, "")
+              .slice(0, 32) || "personal";
+            await db.insert(workspaces).values({
+              name: "Personal",
+              slug: `${slugBase}-${createdUser.id.slice(0, 8)}`,
+              ownerId: createdUser.id,
+              isDefault: true,
+            }).onConflictDoNothing();
+          }
+        }
+
+        if (primaryEmail) {
+          const displayName = fullName || primaryEmail.split("@")[0];
+          setTimeout(() => {
+            sendWelcomeEmail(primaryEmail, displayName).catch(() => {});
+          }, 0);
+        }
       }
     }
 
