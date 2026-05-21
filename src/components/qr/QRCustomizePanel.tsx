@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Popover,
+  PopoverTrigger,
   PopoverContent,
   PopoverHeader,
   PopoverTitle,
@@ -164,6 +165,9 @@ export function QRCustomizePanel({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <div className="fixed top-1/2 left-1/2 w-0 h-0" />
+      </PopoverTrigger>
       <PopoverContent
         className={cn(
           isMobile && "max-w-full h-full max-h-full rounded-none border-0"
