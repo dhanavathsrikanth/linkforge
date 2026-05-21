@@ -110,7 +110,7 @@ export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Pro
             isMobile ? "flex-col items-center text-center" : "items-start"
           )}>
             <div className="rounded-xl border border-border bg-white p-3 shadow-sm shrink-0">
-              <QRCodeSVG value={standaloneUrl} size={isMobile ? 160 : 120} level="M" />
+              <QRCodeSVG value={standaloneUrl} size={isMobile ? 160 : 120} level="M" marginSize={2} />
             </div>
             <div className={cn(
               "flex flex-col gap-1 pt-1",

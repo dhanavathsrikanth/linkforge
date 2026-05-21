@@ -56,13 +56,17 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
             fgColor={currentSettings.fgColor}
             bgColor={currentSettings.bgColor === "transparent" ? "transparent" : currentSettings.bgColor}
             level={currentSettings.errorLevel}
+            marginSize={currentSettings.marginSize}
+            boostLevel={currentSettings.boostLevel}
+            minVersion={currentSettings.minVersion}
             imageSettings={
               currentSettings.logoUrl
                 ? {
                     src: currentSettings.logoUrl,
-                    height: 28,
-                    width: 28,
+                    height: currentSettings.logoSize === "small" ? 20 : currentSettings.logoSize === "large" ? 36 : 28,
+                    width: currentSettings.logoSize === "small" ? 20 : currentSettings.logoSize === "large" ? 36 : 28,
                     excavate: true,
+                    opacity: currentSettings.logoOpacity,
                   }
                 : undefined
             }
@@ -70,7 +74,7 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
           {currentSettings.frameStyle === "scan-me" && (
             <p className="text-[10px] font-bold tracking-widest uppercase"
                style={{ color: currentSettings.fgColor }}>
-              SCAN ME
+              {currentSettings.frameText || "SCAN ME"}
             </p>
           )}
         </div>

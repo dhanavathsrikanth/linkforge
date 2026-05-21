@@ -10,23 +10,22 @@ interface UseQROptionsReturn {
   setErrorLevel: (v: QRSettings["errorLevel"]) => void;
   setSize: (v: number) => void;
   setLogoUrl: (v: string | undefined) => void;
+  setLogoOpacity: (v: number) => void;
+  setLogoSize: (v: QRSettings["logoSize"]) => void;
   setRounded: (v: boolean) => void;
   setFrameStyle: (v: QRSettings["frameStyle"]) => void;
   setFrameText: (v: string | undefined) => void;
+  setMarginSize: (v: number) => void;
+  setBoostLevel: (v: boolean) => void;
+  setMinVersion: (v: number) => void;
   reset: () => void;
 }
 
-/**
- * Manages QR customization state with a 200 ms debounce on the preview
- * so the QR code only re-renders after the user pauses, not on every
- * individual keystroke / slider tick.
- */
 export function useQROptions(initial: QRSettings = DEFAULT_QR_SETTINGS): UseQROptionsReturn {
   const [options, setOptions] = useState<QRSettings>(initial);
   const [debounced, setDebounced] = useState<QRSettings>(initial);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce: update the preview value 200 ms after the last change
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -48,9 +47,14 @@ export function useQROptions(initial: QRSettings = DEFAULT_QR_SETTINGS): UseQROp
     setErrorLevel: (v) => update({ errorLevel: v }),
     setSize: (v) => update({ size: v }),
     setLogoUrl: (v) => update({ logoUrl: v }),
+    setLogoOpacity: (v) => update({ logoOpacity: v }),
+    setLogoSize: (v) => update({ logoSize: v }),
     setRounded: (v) => update({ rounded: v }),
     setFrameStyle: (v) => update({ frameStyle: v }),
     setFrameText: (v) => update({ frameText: v }),
+    setMarginSize: (v) => update({ marginSize: v }),
+    setBoostLevel: (v) => update({ boostLevel: v }),
+    setMinVersion: (v) => update({ minVersion: v }),
     reset: () => {
       setOptions(DEFAULT_QR_SETTINGS);
       setDebounced(DEFAULT_QR_SETTINGS);

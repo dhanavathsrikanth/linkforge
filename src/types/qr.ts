@@ -1,21 +1,17 @@
-// QR code settings type — stored as JSONB in the links.qrSettings column.
 export interface QRSettings {
-  fgColor: string; // hex, default "#000000"
-  bgColor: string; // hex or "transparent", default "#ffffff"
+  fgColor: string;
+  bgColor: string;
   errorLevel: "L" | "M" | "Q" | "H";
-  size: number; // 128–1024
-  /**
-   * base64-encoded data URL for the center logo.
-   * Max 50 KB before encoding. Stored inline in JSONB.
-   */
+  size: number;
   logoUrl?: string;
+  logoOpacity?: number;
+  logoSize?: "small" | "medium" | "large";
   rounded: boolean;
-  /**
-   * Phase 1: only "none" and "scan-me" (label below QR).
-   * "custom" is Phase 2.
-   */
   frameStyle: "none" | "scan-me";
-  frameText?: string; // used when frameStyle === "scan-me" to override label
+  frameText?: string;
+  marginSize?: number;
+  boostLevel?: boolean;
+  minVersion?: number;
 }
 
 export const DEFAULT_QR_SETTINGS: QRSettings = {
@@ -25,4 +21,9 @@ export const DEFAULT_QR_SETTINGS: QRSettings = {
   size: 256,
   rounded: false,
   frameStyle: "none",
+  logoOpacity: 1,
+  logoSize: "medium",
+  marginSize: 0,
+  boostLevel: true,
+  minVersion: 1,
 };
