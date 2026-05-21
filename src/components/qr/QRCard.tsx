@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Download, Settings2, QrCode, Scan } from "lucide-react";
+import { Download, Settings2, Scan } from "lucide-react";
 import { cn, getShortLinkBase } from "@/lib/utils";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
@@ -43,7 +43,7 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
 
   return (
     <>
-      <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+      <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5">
         {/* QR Preview area */}
         <div
           className="flex flex-col items-center justify-center gap-2 p-6 pb-4"
@@ -81,7 +81,7 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
             <h3 className="truncate text-sm font-semibold text-foreground">
               {link.title || link.destination.replace(/^https?:\/\//, "")}
             </h3>
-            <p className="mt-0.5 truncate font-mono text-xs text-primary">
+            <p className="mt-0.5 truncate font-mono text-xs text-primary/80">
               {defaultDomain}/{link.slug}
             </p>
           </div>
