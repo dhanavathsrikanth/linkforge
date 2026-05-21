@@ -3,14 +3,13 @@
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverDescription,
-  PopoverFooter,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { useQROptions } from "./useQROptions";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -180,27 +179,28 @@ export function QRCustomizePanel({
   }
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger render={<div className="fixed top-1/2 left-1/2 w-0 h-0" />} />
-      <PopoverContent
-        className={cn(isMobile && "max-w-full h-full max-h-full rounded-none border-0")}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className={cn(
+          isMobile && "!left-0 !top-0 !translate-x-0 !translate-y-0 max-w-full h-full max-h-full rounded-none border-0"
+        )}
         showCloseButton
       >
-        <PopoverHeader>
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3 pr-6">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shrink-0 ring-1 ring-primary/10">
               <Smartphone className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">
-              <PopoverTitle className="text-base truncate">
+              <DialogTitle className="text-base truncate">
                 {linkTitle || linkSlug}
-              </PopoverTitle>
-              <PopoverDescription className="font-mono text-xs mt-0.5 truncate">
+              </DialogTitle>
+              <DialogDescription className="font-mono text-xs mt-0.5 truncate">
                 {shortUrl}
-              </PopoverDescription>
+              </DialogDescription>
             </div>
           </div>
-        </PopoverHeader>
+        </DialogHeader>
 
         <div className="overflow-y-auto px-6 py-4 space-y-5 max-h-[65vh]">
           {/* ── Preview Row ── */}
@@ -448,7 +448,7 @@ export function QRCustomizePanel({
           )}
         </div>
 
-        <PopoverFooter>
+        <DialogFooter>
           {saveError && (
             <p className="text-xs text-destructive flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
@@ -459,8 +459,8 @@ export function QRCustomizePanel({
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveOk ? <Check className="h-4 w-4" /> : null}
             {saving ? "Saving\u2026" : saveOk ? "Saved!" : "Save QR settings"}
           </Button>
-        </PopoverFooter>
-      </PopoverContent>
-    </Popover>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
