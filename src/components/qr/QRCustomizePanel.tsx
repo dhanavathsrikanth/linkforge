@@ -106,10 +106,15 @@ export function QRCustomizePanel({
     if (!file) return;
     if (file.size > MAX_LOGO_BYTES) {
       setActionError("Logo must be under 50 KB");
+      e.target.value = "";
       return;
     }
+    setActionError(null);
     const reader = new FileReader();
-    reader.onload = () => setLogoUrl(reader.result as string);
+    reader.onload = () => {
+      setLogoUrl(reader.result as string);
+      e.target.value = "";
+    };
     reader.readAsDataURL(file);
   }
 
@@ -205,11 +210,14 @@ export function QRCustomizePanel({
         <div className="overflow-y-auto px-6 py-4 space-y-5 max-h-[65vh]">
           {/* ── Preview Row ── */}
           <div className="flex items-start gap-5 p-4 rounded-xl bg-gradient-to-br from-muted/80 to-muted/30 border border-border/50">
-            <div className="relative flex items-center justify-center rounded-xl border-2 border-border bg-white p-3 shadow-sm shrink-0 w-[120px] h-[120px]">
+            <div className={cn(
+              "relative flex items-center justify-center border-2 border-border bg-white p-3 shadow-sm shrink-0 w-[120px] h-[120px]",
+              debounced.rounded ? "rounded-3xl" : "rounded-xl"
+            )}>
               <QRCodeSVG
                 ref={svgRef as React.Ref<SVGSVGElement>}
                 value={qrTargetUrl}
-                size={90}
+                size={debounced.rounded ? 80 : 90}
                 fgColor={debounced.fgColor}
                 bgColor={debounced.bgColor === "transparent" ? "transparent" : debounced.bgColor}
                 level={debounced.errorLevel}
