@@ -21,13 +21,41 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'User not found in DB' }, { status: 404 });
     }
 
-    // If an org ID is specified, look up that org-linked workspace
+    // If an org ID is specified, look up (or auto-create) that org-linked workspace
     if (orgId) {
-      const [workspace] = await db
+      let [workspace] = await db
         .select()
         .from(workspaces)
         .where(eq(workspaces.clerkOrgId, orgId))
         .limit(1);
+
+      if (!workspace) {
+        const orgSlug = orgId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "").slice(0, 32) || "org";
+        const slug = `${orgSlug}-${orgId.slice(0, 8)}`;
+        const name = `Workspace (${orgId.slice(0, 8)})`;
+
+        const [created] = await db
+          .insert(workspaces)
+          .values({
+            name,
+            slug,
+            ownerId: dbUser.id,
+            clerkOrgId: orgId,
+            clerkOrgName: name,
+            isDefault: true,
+          })
+          .onConflictDoNothing({ target: workspaces.clerkOrgId })
+          .returning();
+
+        if (created) {
+          await db.insert(workspaceMembers).values({
+            workspaceId: created.id,
+            userId: dbUser.id,
+            role: "admin",
+          }).onConflictDoNothing();
+          workspace = created;
+        }
+      }
 
       if (!workspace) {
         return NextResponse.json({ error: 'Workspace not found for org' }, { status: 404 });
