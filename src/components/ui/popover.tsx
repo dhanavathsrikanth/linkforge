@@ -50,31 +50,33 @@ function PopoverContent({
   return (
     <PopoverPortal>
       <PopoverBackdrop />
-      <PopoverPrimitive.Popup
-        data-slot="popover-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 w-full max-w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 sm:max-w-[520px] max-h-[85vh] overflow-hidden rounded-2xl bg-popover shadow-2xl shadow-black/10 ring-1 ring-foreground/5 duration-150 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <PopoverPrimitive.Close
-            data-slot="popover-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-3 right-3 h-7 w-7 rounded-full"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon className="h-3.5 w-3.5" />
-            <span className="sr-only">Close</span>
-          </PopoverPrimitive.Close>
-        )}
-      </PopoverPrimitive.Popup>
+      <PopoverPrimitive.Positioner className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        <PopoverPrimitive.Popup
+          data-slot="popover-content"
+          className={cn(
+            "w-full max-w-[calc(100%-1.5rem)] sm:max-w-[520px] max-h-[85vh] overflow-hidden rounded-2xl bg-popover shadow-2xl shadow-black/10 ring-1 ring-foreground/5 duration-150 outline-none pointer-events-auto data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <PopoverPrimitive.Close
+              data-slot="popover-close"
+              render={
+                <Button
+                  variant="ghost"
+                  className="absolute top-3 right-3 h-7 w-7 rounded-full"
+                  size="icon-sm"
+                />
+              }
+            >
+              <XIcon className="h-3.5 w-3.5" />
+              <span className="sr-only">Close</span>
+            </PopoverPrimitive.Close>
+          )}
+        </PopoverPrimitive.Popup>
+      </PopoverPrimitive.Positioner>
     </PopoverPortal>
   )
 }
