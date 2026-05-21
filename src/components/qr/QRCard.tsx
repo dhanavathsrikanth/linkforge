@@ -33,7 +33,7 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
   async function handleQuickDownload() {
     setDownloading(true);
     try {
-      await downloadPNG(qrTargetUrl, link.slug, currentSettings);
+      await downloadPNG(qrTargetUrl, link.slug, currentSettings, undefined, svgRef.current);
     } catch {
       // silent — user can use the panel for more control
     } finally {

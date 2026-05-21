@@ -146,7 +146,7 @@ export function QRCustomizePanel({
     setPngLoading(true);
     setActionError(null);
     try {
-      await downloadPNG(qrTargetUrl, linkSlug, debounced, linkId);
+      await downloadPNG(qrTargetUrl, linkSlug, debounced, linkId, svgRef.current);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Download failed");
     } finally {
@@ -160,7 +160,7 @@ export function QRCustomizePanel({
     try {
       const svg = svgRef.current;
       if (!svg) throw new Error("SVG not rendered");
-      downloadSVG(svg, linkSlug, linkId);
+      downloadSVG(svg, linkSlug, debounced, linkId);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "SVG export failed");
     } finally {
@@ -173,7 +173,7 @@ export function QRCustomizePanel({
     setClipOk(false);
     setActionError(null);
     try {
-      await copyPNGToClipboard(qrTargetUrl, debounced);
+      await copyPNGToClipboard(qrTargetUrl, debounced, svgRef.current);
       setClipOk(true);
       setTimeout(() => setClipOk(false), 2500);
     } catch (err) {
