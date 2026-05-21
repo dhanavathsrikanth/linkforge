@@ -10,7 +10,7 @@ import { checkLimit } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 
 const QRParamsSchema = z.object({
-  workspaceId: z.string().uuid("Must provide a workspace ID"),
+  workspaceId: z.string().uuid("Must provide a workspace ID").optional(),
   url: z.string().url("Must be a valid URL"),
   size: z.coerce.number().int().min(64).max(2048).default(512),
   fgColor: z
@@ -62,14 +62,16 @@ export async function GET(req: NextRequest) {
 
   const { workspaceId, url, size, fgColor, bgColor, errorLevel } = parsed.data;
 
-  // Enforce plan limits for QR codes per workspace
-  const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
-  if (!ws) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
-  const limitCheck = await checkLimit(workspaceId, 'qrCodesPerMonth', false);
-  if (!limitCheck.allowed) {
-    return billingLimitError('qrCodesPerMonth', limitCheck.current, limitCheck.limit, ws.plan);
+  // Billing check — only when workspaceId is provided (downloads/embed may skip it)
+  if (workspaceId) {
+    const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
+    if (!ws) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+    const limitCheck = await checkLimit(workspaceId, 'qrCodesPerMonth', false);
+    if (!limitCheck.allowed) {
+      return billingLimitError('qrCodesPerMonth', limitCheck.current, limitCheck.limit, ws.plan);
+    }
   }
 
   try {
@@ -90,7 +92,9 @@ export async function GET(req: NextRequest) {
       pngBuffer.byteOffset + pngBuffer.byteLength
     ) as ArrayBuffer;
 
-    await checkLimit(workspaceId, 'qrCodesPerMonth', true);
+    if (workspaceId) {
+      await checkLimit(workspaceId, 'qrCodesPerMonth', true);
+    }
 
     return new NextResponse(arrayBuffer, {
       status: 200,
