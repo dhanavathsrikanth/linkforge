@@ -75,18 +75,6 @@ export function useCurrentUser() {
   };
 }
 
-export function useWorkspace() {
-  const { currentWorkspace, workspaces, isLoading, error } = useUser();
-  
-  return {
-    workspace: currentWorkspace,
-    workspaces,
-    isLoading,
-    error,
-    hasWorkspaces: workspaces.length > 0,
-  };
-}
-
 export function usePlan() {
   const { user, isLoading } = useUser();
   

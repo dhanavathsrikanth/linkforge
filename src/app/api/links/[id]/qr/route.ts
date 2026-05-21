@@ -4,6 +4,7 @@ import { db, links } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getOrCreateDbUser } from "@/lib/auth";
+import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 
 const QRSettingsSchema = z.object({
   fgColor: z
@@ -16,20 +17,12 @@ const QRSettingsSchema = z.object({
     .default("#ffffff"),
   errorLevel: z.enum(["L", "M", "Q", "H"]).default("M"),
   size: z.number().int().min(128).max(1024).default(256),
-  /**
-   * base64 data URL. We cap at ~68 KB (50 KB binary → ~68 KB base64).
-   * Clients must enforce the 50 KB limit before encoding.
-   */
   logoUrl: z.string().max(70_000).optional(),
   rounded: z.boolean().default(false),
   frameStyle: z.enum(["none", "scan-me"]).default("none"),
   frameText: z.string().max(80).optional(),
 });
 
-/**
- * PATCH /api/links/[id]/qr
- * Persist QR customization settings for a link the authenticated user owns.
- */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -43,11 +36,15 @@ export async function PATCH(
     const dbUser = await getOrCreateDbUser();
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
 
-    // Verify ownership
     const link = await db.query.links.findFirst({
-      where: (l, { eq: eqFn, and }) => and(eqFn(l.id, id), eqFn(l.userId, dbUser.id)),
+      where: eq(links.id, id),
     });
     if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
+
+    const ws = await resolveUserWorkspace(dbUser.id, link.workspaceId);
+    if (!canWrite(ws.role)) {
+      return NextResponse.json({ error: "You don't have permission to modify QR settings" }, { status: 403 });
+    }
 
     const body = await req.json();
     const parsed = QRSettingsSchema.safeParse(body);
@@ -63,7 +60,7 @@ export async function PATCH(
 
     return NextResponse.json({ link: updated });
   } catch (err) {
-    console.error("[PATCH /api/links/[id]/qr]", err);
-    return NextResponse.json({ error: "Failed to save QR settings" }, { status: 500 });
+    console.error("[PATCH /api/links/:id/qr]", err);
+    return NextResponse.json({ error: "Failed to update QR settings" }, { status: 500 });
   }
 }

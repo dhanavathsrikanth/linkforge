@@ -2,10 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-import { useUser } from "@/hooks/useUser";
 import { CommandPalette } from "@/components/CommandPalette";
 
 interface DashboardLayoutProps {
@@ -15,7 +14,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const { isLoading: userLoading } = useUser();
+  const { isLoaded: userLoaded } = useUser();
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -23,8 +22,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  // Show loading state while checking auth
-  if (!isLoaded || (isSignedIn && userLoading)) {
+  if (!isLoaded || !userLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--ds-background)]">
         <div className="h-9 w-9 animate-spin rounded-full border-2 border-[var(--ds-border-strong)] border-b-[var(--ds-primary)]"></div>

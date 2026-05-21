@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-
-const UTM_TEMPLATE_ID = "utm_template_id";
+import { getOrCreateDbUser } from "@/lib/auth";
+import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 
 const UTMTemplateSchema = z.object({
   id: z.string().uuid(),
@@ -26,21 +26,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
     const workspaceId = request.nextUrl.searchParams.get("workspaceId");
     if (!workspaceId) {
       return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
     }
 
-    // Verify workspace ownership
+    const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
+
     const workspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.id, workspaceId),
     });
-
-    if (!workspace || workspace.ownerId !== userId) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    const templates = workspace.utmTemplates || [];
+    const templates = workspace?.utmTemplates || [];
 
     return NextResponse.json({ templates });
   } catch (error) {
@@ -57,6 +56,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
     const body = await request.json();
     const { workspaceId, template } = body;
 
@@ -69,25 +71,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
     }
 
-    // Verify workspace ownership
+    const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
+    if (!canWrite(ws.role)) {
+      return NextResponse.json({ error: "You don't have permission to manage UTM templates" }, { status: 403 });
+    }
+
     const workspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.id, workspaceId),
     });
 
-    if (!workspace || workspace.ownerId !== userId) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    // Get current templates
-    const currentTemplates = workspace.utmTemplates || [];
-    
-    // If this template is set as default, unset other defaults
+    const currentTemplates = workspace?.utmTemplates || [];
     let newTemplates = currentTemplates;
     if (template.isDefault) {
       newTemplates = currentTemplates.map((t: any) => ({ ...t, isDefault: false }));
     }
-    
-    // Add or update the template
+
     const existingIndex = newTemplates.findIndex((t: any) => t.id === template.id);
     if (existingIndex >= 0) {
       newTemplates[existingIndex] = template;
@@ -115,23 +113,25 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
     const { workspaceId, templateId } = await request.json();
 
     if (!workspaceId || !templateId) {
       return NextResponse.json({ error: "workspaceId and templateId are required" }, { status: 400 });
     }
 
-    // Verify workspace ownership
+    const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
+    if (!canWrite(ws.role)) {
+      return NextResponse.json({ error: "You don't have permission to manage UTM templates" }, { status: 403 });
+    }
+
     const workspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.id, workspaceId),
     });
 
-    if (!workspace || workspace.ownerId !== userId) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    // Get current templates and remove the one with matching id
-    const currentTemplates = workspace.utmTemplates || [];
+    const currentTemplates = workspace?.utmTemplates || [];
     const newTemplates = currentTemplates.filter((t: any) => t.id !== templateId);
 
     await db
