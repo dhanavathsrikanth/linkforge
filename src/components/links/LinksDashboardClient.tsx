@@ -175,7 +175,6 @@ export function LinksDashboardClient({
   const { copied, copy } = useClipboard();
   const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
   const [createdLink, setCreatedLink] = useState<{ slug: string; shortUrl: string; destination: string } | null>(null);
-  const supportsBulk = workspace?.plan ? ["growth", "agency", "business"].includes(workspace.plan) : false;
 
   function handleCreated(link: any) {
     const shortUrl = `https://${defaultDomain}/${link.slug}`;
@@ -222,7 +221,7 @@ export function LinksDashboardClient({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {supportsBulk && !isViewer && (
+          {!isViewer && (
             <button
               type="button"
               onClick={() => setBulkOpen(true)}
