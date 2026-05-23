@@ -69,6 +69,8 @@ export async function GET(req: Request) {
       utmCampaign: link.utmCampaign ?? null,
       utmTerm: link.utmTerm ?? null,
       utmContent: link.utmContent ?? null,
+      iosDestination: link.iosDestination ?? null,
+      androidDestination: link.androidDestination ?? null,
       routingRules: null, // extend schema if you add routingRules column
       abTestEnabled: link.abTestEnabled,
       // schema uses abTestVariants, worker calls it abVariants

@@ -30,6 +30,14 @@ const CreateLinkSchema = z.object({
   iosDestination: z.string().url().optional(),
   androidDestination: z.string().url().optional(),
   abTestEnabled: z.boolean().optional(),
+  abTestVariants: z
+    .array(
+      z.object({
+        destination: z.string(),
+        weight: z.number().min(1).max(100),
+      })
+    )
+    .optional(),
 });
 
 function emptyToNull<T extends string | undefined | null>(v: T): string | null {
@@ -169,6 +177,10 @@ export async function POST(request: Request) {
         ogImage: emptyToNull(v.ogImage),
         iosDestination: emptyToNull(v.iosDestination),
         androidDestination: emptyToNull(v.androidDestination),
+        abTestEnabled: v.abTestEnabled ?? false,
+        abTestVariants: v.abTestVariants
+          ? v.abTestVariants.map((av) => ({ ...av, clicks: 0 }))
+          : null,
       })
       .returning();
 

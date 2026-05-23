@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { clicks, links } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -36,6 +37,19 @@ function parseOs(ua: string): string {
   if (/Linux/i.test(ua)) return "Linux";
   if (/CrOS/i.test(ua)) return "ChromeOS";
   return "Other";
+}
+
+function pickAbVariant(
+  variants: { destination: string; weight: number }[]
+): { destination: string } {
+  if (!variants || variants.length === 0) return { destination: "" };
+  const totalWeight = variants.reduce((sum, v) => sum + (v.weight ?? 1), 0);
+  let rand = Math.random() * totalWeight;
+  for (const v of variants) {
+    rand -= v.weight ?? 1;
+    if (rand <= 0) return { destination: v.destination };
+  }
+  return { destination: variants[variants.length - 1].destination };
 }
 
 function appendUtmParams(
@@ -110,9 +124,13 @@ export async function GET(
     }
 
     if (link.password) {
-      return NextResponse.redirect(
-        new URL(`/protected?id=${link.id}`, req.url)
-      );
+      const cookieStore = await cookies();
+      const authed = cookieStore.get(`pw_auth_${slug}`);
+      if (!authed || authed.value !== "true") {
+        return NextResponse.redirect(
+          new URL(`/challenge/${link.slug}`, req.url)
+        );
+      }
     }
 
     const ua = req.headers.get("user-agent") || "";
@@ -162,7 +180,7 @@ export async function GET(
               .where(eq(links.id, link.id)),
             redis.lpush(`clicks:${slug}`, JSON.stringify({
               ts: Date.now(),
-              device, browser, os, country,
+              device, browser, os, country, city,
               referrer: referrer || null,
               referrerDomain,
             })),
@@ -177,7 +195,12 @@ export async function GET(
             ops.push(redis.set(uniqKey, "1").then(() => redis.expire(uniqKey, 86400)));
           }
 
-          await Promise.allSettled(ops);
+          const settled = await Promise.allSettled(ops);
+          for (const r of settled) {
+            if (r.status === "rejected") {
+              console.error("[trackClick] A tracking op failed", r.reason);
+            }
+          }
 
           trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() });
           await incrementUsage(link.workspaceId, "clicksTracked", 1);
@@ -187,7 +210,22 @@ export async function GET(
       })();
     }
 
-    const destination = appendUtmParams(link.destination, {
+    // Resolve base destination: A/B test → deep link routing → default
+    let baseDestination = link.destination;
+
+    if (link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0) {
+      const picked = pickAbVariant(link.abTestVariants);
+      baseDestination = picked.destination;
+    }
+
+    const os = parseOs(ua);
+    if (os === "iOS" && link.iosDestination) {
+      baseDestination = link.iosDestination;
+    } else if (os === "Android" && link.androidDestination) {
+      baseDestination = link.androidDestination;
+    }
+
+    const destination = appendUtmParams(baseDestination, {
       utmSource: link.utmSource,
       utmMedium: link.utmMedium,
       utmCampaign: link.utmCampaign,

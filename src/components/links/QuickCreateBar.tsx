@@ -110,6 +110,26 @@ export function QuickCreateBar({
             spellCheck={false}
             autoComplete="off"
           />
+          {destination.trim() && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/ai/suggest-slug", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: destination }),
+                  });
+                  const data = await res.json();
+                  if (data.slug) setSlug(data.slug);
+                } catch {}
+              }}
+              className="flex h-full items-center px-2 text-muted-foreground hover:text-violet-500 transition-colors"
+              title="AI suggest slug"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Destination */}

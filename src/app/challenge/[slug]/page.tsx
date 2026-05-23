@@ -26,11 +26,7 @@ export default function ChallengePage() {
       });
 
       if (res.ok) {
-        // Password verified and cookie set by server
-        // Redirect back to the short link (which will now pass the worker check)
-        // Or if we know the domain, we could redirect there.
-        // But the simplest is to reload or redirect to /:slug
-        window.location.reload();
+        window.location.href = `/s/${slug}`;
       } else {
         const data = await res.json();
         setError(data.error || "Incorrect password");

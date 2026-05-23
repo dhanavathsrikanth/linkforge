@@ -32,6 +32,8 @@ export type LinkData = {
   utmCampaign: string | null;
   utmTerm: string | null;
   utmContent: string | null;
+  iosDestination: string | null;
+  androidDestination: string | null;
   routingRules: RoutingRule[] | null;
   abTestEnabled: boolean;
   abVariants: AbVariant[] | null; // maps to abTestVariants in DB schema

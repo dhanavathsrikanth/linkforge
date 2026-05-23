@@ -240,10 +240,18 @@ export default {
 
     // ── Step 7: Password protection ───────────────────────────────────────────
     if (link.password) {
-      return Response.redirect(
-        `${env.API_URL}/protected?id=${encodeURIComponent(link.id)}`,
-        302
-      );
+      const cookieHeader = req.headers.get("Cookie") || "";
+      const pwCookie = cookieHeader
+        .split(";")
+        .map((c) => c.trim())
+        .find((c) => c.startsWith(`pw_auth_${link.slug}=`));
+      const authed = pwCookie?.split("=")[1] === "true";
+      if (!authed) {
+        return Response.redirect(
+          `${env.API_URL}/challenge/${encodeURIComponent(link.slug)}`,
+          302
+        );
+      }
     }
 
     // ── Step 8: Device / geo / language context ───────────────────────────────
@@ -277,7 +285,15 @@ export default {
       if (matched) finalDestination = matched;
     }
 
-    // ── Step 9: Async click logging ───────────────────────────────────────────
+    // ── Step 9: Deep link routing ─────────────────────────────────────────────
+    const parsedOs = parseOs(ua);
+    if (parsedOs === "iOS" && link.iosDestination) {
+      finalDestination = link.iosDestination;
+    } else if (parsedOs === "Android" && link.androidDestination) {
+      finalDestination = link.androidDestination;
+    }
+
+    // ── Step 10: Async click logging ──────────────────────────────────────────
     if (deviceType !== "bot") {
       // Detect QR scan: the QR code adds ?source=qr to the short URL
       const isQrScan = url.searchParams.get("source") === "qr";
@@ -310,7 +326,7 @@ export default {
       );
     }
 
-    // ── Step 10: Append UTM params ────────────────────────────────────────────
+    // ── Step 11: Append UTM params ────────────────────────────────────────────
     const utmDestination = appendUtmParams(finalDestination, {
       utmSource: link.utmSource,
       utmMedium: link.utmMedium,
@@ -319,7 +335,7 @@ export default {
       utmContent: link.utmContent,
     });
 
-    // ── Step 11: Redirect ─────────────────────────────────────────────────────
+    // ── Step 12: Redirect ─────────────────────────────────────────────────────
     return Response.redirect(utmDestination, 302);
   },
 };

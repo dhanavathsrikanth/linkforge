@@ -13,11 +13,14 @@ import {
   Check,
   Calendar,
   Tag,
+  Sparkles,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { cn, getShortLinkBase } from "@/lib/utils";
 
-type TabKey = "general" | "utm" | "advanced";
+type TabKey = "general" | "utm" | "abtesting" | "advanced";
 
 type Prefill = {
   destination?: string;
@@ -54,6 +57,9 @@ const initialState = {
   ogImage: "",
   iosDestination: "",
   androidDestination: "",
+  // ab testing
+  abTestEnabled: false,
+  abTestVariants: [] as { destination: string; weight: number }[],
 };
 
 function generateSlug() {
@@ -173,6 +179,14 @@ export function AdvancedCreateSheet({
         ogImage: form.ogImage || undefined,
         iosDestination: form.iosDestination || undefined,
         androidDestination: form.androidDestination || undefined,
+        abTestEnabled: form.abTestEnabled || undefined,
+        abTestVariants:
+          form.abTestEnabled && form.abTestVariants.length > 0
+            ? form.abTestVariants.map((v) => ({
+                destination: v.destination,
+                weight: v.weight,
+              }))
+            : undefined,
       };
 
       if (form.expirationMode === "date" && form.expiresAt) {
@@ -250,6 +264,7 @@ export function AdvancedCreateSheet({
               {([
                 { key: "general", label: "General" },
                 { key: "utm", label: "UTM Parameters" },
+                { key: "abtesting", label: "A/B Testing" },
                 { key: "advanced", label: "Advanced" },
               ] as { key: TabKey; label: string }[]).map((t) => {
                 const active = tab === t.key;
@@ -299,16 +314,38 @@ export function AdvancedCreateSheet({
                       <Field
                         label="Custom slug"
                         hint={`${form.slug.length}/50`}
-                        action={
-                          <button
-                            type="button"
-                            onClick={() => update("slug", generateSlug())}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                          >
-                            <Dice5 className="h-3.5 w-3.5" />
-                            Generate
-                          </button>
-                        }
+                          action={
+                            <span className="flex items-center gap-2">
+                              {form.destination && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch("/api/ai/suggest-slug", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ url: form.destination }),
+                                      });
+                                      const data = await res.json();
+                                      if (data.slug) update("slug", data.slug);
+                                    } catch {}
+                                  }}
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                  AI Suggest
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => update("slug", generateSlug())}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                <Dice5 className="h-3.5 w-3.5" />
+                                Generate
+                              </button>
+                            </span>
+                          }
                       >
                         <input
                           value={form.slug}
@@ -432,6 +469,115 @@ export function AdvancedCreateSheet({
                           {destinationWithUtms}
                         </p>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {tab === "abtesting" && (
+                  <div className="space-y-5">
+                    <p className="text-xs text-muted-foreground">
+                      Route visitors to different destinations based on weighted traffic split.
+                      Requires the Growth plan or above.
+                    </p>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.abTestEnabled}
+                        onChange={(e) => {
+                          update("abTestEnabled", e.target.checked);
+                          if (e.target.checked && form.abTestVariants.length === 0) {
+                            update("abTestVariants", [
+                              { destination: form.destination || "", weight: 50 },
+                              { destination: "", weight: 50 },
+                            ]);
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-border accent-primary"
+                      />
+                      <span className="text-sm font-medium text-foreground">Enable A/B testing</span>
+                    </label>
+
+                    {form.abTestEnabled && (
+                      <>
+                        <div className="space-y-3">
+                          {form.abTestVariants.map((v, i) => {
+                            const totalWeight = form.abTestVariants.reduce((s, x) => s + (x.weight || 0), 0);
+                            const pct = totalWeight > 0 ? Math.round((v.weight / totalWeight) * 100) : 0;
+                            return (
+                              <div key={i} className="rounded-lg border border-border p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-foreground">
+                                    Variant {String.fromCharCode(65 + i)}
+                                  </span>
+                                  {form.abTestVariants.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        update(
+                                          "abTestVariants",
+                                          form.abTestVariants.filter((_, j) => j !== i)
+                                        )
+                                      }
+                                      className="text-xs text-red-500 hover:underline"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 inline" /> Remove
+                                    </button>
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="text-xs text-muted-foreground mb-1 block">Destination</span>
+                                  <input
+                                    value={v.destination}
+                                    onChange={(e) => {
+                                      const next = [...form.abTestVariants];
+                                      next[i] = { ...next[i], destination: e.target.value };
+                                      update("abTestVariants", next);
+                                    }}
+                                    placeholder="https://example.com/variant-a"
+                                    className={inputCls}
+                                  />
+                                </div>
+                                <div>
+                                  <span className="text-xs text-muted-foreground mb-1 block">Weight ({pct}%)</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={100}
+                                    value={v.weight}
+                                    onChange={(e) => {
+                                      const next = [...form.abTestVariants];
+                                      next[i] = { ...next[i], weight: Number(e.target.value) || 0 };
+                                      update("abTestVariants", next);
+                                    }}
+                                    className={inputCls}
+                                  />
+                                </div>
+                                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            update("abTestVariants", [
+                              ...form.abTestVariants,
+                              { destination: "", weight: 1 },
+                            ])
+                          }
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add variant
+                        </button>
+                      </>
                     )}
                   </div>
                 )}

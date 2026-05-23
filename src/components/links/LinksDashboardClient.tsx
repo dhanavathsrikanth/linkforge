@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
@@ -156,6 +156,38 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
   );
 }
 
+function exportCSV(links: LinkRow[]) {
+  const headers = [
+    "slug", "destination", "title", "tags", "totalClicks",
+    "uniqueClicks", "isActive", "password", "expiresAt", "clickLimit",
+    "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent",
+    "createdAt",
+  ];
+  const rows = links.map((l) =>
+    headers
+      .map((h) => {
+        const val = (l as any)[h];
+        if (val === null || val === undefined) return "";
+        let str = Array.isArray(val) ? val.join("; ") : String(val);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          str = `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      })
+      .join(",")
+  );
+  const csv = [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `links-export-${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function LinksDashboardClient({
   workspaceId,
   initialLinks,
@@ -221,7 +253,7 @@ export function LinksDashboardClient({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {!isViewer && (
+            {!isViewer && (
             <button
               type="button"
               onClick={() => setBulkOpen(true)}
@@ -231,6 +263,14 @@ export function LinksDashboardClient({
               Bulk Create
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => exportCSV(links)}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
           <button
             type="button"
             onClick={() => !isViewer && openAdvanced({})}

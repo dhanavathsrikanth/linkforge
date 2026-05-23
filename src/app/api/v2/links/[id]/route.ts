@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { links } from "@/lib/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { eq, and } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export async function GET(
   request: Request,
@@ -62,7 +63,7 @@ export async function PATCH(
       "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent",
       "ogTitle", "ogDescription", "ogImage",
       "iosDestination", "androidDestination",
-      "abTestEnabled",
+      "abTestEnabled", "abTestVariants",
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -79,7 +80,16 @@ export async function PATCH(
             );
           }
         }
-        updateData[key] = body[key];
+        if (key === "password" && body.password) {
+          updateData[key] = await bcrypt.hash(body.password, 10);
+        } else if (key === "abTestVariants" && Array.isArray(body[key])) {
+          updateData[key] = body[key].map((av: { destination: string; weight: number }) => ({
+            ...av,
+            clicks: 0,
+          }));
+        } else {
+          updateData[key] = body[key];
+        }
       }
     }
 

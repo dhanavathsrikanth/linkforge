@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { clicks, links, domains } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
 import { incrementUsage } from "@/lib/billing/usage";
@@ -89,11 +90,12 @@ export async function POST(req: Request) {
       })
       : null;
 
-    await Promise.all([
+    const today = new Date().toISOString().split("T")[0];
+
+    const dbResults = await Promise.allSettled([
       db.insert(clicks).values({
         linkId,
         workspaceId,
-        // Schema uses `ip` column for the privacy-hashed IP
         ip: ipHash,
         device: deviceValue,
         browser: browser ?? null,
@@ -103,14 +105,10 @@ export async function POST(req: Request) {
         region: region ?? null,
         referrer: referrer ?? null,
         referrerDomain: referrerDomain ?? null,
-        // Map variant → abVariant column
         abVariant: variant ?? null,
-        // QR scan tracking
         isQrScan: isQrScan ?? false,
         createdAt: new Date(timestamp),
       }),
-      // Increment the denormalized totalClicks counter on the link row
-      // Also increment uniqueClicks if this is a unique visitor
       ...(isUnique
         ? [
           db
@@ -128,6 +126,36 @@ export async function POST(req: Request) {
             .where(eq(links.id, linkId)),
         ]),
     ]);
+    for (const r of dbResults) {
+      if (r.status === "rejected") {
+        console.error("[POST /api/internal/clicks] A DB op failed", r.reason);
+      }
+    }
+
+    // Write to Redis for realtime feed (best-effort)
+    try {
+      const slug = body.slug || link?.slug;
+      if (slug) {
+        await Promise.all([
+          redis.lpush(`clicks:${slug}`, JSON.stringify({
+            ts: new Date(timestamp).getTime(),
+            device: deviceValue,
+            browser,
+            os,
+            country,
+            referrer: referrer ?? null,
+            referrerDomain: referrerDomain ?? null,
+          })),
+          redis.ltrim(`clicks:${slug}`, 0, 49),
+          redis.incr(`stats:clicks:${slug}:daily:${today}`),
+          redis.incr(`stats:clicks:${slug}:total`),
+          redis.incr(`stats:clicks:daily:${today}`),
+          redis.incr(`stats:clicks:total`),
+        ]);
+      }
+    } catch (e) {
+      console.warn("[POST /api/internal/clicks] Redis write failed (non-blocking)", e);
+    }
 
     // Track click event in PostHog (non-blocking, best effort)
     if (link) {

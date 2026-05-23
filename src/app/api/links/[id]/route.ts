@@ -28,6 +28,15 @@ const UpdateLinkSchema = z.object({
   ogImage: z.string().url().optional().nullable(),
   iosDestination: z.string().url().optional().nullable(),
   androidDestination: z.string().url().optional().nullable(),
+  abTestEnabled: z.boolean().optional(),
+  abTestVariants: z
+    .array(
+      z.object({
+        destination: z.string(),
+        weight: z.number().min(1).max(100),
+      })
+    )
+    .optional(),
   workspaceId: z.string().uuid("Must provide a workspace ID"),
 });
 
@@ -107,6 +116,10 @@ export async function PATCH(
     if (v.ogImage !== undefined) updateData.ogImage = emptyToNull(v.ogImage);
     if (v.iosDestination !== undefined) updateData.iosDestination = emptyToNull(v.iosDestination);
     if (v.androidDestination !== undefined) updateData.androidDestination = emptyToNull(v.androidDestination);
+    if (v.abTestEnabled !== undefined) updateData.abTestEnabled = v.abTestEnabled;
+    if (v.abTestVariants !== undefined) {
+      updateData.abTestVariants = v.abTestVariants.map((av) => ({ ...av, clicks: 0 }));
+    }
 
     const [updated] = await db
       .update(links)

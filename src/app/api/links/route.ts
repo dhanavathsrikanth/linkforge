@@ -34,6 +34,14 @@ const CreateLinkSchema = z.object({
   iosDestination: z.string().url().optional().or(z.literal("")),
   androidDestination: z.string().url().optional().or(z.literal("")),
   abTestEnabled: z.boolean().optional(),
+  abTestVariants: z
+    .array(
+      z.object({
+        destination: z.string().url(),
+        weight: z.number().int().positive(),
+      })
+    )
+    .optional(),
 });
 
 
@@ -149,6 +157,10 @@ export async function POST(req: Request) {
         ogImage: emptyToNull(v.ogImage),
         iosDestination: emptyToNull(v.iosDestination),
         androidDestination: emptyToNull(v.androidDestination),
+        abTestEnabled: v.abTestEnabled ?? false,
+        abTestVariants: v.abTestVariants
+          ? v.abTestVariants.map((av) => ({ ...av, clicks: 0 }))
+          : null,
       })
       .returning();
 
