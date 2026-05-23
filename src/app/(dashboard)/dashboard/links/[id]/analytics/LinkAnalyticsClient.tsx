@@ -217,9 +217,8 @@ export function LinkAnalyticsClient({ linkId, workspaceId }: LinkAnalyticsClient
           isLoading={overviewLoading}
         />
         <KPICard
-          label="Click-through Rate"
+          label="Avg Clicks / Link"
           value={overview?.averageCTR || 0}
-          suffix="%"
           isLoading={overviewLoading}
         />
       </div>

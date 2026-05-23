@@ -30,7 +30,8 @@ export async function GET(req: Request) {
 
     // Fetch latest clicks from Redis
     // We use LRANGE to get the most recent clicks
-    const clicks = await redis.lrange(`clicks:${slug}`, 0, 49); // Last 50 clicks
+    const rawClicks = await redis.lrange(`clicks:${slug}`, 0, 49); // Last 50 clicks
+    const clicks = rawClicks.map((c: string) => { try { return JSON.parse(c); } catch { return null; } }).filter(Boolean);
 
     // Also get quick stats
     const totalToday = await redis.get(`stats:clicks:daily:${new Date().toISOString().split('T')[0]}`);

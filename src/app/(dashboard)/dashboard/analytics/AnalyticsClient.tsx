@@ -78,9 +78,8 @@ export function AnalyticsClient({ workspaceId }: AnalyticsClientProps) {
           isLoading={overviewLoading}
         />
         <KPICard
-          label="Click-through Rate"
+          label="Avg Clicks / Link"
           value={overview?.averageCTR || 0}
-          suffix="%"
           isLoading={overviewLoading}
         />
       </div>

@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
 
     // Format the response with percentages
     const result: BreakdownData[] = breakdownData.map((item) => ({
-      label: dimension === "country" ? `${getCountryName(item.label)} ${countryCodeToEmoji(item.label)}` : item.label,
+      label: dimension === "country" ? `${countryCodeToEmoji(item.label)} ${getCountryName(item.label)}` : item.label,
       clicks: item.clicks,
       percentage: Math.round((item.clicks / totalClicks) * 1000) / 10,
     }));

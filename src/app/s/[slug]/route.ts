@@ -94,58 +94,67 @@ export async function GET(
     const referrer = req.headers.get("referer") || "";
 
     if (device !== "bot") {
-      const rawIp = getClientIp(req);
-      const ipHash = await hashIp(rawIp);
-      const browser = parseBrowser(ua);
-      const os = parseOs(ua);
-      const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "XX";
-      const city = req.headers.get("cf-ipcity") || req.headers.get("x-vercel-ip-city") || null;
-      const region = req.headers.get("cf-region") || req.headers.get("x-vercel-ip-country-region") || null;
-      const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
-      const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
-      const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return ""; } })() : "";
+      (async () => {
+        try {
+          const rawIp = getClientIp(req);
+          const ipHash = await hashIp(rawIp);
+          const browser = parseBrowser(ua);
+          const os = parseOs(ua);
+          const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "XX";
+          const city = req.headers.get("cf-ipcity") || req.headers.get("x-vercel-ip-city") || null;
+          const region = req.headers.get("cf-region") || req.headers.get("x-vercel-ip-country-region") || null;
+          const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
+          const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
+          const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return ""; } })() : "";
 
-      const uniqKey = `uniq:${link.id}:${ipHash}`;
-      const existing = await redis.get(uniqKey);
-      const isUnique = existing === null;
+          const uniqKey = `uniq:${link.id}:${ipHash}`;
+          const existing = await redis.get(uniqKey);
+          const isUnique = existing === null;
 
-      const ops: Promise<unknown>[] = [
-        db.insert(clicks).values({
-          linkId: link.id,
-          workspaceId: link.workspaceId,
-          ip: ipHash,
-          device,
-          browser,
-          os,
-          country,
-          city,
-          region,
-          referrer,
-          referrerDomain,
-          isQrScan,
-          createdAt: new Date(),
-        }),
-        db.update(links)
-          .set({
-            totalClicks: sql`${links.totalClicks} + 1`,
-            ...(isUnique ? { uniqueClicks: sql`${links.uniqueClicks} + 1` } : {}),
-          })
-          .where(eq(links.id, link.id)),
-        redis.lpush(`clicks:${slug}`, JSON.stringify({
-          timestamp: Date.now(),
-          device, browser, os, country, referrerDomain,
-        })),
-        redis.ltrim(`clicks:${slug}`, 0, 49),
-      ];
+          const today = new Date().toISOString().split("T")[0];
+          const ops: Promise<unknown>[] = [
+            db.insert(clicks).values({
+              linkId: link.id,
+              workspaceId: link.workspaceId,
+              ip: ipHash,
+              device,
+              browser,
+              os,
+              country,
+              city,
+              region,
+              referrer,
+              referrerDomain,
+              isQrScan,
+              createdAt: new Date(),
+            }),
+            db.update(links)
+              .set({
+                totalClicks: sql`${links.totalClicks} + 1`,
+                ...(isUnique ? { uniqueClicks: sql`${links.uniqueClicks} + 1` } : {}),
+              })
+              .where(eq(links.id, link.id)),
+            redis.lpush(`clicks:${slug}`, JSON.stringify({
+              timestamp: Date.now(),
+              device, browser, os, country, referrerDomain,
+            })),
+            redis.ltrim(`clicks:${slug}`, 0, 49),
+            redis.incr(`stats:clicks:daily:${today}`),
+            redis.incr(`stats:clicks:total`),
+          ];
 
-      if (isUnique) {
-        ops.push(redis.set(uniqKey, "1").then(() => redis.expire(uniqKey, 86400)));
-      }
+          if (isUnique) {
+            ops.push(redis.set(uniqKey, "1").then(() => redis.expire(uniqKey, 86400)));
+          }
 
-      await Promise.all(ops);
+          await Promise.allSettled(ops);
 
-      trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() });
-      incrementUsage(link.workspaceId, "clicksTracked", 1).catch(() => {});
+          trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() });
+          await incrementUsage(link.workspaceId, "clicksTracked", 1);
+        } catch (e) {
+          console.error("Click tracking failed (non-blocking):", e);
+        }
+      })();
     }
 
     return NextResponse.redirect(link.destination, { status: 302 });
