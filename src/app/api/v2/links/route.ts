@@ -18,6 +18,7 @@ const CreateLinkSchema = z.object({
   password: z.string().max(64).optional(),
   tags: z.array(z.string()).optional(),
   expiresAt: z.string().datetime().optional(),
+  scheduledAt: z.string().datetime().optional(),
   clickLimit: z.number().int().positive().optional().nullable(),
   utmSource: z.string().max(120).optional(),
   utmMedium: z.string().max(120).optional(),
@@ -35,6 +36,18 @@ const CreateLinkSchema = z.object({
       z.object({
         destination: z.string(),
         weight: z.number().min(1).max(100),
+      })
+    )
+    .optional(),
+  routingRules: z
+    .array(
+      z.object({
+        condition: z.object({
+          device: z.enum(["mobile", "desktop", "tablet"]).optional(),
+          country: z.string().optional(),
+          language: z.string().optional(),
+        }),
+        destination: z.string(),
       })
     )
     .optional(),
@@ -166,6 +179,7 @@ export async function POST(request: Request) {
         tags: v.tags ?? [],
         password: hashedPassword,
         expiresAt: v.expiresAt && v.expiresAt !== "" ? new Date(v.expiresAt) : null,
+        scheduledAt: v.scheduledAt && v.scheduledAt !== "" ? new Date(v.scheduledAt) : null,
         clickLimit: v.clickLimit ?? null,
         utmSource: emptyToNull(v.utmSource),
         utmMedium: emptyToNull(v.utmMedium),
@@ -181,6 +195,7 @@ export async function POST(request: Request) {
         abTestVariants: v.abTestVariants
           ? v.abTestVariants.map((av) => ({ ...av, clicks: 0 }))
           : null,
+        routingRules: v.routingRules ?? null,
       })
       .returning();
 

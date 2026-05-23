@@ -115,6 +115,10 @@ export async function GET(
       return new Response(null, { status: 404 });
     }
 
+    if (link.scheduledAt && new Date(link.scheduledAt) > new Date()) {
+      return new Response(null, { status: 404 });
+    }
+
     if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
       return new Response(null, { status: 410 });
     }
@@ -210,12 +214,22 @@ export async function GET(
       })();
     }
 
-    // Resolve base destination: A/B test → deep link routing → default
+    // Resolve base destination: A/B test → smart routing → deep link → default
     let baseDestination = link.destination;
 
     if (link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0) {
       const picked = pickAbVariant(link.abTestVariants);
       baseDestination = picked.destination;
+    } else if (link.routingRules && link.routingRules.length > 0) {
+      const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "";
+      const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
+      for (const rule of link.routingRules) {
+        let match = true;
+        if (rule.condition.device && rule.condition.device !== parseDevice(ua)) match = false;
+        if (rule.condition.country && rule.condition.country.toUpperCase() !== country.toUpperCase()) match = false;
+        if (rule.condition.language && !language.toLowerCase().startsWith(rule.condition.language.toLowerCase())) match = false;
+        if (match) { baseDestination = rule.destination; break; }
+      }
     }
 
     const os = parseOs(ua);

@@ -200,6 +200,7 @@ export const links = pgTable(
     // Access control
     password: text("password"), // bcrypt hash
     expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true, mode: "date" }),
     clickLimit: integer("click_limit"),
 
     // Stats (denormalised counters — updated by DB trigger / cron)
@@ -226,13 +227,13 @@ export const links = pgTable(
     // Geo routing: { "US": "https://...", "GB": "https://..." }
     geoRouting: jsonb("geo_routing").$type<Record<string, string>>(),
 
-    // Smart routing rules - array of conditional redirects
+    // Smart routing rules — condition can set device, country, and/or language
     routingRules: jsonb("routing_rules").$type<
       {
-        id: string;
         condition: {
-          type: "device" | "country" | "language";
-          value: string;
+          device?: "mobile" | "desktop" | "tablet";
+          country?: string;
+          language?: string;
         };
         destination: string;
       }[]

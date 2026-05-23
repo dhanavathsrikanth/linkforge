@@ -211,7 +211,15 @@ export default {
       });
     }
 
-    // ── Step 5: Check isActive ────────────────────────────────────────────────
+    // ── Step 5: Check scheduledAt ────────────────────────────────────────────
+    if (link.scheduledAt && new Date(link.scheduledAt).getTime() > Date.now()) {
+      return new Response(notFoundPage(), {
+        status: 404,
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    }
+
+    // ── Step 6: Check isActive ────────────────────────────────────────────────
     if (!link.isActive) {
       return new Response(notFoundPage(), {
         status: 404,
@@ -219,7 +227,7 @@ export default {
       });
     }
 
-    // ── Step 6: Check expiry ──────────────────────────────────────────────────
+    // ── Step 7: Check expiry ──────────────────────────────────────────────────
     const now = Date.now();
     if (link.expiresAt && new Date(link.expiresAt).getTime() < now) {
       return new Response(notFoundPage(), {

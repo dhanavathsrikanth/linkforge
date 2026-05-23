@@ -60,6 +60,7 @@ export async function GET(req: Request) {
       destination: link.destination,
       isActive: link.isActive,
       expiresAt: link.expiresAt?.toISOString() ?? null,
+      scheduledAt: link.scheduledAt?.toISOString() ?? null,
       // schema uses clickLimit, worker calls it expiresAfterClicks
       expiresAfterClicks: link.clickLimit ?? null,
       totalClicks: link.totalClicks,
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
       utmContent: link.utmContent ?? null,
       iosDestination: link.iosDestination ?? null,
       androidDestination: link.androidDestination ?? null,
-      routingRules: null, // extend schema if you add routingRules column
+      routingRules: link.routingRules ?? null,
       abTestEnabled: link.abTestEnabled,
       // schema uses abTestVariants, worker calls it abVariants
       abVariants: link.abTestVariants ?? null,

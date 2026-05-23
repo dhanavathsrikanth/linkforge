@@ -59,11 +59,11 @@ export async function PATCH(
     const body = await request.json();
     const allowedFields = [
       "destination", "title", "description", "tags", "expiresAt",
-      "clickLimit", "password", "isActive",
+      "clickLimit", "password", "isActive", "scheduledAt",
       "utmSource", "utmMedium", "utmCampaign", "utmTerm", "utmContent",
       "ogTitle", "ogDescription", "ogImage",
       "iosDestination", "androidDestination",
-      "abTestEnabled", "abTestVariants",
+      "abTestEnabled", "abTestVariants", "routingRules",
     ];
 
     const updateData: Record<string, unknown> = {};

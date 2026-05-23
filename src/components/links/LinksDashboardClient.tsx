@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
@@ -33,6 +33,8 @@ type LinkRow = {
   password?: string | null;
   expiresAt?: string | Date | null;
   clickLimit?: number | null;
+  routingRules?: { condition: { device?: string; country?: string; language?: string }; destination: string }[];
+  scheduledAt?: string | null;
   qrSettings?: QRSettings | null;
 };
 
@@ -152,6 +154,42 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
           <RealtimeClicks slug={link.slug} />
         </div>
 
+        {/* Schedule Info */}
+        {(link as any).scheduledAt && new Date((link as any).scheduledAt) > new Date() && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 shadow-sm dark:border-blue-800 dark:bg-blue-950/20">
+            <h3 className="mb-1 text-sm font-semibold text-blue-800 dark:text-blue-300">
+              Scheduled
+            </h3>
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              Goes live on {new Date((link as any).scheduledAt).toLocaleString()}
+            </p>
+          </div>
+        )}
+
+        {/* Routing Rules Summary */}
+        {(link as any).routingRules?.length > 0 && (
+          <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4 shadow-sm dark:border-violet-800 dark:bg-violet-950/20">
+            <h3 className="mb-2 text-sm font-semibold text-violet-800 dark:text-violet-300">
+              Smart Routing Rules ({(link as any).routingRules.length})
+            </h3>
+            <div className="space-y-1.5">
+              {(link as any).routingRules.map((rule: any, i: number) => (
+                <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-violet-700 dark:text-violet-300">
+                  <span className="font-medium">Rule {i + 1}:</span>
+                  {rule.condition.device && <span className="inline-flex items-center rounded-md border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{rule.condition.device}</span>}
+                  {rule.condition.country && <span className="inline-flex items-center rounded-md border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{rule.condition.country}</span>}
+                  {rule.condition.language && <span className="inline-flex items-center rounded-md border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{rule.condition.language}</span>}
+                  {!rule.condition.device && !rule.condition.country && !rule.condition.language && (
+                    <span className="inline-flex items-center rounded-md border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-300">All</span>
+                  )}
+                  <span className="text-violet-500">&rarr;</span>
+                  <span className="truncate max-w-[300px] font-mono text-violet-900 dark:text-violet-200">{rule.destination}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* AI Analytics Query */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Ask AI about this link</h3>
@@ -265,7 +303,7 @@ export function LinksDashboardClient({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
-  const [advancedPrefill, setAdvancedPrefill] = useState<{ destination?: string; slug?: string }>({});
+  const [advancedPrefill, setAdvancedPrefill] = useState<{ id?: string; destination?: string; slug?: string }>({});
   const [qrLinkId, setQrLinkId] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
   const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
@@ -277,10 +315,10 @@ export function LinksDashboardClient({
     setLinks((prev) => [link as LinkRow, ...prev.filter((l) => l.id !== link.id)]);
   }
 
-  function openAdvanced(prefill: { destination?: string; slug?: string }) {
-    setAdvancedPrefill(prefill);
-    setAdvancedOpen(true);
-  }
+function openAdvanced(prefill: { id?: string; destination?: string; slug?: string }) {
+  setAdvancedPrefill(prefill);
+  setAdvancedOpen(true);
+}
 
   function handleDelete(linkId: string) {
     startDelete(async () => {
@@ -441,6 +479,16 @@ export function LinksDashboardClient({
                                 Locked
                               </span>
                             )}
+                            {(link as any).scheduledAt && new Date((link as any).scheduledAt) > new Date() && (
+                              <span className="inline-flex items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-600 border border-blue-200">
+                                Scheduled
+                              </span>
+                            )}
+                            {(link as any).routingRules?.length > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-600 border border-violet-200">
+                                Routed
+                              </span>
+                            )}
                           </div>
                           <p className="mt-0.5 truncate text-xs text-slate-500 max-w-[300px] dark:text-slate-400">
                             {link.destination}
@@ -508,6 +556,16 @@ export function LinksDashboardClient({
                             >
                               <QrCode className="h-3.5 w-3.5" />
                             </button>
+                            {!isViewer && (
+                              <button
+                                type="button"
+                                onClick={() => openAdvanced({ id: link.id })}
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                                title="Edit link"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             {!isViewer && (
                               <button
                                 type="button"

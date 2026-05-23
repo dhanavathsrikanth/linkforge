@@ -24,6 +24,7 @@ export type LinkData = {
   destination: string;
   isActive: boolean;
   expiresAt: string | null;       // ISO 8601 or null
+  scheduledAt: string | null;     // ISO 8601 or null
   expiresAfterClicks: number | null; // maps to clickLimit in DB schema
   totalClicks: number;
   password: string | null;        // bcrypt hash or null

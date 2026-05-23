@@ -20,7 +20,7 @@ import {
 import { useClipboard } from "@/hooks/use-clipboard";
 import { cn, getShortLinkBase } from "@/lib/utils";
 
-type TabKey = "general" | "utm" | "abtesting" | "advanced";
+type TabKey = "general" | "utm" | "abtesting" | "routing" | "advanced";
 
 type Prefill = {
   id?: string;
@@ -42,25 +42,27 @@ const initialState = {
   slug: "",
   title: "",
   tags: [] as string[],
-  // utm
   utmSource: "",
   utmMedium: "",
   utmCampaign: "",
   utmTerm: "",
   utmContent: "",
-  // advanced
-  expiresAt: "",
-  clickLimit: "" as string | "",
-  expirationMode: "date" as "date" | "clicks",
-  password: "",
   ogTitle: "",
   ogDescription: "",
   ogImage: "",
   iosDestination: "",
   androidDestination: "",
-  // ab testing
+  password: "",
+  showPassword: false,
+  expirationMode: "date" as "date" | "clicks",
+  expiresAt: "",
+  clickLimit: "",
+  // scheduling
+  scheduleMode: false,
+  scheduledAt: "",
   abTestEnabled: false,
   abTestVariants: [] as { destination: string; weight: number }[],
+  routingRules: [] as { condition: { device?: string; country?: string; language?: string }; destination: string }[],
 };
 
 function generateSlug() {
@@ -88,14 +90,51 @@ export function AdvancedCreateSheet({
   useEffect(() => {
     if (open) {
       setTab("general");
-      setForm({
-        ...initialState,
-        destination: prefill?.destination ?? "",
-        slug: prefill?.slug ?? "",
-      });
       setTagInput("");
       setError(null);
       setShowPassword(false);
+
+      if (prefill?.id) {
+        // Edit mode — fetch full link data
+        fetch(`/api/v2/links/${prefill.id}`)
+          .then((r) => r.json())
+          .then((res) => {
+            const d = res.data ?? res.link ?? res;
+            setForm({
+              destination: d.destination ?? "",
+              slug: d.slug ?? "",
+              title: d.title ?? "",
+              tags: d.tags ?? [],
+              utmSource: d.utmSource ?? "",
+              utmMedium: d.utmMedium ?? "",
+              utmCampaign: d.utmCampaign ?? "",
+              utmTerm: d.utmTerm ?? "",
+              utmContent: d.utmContent ?? "",
+              ogTitle: d.ogTitle ?? "",
+              ogDescription: d.ogDescription ?? "",
+              ogImage: d.ogImage ?? "",
+              iosDestination: d.iosDestination ?? "",
+              androidDestination: d.androidDestination ?? "",
+              password: "",
+              showPassword: false,
+              expirationMode: d.expiresAt ? "date" : d.clickLimit ? "clicks" : "date",
+              expiresAt: d.expiresAt ? d.expiresAt.slice(0, 10) : "",
+              clickLimit: d.clickLimit ?? "",
+              scheduleMode: !!d.scheduledAt,
+              scheduledAt: d.scheduledAt ? d.scheduledAt.slice(0, 16) : "",
+              abTestEnabled: d.abTestEnabled ?? false,
+              abTestVariants: d.abTestVariants ?? [],
+              routingRules: d.routingRules ?? [],
+            });
+          })
+          .catch(() => {});
+      } else {
+        setForm({
+          ...initialState,
+          destination: prefill?.destination ?? "",
+          slug: prefill?.slug ?? "",
+        });
+      }
     }
   }, [open, prefill]);
 
@@ -188,8 +227,22 @@ export function AdvancedCreateSheet({
                 weight: v.weight,
               }))
             : undefined,
+        routingRules:
+          form.routingRules.length > 0
+            ? form.routingRules.map((r) => ({
+                condition: {
+                  ...(r.condition.device ? { device: r.condition.device } : {}),
+                  ...(r.condition.country ? { country: r.condition.country } : {}),
+                  ...(r.condition.language ? { language: r.condition.language } : {}),
+                },
+                destination: r.destination,
+              }))
+            : undefined,
       };
 
+      if (form.scheduleMode && form.scheduledAt) {
+        payload.scheduledAt = new Date(form.scheduledAt).toISOString();
+      }
       if (form.expirationMode === "date" && form.expiresAt) {
         payload.expiresAt = new Date(form.expiresAt).toISOString();
       }
@@ -198,17 +251,19 @@ export function AdvancedCreateSheet({
         if (Number.isFinite(n) && n > 0) payload.clickLimit = n;
       }
 
-      const res = await fetch("/api/links", {
-        method: "POST",
+      const isEdit = !!prefill?.id;
+      const url = isEdit ? `/api/links/${prefill.id}` : "/api/links";
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(typeof data?.error === "string" ? data.error : "Failed to create link");
+        setError(typeof data?.error === "string" ? data.error : "Failed to save link");
         return;
       }
-      onCreated?.(data.link);
+      onCreated?.(data.link ?? data.data ?? data);
       onOpenChange(false);
     } catch (e: any) {
       setError(e?.message || "Network error");
@@ -266,6 +321,7 @@ export function AdvancedCreateSheet({
                 { key: "general", label: "General" },
                 { key: "utm", label: "UTM Parameters" },
                 { key: "abtesting", label: "A/B Testing" },
+                { key: "routing", label: "Smart Routing" },
                 { key: "advanced", label: "Advanced" },
               ] as { key: TabKey; label: string }[]).map((t) => {
                 const active = tab === t.key;
@@ -662,8 +718,156 @@ export function AdvancedCreateSheet({
                   </div>
                 )}
 
+                {tab === "routing" && (
+                  <div className="space-y-5">
+                    <p className="text-xs text-muted-foreground">
+                      Send visitors to different destinations based on their device, country, or
+                      language. Rules are checked in order — the first match wins.
+                    </p>
+
+                    {(form.routingRules ?? []).map((rule, i) => (
+                      <div key={i} className="rounded-lg border border-border p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground">Rule {i + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = [...(form.routingRules ?? [])];
+                              next.splice(i, 1);
+                              update("routingRules", next);
+                            }}
+                            className="text-xs text-red-500 hover:underline"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 inline" /> Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <span className="text-xs text-muted-foreground mb-1 block">Device</span>
+                            <select
+                              value={rule.condition.device ?? ""}
+                              onChange={(e) => {
+                                const next = [...(form.routingRules ?? [])];
+                                next[i] = {
+                                  ...next[i],
+                                  condition: {
+                                    ...next[i].condition,
+                                    device: (e.target.value || undefined) as any,
+                                  },
+                                };
+                                update("routingRules", next);
+                              }}
+                              className={inputCls}
+                            >
+                              <option value="">Any</option>
+                              <option value="mobile">Mobile</option>
+                              <option value="desktop">Desktop</option>
+                              <option value="tablet">Tablet</option>
+                            </select>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground mb-1 block">Country</span>
+                            <input
+                              value={rule.condition.country ?? ""}
+                              onChange={(e) => {
+                                const next = [...(form.routingRules ?? [])];
+                                next[i] = {
+                                  ...next[i],
+                                  condition: {
+                                    ...next[i].condition,
+                                    country: e.target.value.toUpperCase() || undefined,
+                                  },
+                                };
+                                update("routingRules", next);
+                              }}
+                              placeholder="e.g. US"
+                              className={inputCls}
+                              maxLength={2}
+                            />
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground mb-1 block">Language</span>
+                            <input
+                              value={rule.condition.language ?? ""}
+                              onChange={(e) => {
+                                const next = [...(form.routingRules ?? [])];
+                                next[i] = {
+                                  ...next[i],
+                                  condition: {
+                                    ...next[i].condition,
+                                    language: e.target.value || undefined,
+                                  },
+                                };
+                                update("routingRules", next);
+                              }}
+                              placeholder="e.g. en, fr"
+                              className={inputCls}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-xs text-muted-foreground mb-1 block">Destination</span>
+                          <input
+                            value={rule.destination}
+                            onChange={(e) => {
+                              const next = [...(form.routingRules ?? [])];
+                              next[i] = { ...next[i], destination: e.target.value };
+                              update("routingRules", next);
+                            }}
+                            placeholder="https://..."
+                            className={inputCls}
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        update("routingRules", [
+                          ...(form.routingRules ?? []),
+                          {
+                            condition: {},
+                            destination: "",
+                          },
+                        ])
+                      }
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add rule
+                    </button>
+                  </div>
+                )}
+
                 {tab === "advanced" && (
                   <div className="space-y-5">
+                    {/* Scheduling */}
+                    <div>
+                      <label className="inline-flex items-center gap-2 cursor-pointer mb-3">
+                        <input
+                          type="checkbox"
+                          checked={form.scheduleMode}
+                          onChange={(e) => update("scheduleMode", e.target.checked)}
+                          className="accent-[hsl(var(--primary))]"
+                        />
+                        <span className="text-sm font-medium">Schedule for later</span>
+                      </label>
+                      {form.scheduleMode && (
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            type="datetime-local"
+                            value={form.scheduledAt}
+                            onChange={(e) => update("scheduledAt", e.target.value)}
+                            className={cn(inputCls, "pl-9")}
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     {/* Expiration */}
                     <div>
                       <p className="text-sm font-medium mb-2">Expiration</p>
@@ -879,15 +1083,19 @@ export function AdvancedCreateSheet({
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={submitting}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Link
-                </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={submitting}
+              className="flex h-10 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Link2 className="h-4 w-4" />
+              )}
+              {submitting ? "Saving…" : prefill?.id ? "Save Changes" : "Create Link"}
+            </button>
               </div>
             </div>
           </motion.aside>

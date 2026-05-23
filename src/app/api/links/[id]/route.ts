@@ -16,6 +16,7 @@ const UpdateLinkSchema = z.object({
   password: z.string().max(64).optional().nullable(),
   tags: z.array(z.string()).optional(),
   expiresAt: z.string().datetime().optional().nullable(),
+  scheduledAt: z.string().datetime().optional().nullable(),
   clickLimit: z.number().int().positive().optional().nullable(),
   isActive: z.boolean().optional(),
   utmSource: z.string().max(120).optional().nullable(),
@@ -37,6 +38,19 @@ const UpdateLinkSchema = z.object({
       })
     )
     .optional(),
+  routingRules: z
+    .array(
+      z.object({
+        condition: z.object({
+          device: z.enum(["mobile", "desktop", "tablet"]).optional(),
+          country: z.string().optional(),
+          language: z.string().optional(),
+        }),
+        destination: z.string(),
+      })
+    )
+    .optional()
+    .nullable(),
   workspaceId: z.string().uuid("Must provide a workspace ID"),
 });
 
@@ -104,6 +118,7 @@ export async function PATCH(
     }
     if (v.tags !== undefined) updateData.tags = v.tags;
     if (v.expiresAt !== undefined) updateData.expiresAt = v.expiresAt ? new Date(v.expiresAt) : null;
+    if (v.scheduledAt !== undefined) updateData.scheduledAt = v.scheduledAt ? new Date(v.scheduledAt) : null;
     if (v.clickLimit !== undefined) updateData.clickLimit = v.clickLimit;
     if (v.isActive !== undefined) updateData.isActive = v.isActive;
     if (v.utmSource !== undefined) updateData.utmSource = emptyToNull(v.utmSource);
@@ -120,6 +135,7 @@ export async function PATCH(
     if (v.abTestVariants !== undefined) {
       updateData.abTestVariants = v.abTestVariants.map((av) => ({ ...av, clicks: 0 }));
     }
+    if (v.routingRules !== undefined) updateData.routingRules = v.routingRules;
 
     const [updated] = await db
       .update(links)
