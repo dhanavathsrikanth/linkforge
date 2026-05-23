@@ -27,6 +27,11 @@ export type LinkData = {
   expiresAfterClicks: number | null; // maps to clickLimit in DB schema
   totalClicks: number;
   password: string | null;        // bcrypt hash or null
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmTerm: string | null;
+  utmContent: string | null;
   routingRules: RoutingRule[] | null;
   abTestEnabled: boolean;
   abVariants: AbVariant[] | null; // maps to abTestVariants in DB schema

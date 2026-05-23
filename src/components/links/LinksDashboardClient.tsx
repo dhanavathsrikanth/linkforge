@@ -2,11 +2,12 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2 } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
 import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
+import { BulkCreateSheet } from "./BulkCreateSheet";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import { RealtimeClicks } from "@/components/analytics/RealtimeClicks";
@@ -166,6 +167,7 @@ export function LinksDashboardClient({
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
   const [advancedPrefill, setAdvancedPrefill] = useState<{ destination?: string; slug?: string }>({});
@@ -173,6 +175,7 @@ export function LinksDashboardClient({
   const { copied, copy } = useClipboard();
   const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
   const [createdLink, setCreatedLink] = useState<{ slug: string; shortUrl: string; destination: string } | null>(null);
+  const supportsBulk = workspace?.plan ? ["growth", "agency", "business"].includes(workspace.plan) : false;
 
   function handleCreated(link: any) {
     const shortUrl = `https://${defaultDomain}/${link.slug}`;
@@ -218,15 +221,27 @@ export function LinksDashboardClient({
             Manage your short links and track their performance.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => !isViewer && openAdvanced({})}
-          disabled={isViewer}
-          className="inline-flex h-10 items-center gap-2 self-start rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-        >
-          <Plus className="h-4 w-4" />
-          Create Link
-        </button>
+        <div className="flex items-center gap-2">
+          {supportsBulk && !isViewer && (
+            <button
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
+            >
+              <FileText className="h-4 w-4" />
+              Bulk Create
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => !isViewer && openAdvanced({})}
+            disabled={isViewer}
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            <Plus className="h-4 w-4" />
+            Create Link
+          </button>
+        </div>
       </div>
 
       {isViewer ? (
@@ -406,6 +421,16 @@ export function LinksDashboardClient({
           open={advancedOpen}
           onOpenChange={setAdvancedOpen}
           prefill={advancedPrefill}
+          onCreated={handleCreated}
+        />
+      )}
+
+      {!isViewer && (
+        <BulkCreateSheet
+          workspaceId={workspaceId}
+          defaultDomain={defaultDomain}
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
           onCreated={handleCreated}
         />
       )}

@@ -64,6 +64,11 @@ export async function GET(req: Request) {
       expiresAfterClicks: link.clickLimit ?? null,
       totalClicks: link.totalClicks,
       password: link.password ?? null,
+      utmSource: link.utmSource ?? null,
+      utmMedium: link.utmMedium ?? null,
+      utmCampaign: link.utmCampaign ?? null,
+      utmTerm: link.utmTerm ?? null,
+      utmContent: link.utmContent ?? null,
       routingRules: null, // extend schema if you add routingRules column
       abTestEnabled: link.abTestEnabled,
       // schema uses abTestVariants, worker calls it abVariants

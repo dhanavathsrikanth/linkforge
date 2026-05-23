@@ -38,6 +38,32 @@ function parseOs(ua: string): string {
   return "Other";
 }
 
+function appendUtmParams(
+  url: string,
+  utm: {
+    utmSource?: string | null;
+    utmMedium?: string | null;
+    utmCampaign?: string | null;
+    utmTerm?: string | null;
+    utmContent?: string | null;
+  }
+): string {
+  if (!utm.utmSource && !utm.utmMedium && !utm.utmCampaign && !utm.utmTerm && !utm.utmContent) {
+    return url;
+  }
+  try {
+    const parsed = new URL(url);
+    if (utm.utmSource) parsed.searchParams.set("utm_source", utm.utmSource);
+    if (utm.utmMedium) parsed.searchParams.set("utm_medium", utm.utmMedium);
+    if (utm.utmCampaign) parsed.searchParams.set("utm_campaign", utm.utmCampaign);
+    if (utm.utmTerm) parsed.searchParams.set("utm_term", utm.utmTerm);
+    if (utm.utmContent) parsed.searchParams.set("utm_content", utm.utmContent);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 async function hashIp(ip: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(ip);
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
@@ -105,7 +131,7 @@ export async function GET(
           const region = req.headers.get("cf-region") || req.headers.get("x-vercel-ip-country-region") || null;
           const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
           const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
-          const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return ""; } })() : "";
+          const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return null; } })() : null;
 
           const uniqKey = `uniq:${link.id}:${ipHash}`;
           const existing = await redis.get(uniqKey);
@@ -135,12 +161,16 @@ export async function GET(
               })
               .where(eq(links.id, link.id)),
             redis.lpush(`clicks:${slug}`, JSON.stringify({
-              timestamp: Date.now(),
-              device, browser, os, country, referrerDomain,
+              ts: Date.now(),
+              device, browser, os, country,
+              referrer: referrer || null,
+              referrerDomain,
             })),
             redis.ltrim(`clicks:${slug}`, 0, 49),
             redis.incr(`stats:clicks:daily:${today}`),
             redis.incr(`stats:clicks:total`),
+            redis.incr(`stats:clicks:${slug}:daily:${today}`),
+            redis.incr(`stats:clicks:${slug}:total`),
           ];
 
           if (isUnique) {
@@ -157,7 +187,15 @@ export async function GET(
       })();
     }
 
-    return NextResponse.redirect(link.destination, { status: 302 });
+    const destination = appendUtmParams(link.destination, {
+      utmSource: link.utmSource,
+      utmMedium: link.utmMedium,
+      utmCampaign: link.utmCampaign,
+      utmTerm: link.utmTerm,
+      utmContent: link.utmContent,
+    });
+
+    return NextResponse.redirect(destination, { status: 302 });
   } catch {
     return new Response(null, { status: 404 });
   }

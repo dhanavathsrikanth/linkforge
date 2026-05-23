@@ -5,6 +5,7 @@ import {
   hashIp,
   pickAbVariant,
   resolveRoutingRules,
+  appendUtmParams,
 } from "./utils";
 import type { Env, LinkData, RequestContext } from "./types";
 
@@ -105,8 +106,8 @@ async function logClick(
     const os = parseOs(ua);
     const referrer = req.headers.get("referer") || "";
     const referrerDomain = referrer
-      ? (() => { try { return new URL(referrer).hostname; } catch { return ""; } })()
-      : "";
+      ? (() => { try { return new URL(referrer).hostname; } catch { return null; } })()
+      : null;
 
     await fetch(`${env.API_URL}/api/internal/clicks`, {
       method: "POST",
@@ -309,7 +310,16 @@ export default {
       );
     }
 
-    // ── Step 10: Redirect ─────────────────────────────────────────────────────
-    return Response.redirect(finalDestination, 302);
+    // ── Step 10: Append UTM params ────────────────────────────────────────────
+    const utmDestination = appendUtmParams(finalDestination, {
+      utmSource: link.utmSource,
+      utmMedium: link.utmMedium,
+      utmCampaign: link.utmCampaign,
+      utmTerm: link.utmTerm,
+      utmContent: link.utmContent,
+    });
+
+    // ── Step 11: Redirect ─────────────────────────────────────────────────────
+    return Response.redirect(utmDestination, 302);
   },
 };

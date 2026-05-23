@@ -33,17 +33,18 @@ export async function GET(req: Request) {
     const rawClicks = await redis.lrange(`clicks:${slug}`, 0, 49); // Last 50 clicks
     const clicks = rawClicks.map((c: string) => { try { return JSON.parse(c); } catch { return null; } }).filter(Boolean);
 
-    // Also get quick stats
-    const totalToday = await redis.get(`stats:clicks:daily:${new Date().toISOString().split('T')[0]}`);
-    const globalTotal = await redis.get(`stats:clicks:total`);
+    // Per-link stats (not global)
+    const today = new Date().toISOString().split('T')[0];
+    const linkToday = await redis.get(`stats:clicks:${slug}:daily:${today}`);
+    const linkTotal = await redis.get(`stats:clicks:${slug}:total`);
 
     return NextResponse.json({
       success: true,
       data: {
         recentClicks: clicks,
         stats: {
-          today: parseInt(totalToday as string || "0"),
-          total: parseInt(globalTotal as string || "0"),
+          today: parseInt(linkToday as string || "0"),
+          total: parseInt(linkTotal as string || "0"),
         }
       }
     });

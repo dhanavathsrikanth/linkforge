@@ -174,53 +174,54 @@ export async function GET(request: NextRequest) {
     const totalClicks = totalResult[0]?.total || 1;
 
     // Build the query based on dimension
-    let orderColumn: any;
     let groupColumn: any;
-    let labelField: any;
 
     switch (dimension) {
       case "country":
         groupColumn = clicks.country;
-        labelField = sql<string>`COALESCE(${clicks.country}, 'Unknown')`;
         break;
       case "device":
         groupColumn = clicks.device;
-        labelField = sql<string>`COALESCE(${clicks.device}, 'Unknown')`;
         break;
       case "browser":
         groupColumn = clicks.browser;
-        labelField = sql<string>`COALESCE(${clicks.browser}, 'Unknown')`;
         break;
       case "os":
         groupColumn = clicks.os;
-        labelField = sql<string>`COALESCE(${clicks.os}, 'Unknown')`;
         break;
       case "referrer":
         groupColumn = clicks.referrerDomain;
-        labelField = sql<string>`COALESCE(${clicks.referrerDomain}, 'Direct')`;
         break;
       default:
         groupColumn = clicks.country;
-        labelField = sql<string>`COALESCE(${clicks.country}, 'Unknown')`;
     }
 
+    // Use the raw column in both SELECT and GROUP BY to avoid
+    // drizzle-orm GROUP BY + expression mismatch. Null handling is
+    // done in app code below.
     const breakdownData = await db
       .select({
-        label: labelField,
+        label: groupColumn,
         clicks: sql<number>`count(*)::int`,
       })
       .from(clicks)
       .where(baseWhere)
-      .groupBy(groupColumn)
+      .groupBy(sql`${groupColumn}`)
       .orderBy(desc(sql`count(*)`))
       .limit(20);
 
     // Format the response with percentages
-    const result: BreakdownData[] = breakdownData.map((item) => ({
-      label: dimension === "country" ? `${countryCodeToEmoji(item.label)} ${getCountryName(item.label)}` : item.label,
-      clicks: item.clicks,
-      percentage: Math.round((item.clicks / totalClicks) * 1000) / 10,
-    }));
+    const result: BreakdownData[] = breakdownData.map((item) => {
+      let label = item.label;
+      if (label === null || label === undefined || label === "") {
+        label = dimension === "referrer" ? "Direct" : "Unknown";
+      }
+      return {
+        label: dimension === "country" ? `${countryCodeToEmoji(label)} ${getCountryName(label)}` : label,
+        clicks: item.clicks,
+        percentage: Math.round((item.clicks / totalClicks) * 1000) / 10,
+      };
+    });
 
     return NextResponse.json(result);
   } catch (error) {

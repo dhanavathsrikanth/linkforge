@@ -1,5 +1,33 @@
 import type { RoutingRule, RequestContext } from "./types";
 
+// ─── UTM Parameter Appending ──────────────────────────────────────────────────
+
+export function appendUtmParams(
+  url: string,
+  utm: {
+    utmSource?: string | null;
+    utmMedium?: string | null;
+    utmCampaign?: string | null;
+    utmTerm?: string | null;
+    utmContent?: string | null;
+  }
+): string {
+  if (!utm.utmSource && !utm.utmMedium && !utm.utmCampaign && !utm.utmTerm && !utm.utmContent) {
+    return url;
+  }
+  try {
+    const parsed = new URL(url);
+    if (utm.utmSource) parsed.searchParams.set("utm_source", utm.utmSource);
+    if (utm.utmMedium) parsed.searchParams.set("utm_medium", utm.utmMedium);
+    if (utm.utmCampaign) parsed.searchParams.set("utm_campaign", utm.utmCampaign);
+    if (utm.utmTerm) parsed.searchParams.set("utm_term", utm.utmTerm);
+    if (utm.utmContent) parsed.searchParams.set("utm_content", utm.utmContent);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 // ─── IP Hashing ──────────────────────────────────────────────────────────────
 
 export async function hashIp(ip: string): Promise<string> {
