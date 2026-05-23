@@ -56,14 +56,16 @@ export function useAnalyticsOverview(
   workspaceId: string | undefined,
   range: DateRange,
   from?: string,
-  to?: string
+  to?: string,
+  linkId?: string
 ) {
   return useQuery<OverviewData>({
-    queryKey: ["analytics", "overview", workspaceId, range, from, to],
+    queryKey: ["analytics", "overview", workspaceId, linkId, range, from, to],
     queryFn: async () => {
       if (!workspaceId) return null;
       const queryString = buildQueryString({
         workspaceId,
+        linkId,
         range,
         from,
         to,

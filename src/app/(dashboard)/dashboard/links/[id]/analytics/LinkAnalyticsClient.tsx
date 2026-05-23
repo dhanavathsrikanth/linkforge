@@ -170,10 +170,10 @@ export function LinkAnalyticsClient({ linkId, workspaceId }: LinkAnalyticsClient
   };
 
   // Fetch analytics data for this specific link
-  const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview(workspaceId, range, from, to);
-  const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, linkId, range);
-  const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "country");
-  const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "device");
+  const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview(workspaceId, range, from, to, linkId);
+  const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, linkId, range, "day", from, to);
+  const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "country", from, to);
+  const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "device", from, to);
 
   const rangeLabel = range === "7d" ? "Last 7 days" : range === "30d" ? "Last 30 days" : range === "90d" ? "Last 90 days" : "Custom range";
 

@@ -19,7 +19,8 @@ export default function AuditLogsPage() {
   const { data, isLoading } = useQuery<{ logs: AuditLog[] }>({
     queryKey: ["audit-logs", workspace?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/workspaces/${workspace!.id}/audit-logs?limit=100`);
+      if (!workspace?.id) throw new Error("No workspace");
+      const res = await fetch(`/api/workspaces/${workspace.id}/audit-logs?limit=100`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },

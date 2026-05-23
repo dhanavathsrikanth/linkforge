@@ -3,15 +3,13 @@
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { useQuery } from "@tanstack/react-query";
 import { LinksDashboardClient } from "@/components/links/LinksDashboardClient";
-import { useEffect, useState } from "react";
 
 export default function LinksPage() {
   const { workspace, isLoading: wsLoading } = useWorkspace();
-  const [initialLinks, setInitialLinks] = useState<any[]>([]);
 
   const wsId = workspace?.id;
 
-  const { data: linksData, isLoading } = useQuery<any[]>({
+  const { data: links, isLoading } = useQuery<any[]>({
     queryKey: ["links", wsId],
     queryFn: async () => {
       const res = await fetch(`/api/links?workspaceId=${wsId}`);
@@ -29,8 +27,6 @@ export default function LinksPage() {
       </div>
     );
   }
-
-  const links = linksData || initialLinks;
 
   if (!wsId) {
     return (

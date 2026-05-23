@@ -172,8 +172,11 @@ export function LinksDashboardClient({
   const [qrLinkId, setQrLinkId] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
   const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
+  const [createdLink, setCreatedLink] = useState<{ slug: string; shortUrl: string; destination: string } | null>(null);
 
   function handleCreated(link: any) {
+    const shortUrl = `https://${defaultDomain}/${link.slug}`;
+    setCreatedLink({ slug: link.slug, shortUrl, destination: link.destination });
     setLinks((prev) => [link as LinkRow, ...prev.filter((l) => l.id !== link.id)]);
   }
 
@@ -417,6 +420,61 @@ export function LinksDashboardClient({
           linkTitle={qrLink.title ?? qrLink.slug}
           initialSettings={qrLink.qrSettings ?? DEFAULT_QR_SETTINGS}
         />
+      )}
+
+      {createdLink && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 mb-4">
+                <Check className="h-6 w-6 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Link created!</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Your short link is ready to share.</p>
+            </div>
+            <div className="mt-5 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <a
+                  href={createdLink.shortUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate font-mono text-sm font-medium text-primary hover:underline"
+                >
+                  {createdLink.shortUrl}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => copy(createdLink.shortUrl, "created")}
+                  className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  {copied === "created" ? (
+                    <Check className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCreatedLink(null)}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Close
+              </button>
+              <a
+                href={createdLink.shortUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Visit
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
       <AnimatePresence>

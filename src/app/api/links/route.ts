@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { links, domains, workspaces } from "@/lib/db";
+import { links } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -9,7 +9,6 @@ import bcrypt from "bcryptjs";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { trackLinkCreated } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
-import { eq, sql } from "drizzle-orm";
 import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
@@ -153,46 +152,27 @@ export async function POST(req: Request) {
       })
       .returning();
 
-    // Cache in Redis for edge worker (best-effort)
-    try {
-      await redis.set(`link:${slug}`, v.destination, { ex: 60 * 60 * 24 * 30 });
-    } catch (cacheErr) {
-      console.warn("[POST /api/links] redis cache failed", cacheErr);
-    }
+    // Cache in Redis (fire-and-forget)
+    redis.set(`link:${slug}`, v.destination, { ex: 60 * 60 * 24 * 30 }).catch(() => {});
 
-    // Increment monthly usage counter
-    try {
-      await checkLimit(v.workspaceId, 'linksPerMonth', true);
-    } catch (e) {
-      console.warn("[POST /api/links] increment usage failed", e);
-    }
+    // Increment usage counter (fire-and-forget)
+    checkLimit(v.workspaceId, 'linksPerMonth', true).catch(() => {});
 
-    // Track link creation in PostHog (non-blocking, best effort)
-    // Get domain info from the created link
-    const linkWithDomain = await db.query.links.findFirst({
-      where: eq(links.id, link.id),
-    });
-
-    const domain = linkWithDomain?.domainId
-      ? await db.query.domains.findFirst({
-        where: eq(domains.id, linkWithDomain.domainId),
-      })
-      : null;
-
+    // PostHog + audit (fire-and-forget)
+    const domain = getDefaultDomain();
     trackLinkCreated({
       linkId: link.id,
-      domain: domain?.domain || getDefaultDomain(),
+      domain,
       hasCustomSlug: !!v.slug && v.slug.trim().length > 0,
       hasUTM: !!(v.utmSource || v.utmMedium || v.utmCampaign || v.utmTerm || v.utmContent),
     });
-
     logAudit({
       workspaceId: v.workspaceId,
       actorId: dbUser.id,
       action: "create",
       entityType: "link",
       entityId: link.id,
-      metadata: { slug, domain: domain?.domain || getDefaultDomain() },
+      metadata: { slug, domain },
     });
 
     return NextResponse.json({ link }, { status: 201 });
