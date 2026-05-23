@@ -154,8 +154,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
 
         {/* AI Analytics Query */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Ask AI about your links</h3>
-          <AiAnalyticsQuery workspaceId={workspaceId} />
+          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Ask AI about this link</h3>
+          <AiAnalyticsQuery workspaceId={workspaceId} linkId={link.id} />
         </div>
       </div>
     </motion.div>
@@ -194,7 +194,7 @@ function exportCSV(links: LinkRow[]) {
   URL.revokeObjectURL(url);
 }
 
-function AiAnalyticsQuery({ workspaceId }: { workspaceId: string }) {
+function AiAnalyticsQuery({ workspaceId, linkId }: { workspaceId: string; linkId?: string }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -207,7 +207,7 @@ function AiAnalyticsQuery({ workspaceId }: { workspaceId: string }) {
       const res = await fetch("/api/ai/analytics-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId, question }),
+        body: JSON.stringify({ workspaceId, linkId, question }),
       });
       if (!res.ok) {
         setAnswer("AI is not configured for this workspace yet.");
@@ -333,6 +333,27 @@ export function LinksDashboardClient({
           >
             <Download className="h-4 w-4" />
             Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await fetch("/api/ai/check-links", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ workspaceId }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const msg = data.broken > 0 || data.changed > 0
+                  ? `${data.broken} broken, ${data.changed} changed`
+                  : "All links OK";
+                alert(`Checked ${data.checked} links. ${msg}.`);
+              }
+            }}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
+          >
+            <Sparkles className="h-4 w-4" />
+            Check Links
           </button>
           <button
             type="button"

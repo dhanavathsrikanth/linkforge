@@ -23,6 +23,7 @@ import { cn, getShortLinkBase } from "@/lib/utils";
 type TabKey = "general" | "utm" | "abtesting" | "advanced";
 
 type Prefill = {
+  id?: string;
   destination?: string;
   slug?: string;
 };
@@ -373,6 +374,8 @@ export function AdvancedCreateSheet({
                                 });
                                 const data = await res.json();
                                 if (data.title) update("title", data.title);
+                                if (data.description) update("ogDescription", data.description);
+                                if (data.ogImage) update("ogImage", data.ogImage);
                               } catch {}
                             }}
                             className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"
@@ -390,7 +393,7 @@ export function AdvancedCreateSheet({
                         className={inputCls}
                       />
                     </Field>
-                    {(form.title || form.destination) && (
+                    {(form.title || form.ogDescription || form.ogImage || form.destination) && (
                       <div className="flex gap-2">
                         <Field label="Description">
                           <input
@@ -621,6 +624,39 @@ export function AdvancedCreateSheet({
                           <Plus className="h-3.5 w-3.5" />
                           Add variant
                         </button>
+
+                        {prefill?.id && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch("/api/ai/optimize-ab", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ linkId: prefill.id }),
+                                });
+                                if (!res.ok) return;
+                                const data = await res.json();
+                                if (data.suggestion?.suggestedWeights) {
+                                  const next = [...form.abTestVariants];
+                                  for (const sw of data.suggestion.suggestedWeights) {
+                                    if (next[sw.variantIndex]) {
+                                      next[sw.variantIndex] = {
+                                        ...next[sw.variantIndex],
+                                        weight: sw.weight,
+                                      };
+                                    }
+                                  }
+                                  update("abTestVariants", next);
+                                }
+                              } catch {}
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            AI Optimize
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

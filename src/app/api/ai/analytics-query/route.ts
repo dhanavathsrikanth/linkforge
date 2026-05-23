@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { aiComplete } from "@/lib/ai/client";
 import { db } from "@/lib/db";
 import { clicks, links } from "@/lib/db/schema";
-import { eq, gte, count, sql } from "drizzle-orm";
+import { eq, and, count, sql } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
-    const { workspaceId, question } = await req.json();
+    const { workspaceId, linkId, question } = await req.json();
     if (!workspaceId || !question) {
       return NextResponse.json({ error: "workspaceId and question required" }, { status: 400 });
     }
@@ -15,15 +15,20 @@ export async function POST(req: Request) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+    const linkCondition = linkId ? eq(clicks.linkId, linkId) : undefined;
+    const clickWhere = linkCondition
+      ? and(eq(clicks.workspaceId, workspaceId), linkCondition)
+      : eq(clicks.workspaceId, workspaceId);
+
     const [clickCount, uniqueVisitors, topLinks, deviceBreakdown] = await Promise.all([
       db
         .select({ total: count() })
         .from(clicks)
-        .where(eq(clicks.workspaceId, workspaceId)),
+        .where(clickWhere),
       db
         .select({ unique: sql<number>`count(distinct ${clicks.ip})` })
         .from(clicks)
-        .where(eq(clicks.workspaceId, workspaceId)),
+        .where(clickWhere),
       db
         .select({
           slug: links.slug,
@@ -31,7 +36,7 @@ export async function POST(req: Request) {
           title: links.title,
         })
         .from(links)
-        .where(eq(links.workspaceId, workspaceId))
+        .where(linkId ? eq(links.id, linkId) : eq(links.workspaceId, workspaceId))
         .orderBy(sql`${links.totalClicks} desc`)
         .limit(10),
       db
@@ -40,7 +45,7 @@ export async function POST(req: Request) {
           count: count(),
         })
         .from(clicks)
-        .where(sql`${clicks.createdAt} >= ${sevenDaysAgo}`)
+        .where(and(clickWhere, sql`${clicks.createdAt} >= ${sevenDaysAgo}`))
         .groupBy(clicks.device),
     ]);
 
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
         device: d.device,
         clicks: d.count,
       })),
-      period: "all time (top links), last 7 days (device breakdown)",
+      period: linkId ? "this link only" : "workspace-wide",
     };
 
     const answer = await aiComplete(
