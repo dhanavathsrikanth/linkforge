@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
@@ -151,6 +151,12 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
           <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Live Activity</h3>
           <RealtimeClicks slug={link.slug} />
         </div>
+
+        {/* AI Analytics Query */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Ask AI about your links</h3>
+          <AiAnalyticsQuery workspaceId={workspaceId} />
+        </div>
       </div>
     </motion.div>
   );
@@ -186,6 +192,63 @@ function exportCSV(links: LinkRow[]) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function AiAnalyticsQuery({ workspaceId }: { workspaceId: string }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleAsk = async () => {
+    if (!question.trim()) return;
+    setLoading(true);
+    setAnswer(null);
+    try {
+      const res = await fetch("/api/ai/analytics-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId, question }),
+      });
+      if (!res.ok) {
+        setAnswer("AI is not configured for this workspace yet.");
+        return;
+      }
+      const data = await res.json();
+      setAnswer(data.answer);
+    } catch {
+      setAnswer("Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+          placeholder='e.g. "Which link got the most clicks last week?"'
+          className="flex-1 h-10 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+        <button
+          type="button"
+          onClick={handleAsk}
+          disabled={loading || !question.trim()}
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-all"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          Ask
+        </button>
+      </div>
+      {answer && (
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-sm text-foreground">
+          {answer}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function LinksDashboardClient({

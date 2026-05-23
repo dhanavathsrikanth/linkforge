@@ -358,7 +358,31 @@ export function AdvancedCreateSheet({
                       </Field>
                     </div>
 
-                    <Field label="Title" hint="auto-filled from destination soon">
+                    <Field
+                      label="Title"
+                      action={
+                        form.destination && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch("/api/ai/enrich-link", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ url: form.destination }),
+                                });
+                                const data = await res.json();
+                                if (data.title) update("title", data.title);
+                              } catch {}
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            Auto-fill
+                          </button>
+                        )
+                      }
+                    >
                       <input
                         value={form.title}
                         onChange={(e) => update("title", e.target.value)}
@@ -366,6 +390,26 @@ export function AdvancedCreateSheet({
                         className={inputCls}
                       />
                     </Field>
+                    {(form.title || form.destination) && (
+                      <div className="flex gap-2">
+                        <Field label="Description">
+                          <input
+                            value={form.ogDescription}
+                            onChange={(e) => update("ogDescription", e.target.value)}
+                            placeholder="Link preview description"
+                            className={inputCls}
+                          />
+                        </Field>
+                        <Field label="OG Image URL">
+                          <input
+                            value={form.ogImage}
+                            onChange={(e) => update("ogImage", e.target.value)}
+                            placeholder="https://..."
+                            className={inputCls}
+                          />
+                        </Field>
+                      </div>
+                    )}
 
                     <Field label="Tags" hint="Press Enter or comma to add">
                       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5 min-h-10">
