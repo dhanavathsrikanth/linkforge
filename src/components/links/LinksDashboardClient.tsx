@@ -1,13 +1,12 @@
 "use client";
 
-import { Fragment, useState, useTransition, useMemo } from "react";
+import { Fragment, useState, useTransition, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, Check2, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { QuickCreateBar } from "./QuickCreateBar";
 import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
 import { BulkCreateSheet } from "./BulkCreateSheet";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
@@ -20,6 +19,8 @@ import { DonutChart } from "@/components/analytics/DonutChart";
 import { TopReferrers } from "@/components/analytics/TopReferrers";
 import { FolderFilter, FolderItem } from "@/components/dashboard/FolderFilter";
 import { TagFilter, TagItem } from "@/components/dashboard/TagFilter";
+import { ActiveUsersIndicator, RealtimeStatusIndicator } from "@/components/dashboard/ActiveUsersIndicator";
+import { useRealtime } from "@/providers/RealtimeProvider";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { getShortLinkBase } from "@/lib/utils";
@@ -353,6 +354,8 @@ export function LinksDashboardClient({
   folders = [],
 }: Props) {
   const { workspace } = useWorkspace();
+  const { lastEvent, refreshData } = useRealtime();
+  const queryClient = useQueryClient();
   const role = workspace?.role;
   const isViewer = role === "viewer";
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
@@ -370,6 +373,46 @@ export function LinksDashboardClient({
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [localFolders, setLocalFolders] = useState<FolderItem[]>(folders);
+
+  const { data: realtimeLinksData, isLoading: realtimeLinksLoading } = useQuery<{ links: LinkRow[] }>({
+    queryKey: ["links", workspaceId],
+    queryFn: async () => {
+      const res = await fetch(`/api/links?workspaceId=${workspaceId}`);
+      if (!res.ok) throw new Error("Failed to fetch links");
+      return res.json();
+    },
+    enabled: !!workspaceId,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+    staleTime: 10000,
+  });
+
+  const { data: realtimeFoldersData } = useQuery<{ folders: FolderItem[] }>({
+    queryKey: ["folders", workspaceId],
+    queryFn: async () => {
+      const res = await fetch(`/api/folders?workspaceId=${workspaceId}`);
+      if (!res.ok) throw new Error("Failed to fetch folders");
+      return res.json();
+    },
+    enabled: !!workspaceId,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+    staleTime: 10000,
+  });
+
+  useEffect(() => {
+    if (realtimeLinksData?.links && lastEvent) {
+      if (lastEvent.type.startsWith("link_") && lastEvent.workspaceId === workspaceId) {
+        setLinks(realtimeLinksData.links);
+      }
+    }
+  }, [realtimeLinksData, lastEvent, workspaceId]);
+
+  useEffect(() => {
+    if (realtimeFoldersData?.folders) {
+      setLocalFolders(realtimeFoldersData.folders);
+    }
+  }, [realtimeFoldersData]);
 
   const filteredLinks = useMemo(() => {
     let filtered = [...links];
@@ -407,6 +450,22 @@ export function LinksDashboardClient({
     const shortUrl = `https://${defaultDomain}/${link.slug}`;
     setCreatedLink({ slug: link.slug, shortUrl, destination: link.destination });
     setLinks((prev) => [link as LinkRow, ...prev.filter((l) => l.id !== link.id)]);
+
+    if (workspaceId) {
+      try {
+        fetch("/api/realtime/event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "link_created",
+            workspaceId,
+            linkId: link.id,
+          }),
+        }).catch(console.error);
+      } catch (e) {
+        console.error("Failed to publish realtime event", e);
+      }
+    }
   }
 
   function handleFoldersChange() {
@@ -441,6 +500,22 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
           return;
         }
         setLinks((prev) => prev.filter((l) => l.id !== linkId));
+        
+        if (workspaceId) {
+          try {
+            await fetch("/api/realtime/event", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "link_deleted",
+                workspaceId,
+                linkId,
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to publish realtime event", e);
+          }
+        }
       } catch (e) {
         console.error("Delete error", e);
       } finally {
@@ -457,7 +532,11 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Links</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Links</h1>
+            <RealtimeStatusIndicator />
+            <ActiveUsersIndicator />
+          </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Manage your short links and track their performance.
           </p>
@@ -550,14 +629,6 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
             {filteredLinks.length} {filteredLinks.length === 1 ? "link" : "links"}
           </div>
         </div>
-
-        <QuickCreateBar
-          workspaceId={workspaceId}
-          defaultDomain={defaultDomain}
-          onCreated={handleCreated}
-          onAdvanced={() => openAdvanced({})}
-          onBulk={() => setBulkOpen(true)}
-        />
       )}
 
       {filteredLinks.length === 0 ? (

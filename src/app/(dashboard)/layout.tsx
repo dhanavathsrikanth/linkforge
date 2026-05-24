@@ -1,8 +1,20 @@
+"use client";
+
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header as Topbar } from "@/components/dashboard/Header";
 import { BillingProvider } from "@/providers/BillingProvider";
-import { WorkspaceProvider } from "@/providers/WorkspaceProvider";
+import { WorkspaceProvider, useWorkspace } from "@/providers/WorkspaceProvider";
+import { RealtimeProvider } from "@/providers/RealtimeProvider";
 import { MobileSidebarToggle } from "@/components/dashboard/MobileSidebarToggle";
+
+function RealtimeWrapper({ children }: { children: React.ReactNode }) {
+  const { workspace } = useWorkspace();
+  return (
+    <RealtimeProvider workspaceId={workspace?.id ?? null}>
+      {children}
+    </RealtimeProvider>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -12,6 +24,7 @@ export default function DashboardLayout({
   return (
     <BillingProvider>
     <WorkspaceProvider>
+    <RealtimeWrapper>
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
       <MobileSidebarToggle />
@@ -22,6 +35,7 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </RealtimeWrapper>
     </WorkspaceProvider>
     </BillingProvider>
   );

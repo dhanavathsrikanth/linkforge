@@ -158,6 +158,33 @@ export const workspaceMembers = pgTable(
   ]
 );
 
+// ─── workspaceInvites ─────────────────────────────────────────────────────────
+
+export const workspaceInvites = pgTable(
+  "workspace_invites",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: memberRoleEnum("role").notNull().default("viewer"),
+    token: text("token").notNull().unique(),
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" })
+      .notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("workspace_invite_email_workspace_idx").on(t.workspaceId, t.email),
+    index("workspace_invites_token_idx").on(t.token),
+    index("workspace_invites_workspace_idx").on(t.workspaceId),
+  ]
+);
+
 // ─── domains ──────────────────────────────────────────────────────────────────
 
 export const domains = pgTable(

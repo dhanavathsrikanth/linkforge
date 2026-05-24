@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { users, workspaces, workspaceMembers } from "@/lib/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { sendWelcomeEmail } from "@/lib/email";
 import { checkUserWorkspaceLimit } from "@/lib/billing/workspace-limits";
 
@@ -143,7 +144,74 @@ export async function POST(req: Request) {
     }
 
     if (type === "user.deleted") {
-      console.log("[clerk-webhook] user.deleted", data.id);
+      const clerkUserId = data.id;
+      console.log("[clerk-webhook] user.deleted", clerkUserId);
+
+      // Find the local DB user
+      const [dbUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.clerkId, clerkUserId))
+        .limit(1);
+
+      if (dbUser) {
+        // Transfer ownership of org workspaces to another admin before deleting
+        const ownedWorkspaces = await db
+          .select({ id: workspaces.id, clerkOrgId: workspaces.clerkOrgId })
+          .from(workspaces)
+          .where(eq(workspaces.ownerId, dbUser.id));
+
+        for (const ws of ownedWorkspaces) {
+          if (ws.clerkOrgId) {
+            // Org workspace — find another admin to take over
+            const [nextAdmin] = await db
+              .select({ userId: workspaceMembers.userId })
+              .from(workspaceMembers)
+              .where(
+                and(
+                  eq(workspaceMembers.workspaceId, ws.id),
+                  eq(workspaceMembers.role, "admin"),
+                  sql`${workspaceMembers.userId} != ${dbUser.id}`
+                )
+              )
+              .limit(1);
+
+            if (nextAdmin) {
+              await db
+                .update(workspaces)
+                .set({ ownerId: nextAdmin.userId, updatedAt: new Date() })
+                .where(eq(workspaces.id, ws.id));
+              console.log("[clerk-webhook] transferred org workspace", ws.id, "to", nextAdmin.userId);
+            } else {
+              // No other admin — find any other member
+              const [anyMember] = await db
+                .select({ userId: workspaceMembers.userId })
+                .from(workspaceMembers)
+                .where(
+                  and(
+                    eq(workspaceMembers.workspaceId, ws.id),
+                    sql`${workspaceMembers.userId} != ${dbUser.id}`
+                  )
+                )
+                .limit(1);
+
+              if (anyMember) {
+                await db
+                  .update(workspaces)
+                  .set({ ownerId: anyMember.userId, updatedAt: new Date() })
+                  .where(eq(workspaces.id, ws.id));
+                console.log("[clerk-webhook] transferred org workspace", ws.id, "to", anyMember.userId);
+              }
+            }
+          }
+          // Personal workspaces (no clerkOrgId) — let cascade delete handle them
+        }
+
+        // Delete the user; cascade deletes remaining owned workspaces,
+        // workspace memberships, galleries, and sets links.userId to null.
+        await db.delete(users).where(eq(users.id, dbUser.id));
+        console.log("[clerk-webhook] deleted DB user", dbUser.id);
+      }
     }
 
     // ─── Organization created ───────────────────────────────
@@ -174,6 +242,24 @@ export async function POST(req: Request) {
           .limit(1);
         ownerId = dbUser?.id;
         ownerEmail = dbUser?.email;
+      }
+
+      if (!ownerId && createdBy) {
+        // Creator hasn't synced yet — create a minimal stub so the workspace
+        // gets the correct owner from the start. The user.created event
+        // will fill in the rest via onConflictDoUpdate.
+        console.log("[clerk-webhook] Creating minimal user stub for org creator", createdBy);
+        const [stub] = await db
+          .insert(users)
+          .values({
+            clerkId: createdBy,
+            email: `${createdBy}@placeholder.linkforge.app`,
+            name: null,
+          })
+          .onConflictDoNothing({ target: users.clerkId })
+          .returning({ id: users.id, email: users.email });
+        ownerId = stub?.id;
+        ownerEmail = stub?.email;
       }
 
       if (!ownerId) {
@@ -357,6 +443,9 @@ export async function POST(req: Request) {
           set: { role, email: memberEmail, workspaceName },
         });
 
+      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard`);
+
       console.log("[clerk-webhook] member added to workspace", workspace.id, dbUser.id, role);
     }
 
@@ -402,7 +491,98 @@ export async function POST(req: Request) {
           )
         );
 
+      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard`);
+
       console.log("[clerk-webhook] member removed from workspace", workspace.id, dbUser.id);
+    }
+
+    // ─── Organization membership updated (role change) ──────
+    if (type === "organizationMembership.updated") {
+      const orgId = data.organization?.id;
+      const clerkUserId = data.public_user_data?.user_id || data.publicUserData?.userId;
+
+      if (!orgId || !clerkUserId) {
+        console.warn("[clerk-webhook] Missing orgId or userId in membership.updated");
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the DB workspace linked to this org
+      const [workspace] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.clerkOrgId, orgId))
+        .limit(1);
+
+      if (!workspace) {
+        return NextResponse.json({ ok: true });
+      }
+
+      // Find the DB user
+      const [dbUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.clerkId, clerkUserId))
+        .limit(1);
+
+      if (!dbUser) {
+        return NextResponse.json({ ok: true });
+      }
+
+      const role = data.role === "org:admin" ? "admin" : data.role === "org:member" ? "editor" : "viewer";
+
+      await db
+        .update(workspaceMembers)
+        .set({ role, updatedAt: new Date() })
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace.id),
+            eq(workspaceMembers.userId, dbUser.id)
+          )
+        );
+
+      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard`);
+
+      console.log("[clerk-webhook] member role updated", workspace.id, dbUser.id, role);
+    }
+
+    // ─── Organization updated ────────────────────────────────
+    if (type === "organization.updated") {
+      const orgId = data.id;
+      const orgName = data.name || "Organization";
+      const orgSlug = data.slug || null;
+
+      const [workspace] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.clerkOrgId, orgId))
+        .limit(1);
+
+      if (!workspace) {
+        return NextResponse.json({ ok: true });
+      }
+
+      await db
+        .update(workspaces)
+        .set({
+          name: orgName,
+          clerkOrgName: orgName,
+          slug: orgSlug ? `${orgSlug}-${orgId.slice(0, 8)}` : undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(workspaces.id, workspace.id));
+
+      // Also update workspaceName for all members
+      await db
+        .update(workspaceMembers)
+        .set({ workspaceName: orgName, updatedAt: new Date() })
+        .where(eq(workspaceMembers.workspaceId, workspace.id));
+
+      revalidatePath(`/dashboard`);
+      revalidatePath(`/dashboard/settings/members`);
+
+      console.log("[clerk-webhook] organization updated", orgId, orgName);
     }
 
     return NextResponse.json({ ok: true });

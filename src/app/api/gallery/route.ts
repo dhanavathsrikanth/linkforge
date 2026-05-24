@@ -9,6 +9,7 @@ import { DEFAULT_APPEARANCE } from "@/types/gallery";
 import { eq } from "drizzle-orm";
 import { checkLimit } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
+import { rateLimitByUser } from "@/lib/rate-limiter";
 // M5: Reserved slugs that would collide with app routes
 const RESERVED_SLUGS = new Set([
   "admin", "api", "p", "dashboard", "login", "signup", "sign-in", "sign-up",
@@ -52,6 +53,7 @@ const PatchSchema = z.object({
   seoTitle: z.string().max(200).optional().nullable(),
   seoDescription: z.string().max(500).optional().nullable(),
   showBranding: z.boolean().optional(),
+  isPublished: z.boolean().optional(),
   // M5: Slug uses validated schema
   slug: SlugSchema.optional(),
   customDomainId: z.string().uuid().optional().nullable(),
@@ -88,10 +90,8 @@ export async function GET() {
       });
       if (!workspace) return NextResponse.json({ error: "No workspace found" }, { status: 404 });
 
-      const limitCheck = await checkLimit(workspace.id, 'bioPages', false);
-      if (!limitCheck.allowed) {
-        return billingLimitError('bioPages', limitCheck.current, limitCheck.limit, workspace.plan);
-      }
+      // Limit is not enforced on auto-creation — only on explicit publish (PATCH).
+      // This prevents browsing to the gallery page from consuming a quota slot.
 
       [gallery] = await db.insert(linkGallery).values({
         userId: dbUser.id,
@@ -129,6 +129,9 @@ export async function PATCH(req: Request) {
     const dbUser = await getOrCreateDbUser();
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
 
+    const rateLimit = await rateLimitByUser(dbUser.id, "update:gallery", 30, 60);
+    if (rateLimit) return rateLimit;
+
     const body = await req.json();
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) {
@@ -139,6 +142,14 @@ export async function PATCH(req: Request) {
       where: (g, { eq }) => eq(g.userId, dbUser.id),
     });
     if (!existing) return NextResponse.json({ error: "Gallery not found" }, { status: 404 });
+
+    // Enforce plan limit on publish (isPublished going from false → true)
+    if (parsed.data.isPublished === true && !existing.isPublished) {
+      const limitCheck = await checkLimit(existing.workspaceId, 'bioPages', false);
+      if (!limitCheck.allowed) {
+        return billingLimitError('bioPages', limitCheck.current, limitCheck.limit, 'free');
+      }
+    }
 
     // P6: Conflict detection — reject if server is newer than client's copy
     if (parsed.data.updatedAt) {

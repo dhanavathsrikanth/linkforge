@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { auditLogs, workspaces } from "@/lib/db";
+import { auditLogs } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
-import { resolveUserWorkspace } from "@/lib/db/workspace";
+import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
 
 export async function GET(
   req: Request,
@@ -19,7 +19,10 @@ export async function GET(
 
     const { id } = await params;
 
-    await resolveUserWorkspace(dbUser.id, id);
+    const ws = await resolveUserWorkspace(dbUser.id, id);
+    if (!canAdmin(ws.role)) {
+      return NextResponse.json({ error: "Only workspace admins can view audit logs" }, { status: 403 });
+    }
 
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);

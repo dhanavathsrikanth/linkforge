@@ -5,6 +5,7 @@ import { workspaceTags } from "@/lib/db";
 import { z } from "zod";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
+import { rateLimitByUser } from "@/lib/rate-limiter";
 import { and, eq, desc } from "drizzle-orm";
 
 const CreateTagSchema = z.object({
@@ -49,6 +50,9 @@ export async function POST(req: Request) {
   try {
     const dbUser = await getOrCreateDbUser();
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
+    const rateLimit = await rateLimitByUser(dbUser.id, "create:tag", 30, 60);
+    if (rateLimit) return rateLimit;
 
     const body = await req.json();
     const parsed = CreateTagSchema.safeParse(body);

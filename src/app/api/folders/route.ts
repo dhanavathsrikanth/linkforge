@@ -1,79 +1,109 @@
-import { db, schema } from "@/lib/db";
-import { eq, and, sql, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { db } from "@/lib/db";
+import { folders } from "@/lib/db";
+import { z } from "zod";
+import { getOrCreateDbUser } from "@/lib/auth";
+import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
+import { rateLimitByUser } from "@/lib/rate-limiter";
+import { eq, sql, desc } from "drizzle-orm";
 
+const CreateFolderSchema = z.object({
+  workspaceId: z.string().uuid("Must provide a workspace ID"),
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().max(200).optional(),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i, "Must be a valid hex color").optional(),
+  icon: z.string().max(50).optional(),
+});
+
+// GET /api/folders?workspaceId=...
 export async function GET(request: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceId");
 
-    if (!workspaceId) {
-      return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
-    }
+    const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
 
     const folderList = await db
       .select({
-        id: schema.folders.id,
-        name: schema.folders.name,
-        description: schema.folders.description,
-        color: schema.folders.color,
-        icon: schema.folders.icon,
-        workspaceId: schema.folders.workspaceId,
-        userId: schema.folders.userId,
-        createdAt: schema.folders.createdAt,
-        updatedAt: schema.folders.updatedAt,
+        id: folders.id,
+        name: folders.name,
+        description: folders.description,
+        color: folders.color,
+        icon: folders.icon,
+        workspaceId: folders.workspaceId,
+        userId: folders.userId,
+        createdAt: folders.createdAt,
+        updatedAt: folders.updatedAt,
         linkCount: sql<number>`(
           SELECT COUNT(*)::int 
           FROM links 
           WHERE links.folder_id = folders.id
         )`.as("link_count"),
       })
-      .from(schema.folders)
-      .where(eq(schema.folders.workspaceId, workspaceId))
-      .orderBy(desc(schema.folders.createdAt));
+      .from(folders)
+      .where(eq(folders.workspaceId, ws.id))
+      .orderBy(desc(folders.createdAt));
 
-    return NextResponse.json({ folders: folderList });
-  } catch (error) {
-    console.error("Error fetching folders:", error);
+    return NextResponse.json({ folders: folderList, workspaceId: ws.id });
+  } catch (err) {
+    console.error("[GET /api/folders]", err);
     return NextResponse.json({ error: "Failed to fetch folders" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+// POST /api/folders
+export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
+    const rateLimit = await rateLimitByUser(dbUser.id, "create:folder", 20, 60);
+    if (rateLimit) return rateLimit;
+
+    const body = await req.json();
+    const parsed = CreateFolderSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
     }
 
-    const body = await request.json();
-    const { workspaceId, name, description, color, icon } = body;
+    const v = parsed.data;
 
-    if (!workspaceId || !name) {
-      return NextResponse.json({ error: "workspaceId and name are required" }, { status: 400 });
+    // Validate workspace membership and write permission
+    let ws;
+    try {
+      ws = await resolveUserWorkspace(dbUser.id, v.workspaceId);
+      if (!canWrite(ws.role)) {
+        return NextResponse.json({ error: "You don't have permission to create folders in this workspace" }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Workspace not found or access denied" }, { status: 404 });
     }
 
     const [folder] = await db
-      .insert(schema.folders)
+      .insert(folders)
       .values({
-        workspaceId,
-        userId,
-        name,
-        description: description || null,
-        color: color || "#433BFF",
-        icon: icon || "folder",
+        workspaceId: ws.id,
+        userId: dbUser.id,
+        name: v.name,
+        description: v.description ?? null,
+        color: v.color ?? "#433BFF",
+        icon: v.icon ?? "folder",
       })
       .returning();
 
     return NextResponse.json({ folder }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating folder:", error);
+  } catch (err) {
+    console.error("[POST /api/folders]", err);
     return NextResponse.json({ error: "Failed to create folder" }, { status: 500 });
   }
 }

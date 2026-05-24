@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { workspaces, workspaceMembers, users } from "@/lib/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 
 export type MemberRole = "owner" | "admin" | "editor" | "viewer";
 
@@ -80,6 +80,7 @@ export async function resolveUserWorkspace(
       .select({ workspaceId: workspaceMembers.workspaceId })
       .from(workspaceMembers)
       .where(eq(workspaceMembers.userId, dbUserId))
+      .orderBy(desc(workspaceMembers.createdAt))
       .limit(1);
 
     if (membership) {

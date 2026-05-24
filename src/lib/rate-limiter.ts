@@ -120,3 +120,38 @@ export function addRateLimitHeaders(
   
   return response;
 }
+
+/**
+ * Rate-limit by user + action key.
+ * Works with plain `Request` (no NextRequest needed).
+ * Returns a 429 Response if over limit, or null if allowed.
+ */
+export async function rateLimitByUser(
+  userId: string,
+  actionKey: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<Response | null> {
+  const redisKey = `ratelimit:user:${userId}:${actionKey}`;
+  const result = await checkRateLimit(redisKey, limit, windowSeconds);
+  if (!result.allowed) {
+    return Response.json(
+      {
+        error: "Rate limit exceeded",
+        message: `Too many requests. Try again later.`,
+        remaining: result.remaining,
+        resetTime: result.resetTime,
+      },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": limit.toString(),
+          "X-RateLimit-Remaining": result.remaining.toString(),
+          "X-RateLimit-Reset": result.resetTime.toString(),
+          "Retry-After": (result.resetTime - Math.floor(Date.now() / 1000)).toString(),
+        },
+      }
+    );
+  }
+  return null;
+}

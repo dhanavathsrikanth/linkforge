@@ -13,6 +13,7 @@ import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
+import { rateLimitByUser } from "@/lib/rate-limiter";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -126,6 +127,9 @@ export async function POST(req: Request) {
   try {
     const dbUser = await getOrCreateDbUser();
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
+    const rateLimit = await rateLimitByUser(dbUser.id, "create:link", 10, 60);
+    if (rateLimit) return rateLimit;
 
     const body = await req.json();
     const parsed = CreateLinkSchema.safeParse(body);
