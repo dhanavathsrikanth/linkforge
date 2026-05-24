@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { users, workspaces, workspaceMembers } from "@/lib/db";
+import { users, workspaces, workspaceMembers, webhookFailedEvents } from "@/lib/db";
 import { eq, and, sql } from "drizzle-orm";
 import { sendWelcomeEmail } from "@/lib/email";
 import { checkUserWorkspaceLimit } from "@/lib/billing/workspace-limits";
+import { withRetry } from "@/lib/retry";
 
 type ClerkWebhookEvent = {
   type: string;
@@ -27,6 +28,19 @@ function slugify(input: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "")
     .slice(0, 40) || "workspace";
+}
+
+async function persistFailedEvent(eventType: string, payload: unknown, error: string) {
+  try {
+    await db.insert(webhookFailedEvents).values({
+      eventType,
+      payload: payload as Record<string, unknown>,
+      error,
+      attempts: 1,
+    });
+  } catch (dlqErr) {
+    console.error("[clerk-webhook] DLQ write also failed", dlqErr);
+  }
 }
 
 export async function POST(req: Request) {
@@ -291,13 +305,21 @@ export async function POST(req: Request) {
       // Also add the creator as an admin member (prevents race condition
       // where membership.created arrives before org.created)
       if (ws) {
-        await db.insert(workspaceMembers).values({
-          workspaceId: ws.id,
-          userId: ownerId,
-          role: "admin",
-          email: ownerEmail,
-          workspaceName: orgName,
-        }).onConflictDoNothing();
+        try {
+          await withRetry(() =>
+            db.insert(workspaceMembers).values({
+              workspaceId: ws.id,
+              userId: ownerId,
+              role: "admin",
+              email: ownerEmail,
+              workspaceName: orgName,
+            }).onConflictDoNothing()
+          );
+        } catch (memberErr) {
+          const msg = memberErr instanceof Error ? memberErr.message : String(memberErr);
+          console.error("[clerk-webhook] Failed to insert workspace member for org creator", msg);
+          await persistFailedEvent(type, data, msg);
+        }
       }
 
       console.log("[clerk-webhook] workspace created for org", orgId, orgName);
@@ -410,13 +432,21 @@ export async function POST(req: Request) {
 
         // Also add the creator as admin member
         if (ws && ownerId && ownerId !== dbUser.id) {
-          await db.insert(workspaceMembers).values({
-            workspaceId: ws.id,
-            userId: ownerId,
-            role: "admin",
-            email: ownerEmail,
-            workspaceName,
-          }).onConflictDoNothing();
+          try {
+            await withRetry(() =>
+              db.insert(workspaceMembers).values({
+                workspaceId: ws.id,
+                userId: ownerId,
+                role: "admin",
+                email: ownerEmail,
+                workspaceName,
+              }).onConflictDoNothing()
+            );
+          } catch (memberErr) {
+            const msg = memberErr instanceof Error ? memberErr.message : String(memberErr);
+            console.error("[clerk-webhook] Failed to insert creator as workspace member", msg);
+            await persistFailedEvent(type, data, msg);
+          }
         }
 
         console.log("[clerk-webhook] workspace auto-created for membership", orgId, orgName);
@@ -429,19 +459,27 @@ export async function POST(req: Request) {
 
       const role = data.role === "org:admin" ? "admin" : data.role === "org:member" ? "editor" : "viewer";
 
-      await db
-        .insert(workspaceMembers)
-        .values({
-          workspaceId: workspace.id,
-          userId: dbUser.id,
-          role,
-          email: memberEmail,
-          workspaceName,
-        })
-        .onConflictDoUpdate({
-          target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-          set: { role, email: memberEmail, workspaceName },
-        });
+      try {
+        await withRetry(() =>
+          db
+            .insert(workspaceMembers)
+            .values({
+              workspaceId: workspace.id,
+              userId: dbUser.id,
+              role,
+              email: memberEmail,
+              workspaceName,
+            })
+            .onConflictDoUpdate({
+              target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+              set: { role, email: memberEmail, workspaceName },
+            })
+        );
+      } catch (memberErr) {
+        const msg = memberErr instanceof Error ? memberErr.message : String(memberErr);
+        console.error("[clerk-webhook] Failed to insert workspace member", msg);
+        await persistFailedEvent(type, data, msg);
+      }
 
       revalidatePath(`/dashboard/settings/members`);
       revalidatePath(`/dashboard`);
@@ -482,14 +520,22 @@ export async function POST(req: Request) {
       }
 
       // Remove membership
-      await db
-        .delete(workspaceMembers)
-        .where(
-          and(
-            eq(workspaceMembers.workspaceId, workspace.id),
-            eq(workspaceMembers.userId, dbUser.id)
-          )
+      try {
+        await withRetry(() =>
+          db
+            .delete(workspaceMembers)
+            .where(
+              and(
+                eq(workspaceMembers.workspaceId, workspace.id),
+                eq(workspaceMembers.userId, dbUser.id)
+              )
+            )
         );
+      } catch (memberErr) {
+        const msg = memberErr instanceof Error ? memberErr.message : String(memberErr);
+        console.error("[clerk-webhook] Failed to remove workspace member", msg);
+        await persistFailedEvent(type, data, msg);
+      }
 
       revalidatePath(`/dashboard/settings/members`);
       revalidatePath(`/dashboard`);
@@ -531,15 +577,23 @@ export async function POST(req: Request) {
 
       const role = data.role === "org:admin" ? "admin" : data.role === "org:member" ? "editor" : "viewer";
 
-      await db
-        .update(workspaceMembers)
-        .set({ role, updatedAt: new Date() })
-        .where(
-          and(
-            eq(workspaceMembers.workspaceId, workspace.id),
-            eq(workspaceMembers.userId, dbUser.id)
-          )
+      try {
+        await withRetry(() =>
+          db
+            .update(workspaceMembers)
+            .set({ role, updatedAt: new Date() })
+            .where(
+              and(
+                eq(workspaceMembers.workspaceId, workspace.id),
+                eq(workspaceMembers.userId, dbUser.id)
+              )
+            )
         );
+      } catch (memberErr) {
+        const msg = memberErr instanceof Error ? memberErr.message : String(memberErr);
+        console.error("[clerk-webhook] Failed to update workspace member role", msg);
+        await persistFailedEvent(type, data, msg);
+      }
 
       revalidatePath(`/dashboard/settings/members`);
       revalidatePath(`/dashboard`);
@@ -574,10 +628,18 @@ export async function POST(req: Request) {
         .where(eq(workspaces.id, workspace.id));
 
       // Also update workspaceName for all members
-      await db
-        .update(workspaceMembers)
-        .set({ workspaceName: orgName, updatedAt: new Date() })
-        .where(eq(workspaceMembers.workspaceId, workspace.id));
+      try {
+        await withRetry(() =>
+          db
+            .update(workspaceMembers)
+            .set({ workspaceName: orgName, updatedAt: new Date() })
+            .where(eq(workspaceMembers.workspaceId, workspace.id))
+        );
+      } catch (memberErr) {
+        const msg = memberErr instanceof Error ? memberErr.message : String(memberErr);
+        console.error("[clerk-webhook] Failed to update member workspaceName", msg);
+        await persistFailedEvent(type, data, msg);
+      }
 
       revalidatePath(`/dashboard`);
       revalidatePath(`/dashboard/settings/members`);
@@ -587,7 +649,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[clerk-webhook] DB error", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[clerk-webhook] DB error", msg);
+    await persistFailedEvent(type, data, msg);
     return NextResponse.json({ error: "DB operation failed" }, { status: 500 });
   }
 }

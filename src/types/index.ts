@@ -7,6 +7,8 @@ import type {
   links,
   clicks,
   conversions,
+  customerJourneys,
+  attributionResults,
 } from "@/lib/db/schema";
 
 // ─── Drizzle inferred types ───────────────────────────────────────────────────
@@ -38,6 +40,14 @@ export type NewClick       = InferInsertModel<typeof clicks>;
 // conversions
 export type Conversion     = InferSelectModel<typeof conversions>;
 export type NewConversion  = InferInsertModel<typeof conversions>;
+
+// customer_journeys
+export type CustomerJourney    = InferSelectModel<typeof customerJourneys>;
+export type NewCustomerJourney = InferInsertModel<typeof customerJourneys>;
+
+// attribution_results
+export type AttributionResult    = InferSelectModel<typeof attributionResults>;
+export type NewAttributionResult = InferInsertModel<typeof attributionResults>;
 
 // ─── Enum value types ─────────────────────────────────────────────────────────
 

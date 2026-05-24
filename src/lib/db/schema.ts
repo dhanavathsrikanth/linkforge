@@ -15,6 +15,7 @@ import { relations, sql } from "drizzle-orm";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import type { GalleryLink, GalleryAppearance } from "@/types/gallery";
+import type { Touchpoint } from "@/types/attribution";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -462,6 +463,8 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   conversions: many(conversions),
   folders: many(folders),
   workspaceTags: many(workspaceTags),
+  customerJourneys: many(customerJourneys),
+  attributionResults: many(attributionResults),
 }));
 
 export const workspaceMembersRelations = relations(
@@ -496,6 +499,7 @@ export const linksRelations = relations(links, ({ one, many }) => ({
   folder: one(folders, { fields: [links.folderId], references: [folders.id] }),
   clicks: many(clicks),
   conversions: many(conversions),
+  attributionResults: many(attributionResults),
 }));
 
 export const foldersRelations = relations(folders, ({ one, many }) => ({
@@ -520,6 +524,29 @@ export const conversionsRelations = relations(conversions, ({ one }) => ({
   link: one(links, { fields: [conversions.linkId], references: [links.id] }),
   workspace: one(workspaces, {
     fields: [conversions.workspaceId],
+    references: [workspaces.id],
+  }),
+}));
+
+export const customerJourneysRelations = relations(customerJourneys, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [customerJourneys.workspaceId],
+    references: [workspaces.id],
+  }),
+  attributionResults: many(attributionResults),
+}));
+
+export const attributionResultsRelations = relations(attributionResults, ({ one }) => ({
+  journey: one(customerJourneys, {
+    fields: [attributionResults.journeyId],
+    references: [customerJourneys.id],
+  }),
+  link: one(links, {
+    fields: [attributionResults.linkId],
+    references: [links.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [attributionResults.workspaceId],
     references: [workspaces.id],
   }),
 }));
@@ -781,6 +808,88 @@ export const billingEvents = pgTable('billing_events', {
   index('billing_events_workspace_idx').on(t.workspaceId),
   index('billing_events_dodo_id_idx').on(t.dodoEventId)
 ]);
+
+// ─── customer_journeys (multi-touch attribution) ──────────────────────────────
+export const customerJourneys = pgTable(
+  "customer_journeys",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sessionId: text("session_id").notNull(),
+    customerId: text("customer_id"),
+    customerEmail: text("customer_email"),
+    touchpoints: jsonb("touchpoints").$type<Touchpoint[]>().default([]),
+    firstTouchLinkId: uuid("first_touch_link_id"),
+    lastTouchLinkId: uuid("last_touch_link_id"),
+    converted: boolean("converted").default(false),
+    conversionValue: numeric("conversion_value", { precision: 10, scale: 2 }),
+    conversionEvent: text("conversion_event"),
+    conversionAt: timestamp("conversion_at", { withTimezone: true, mode: "date" }),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true, mode: "date" })
+      .default(sql`now()`),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: "date" })
+      .default(sql`now()`),
+    totalTouchpoints: integer("total_touchpoints").default(1),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("customer_journeys_workspace_idx").on(t.workspaceId),
+    index("customer_journeys_session_idx").on(t.sessionId),
+    index("customer_journeys_converted_idx").on(t.converted),
+  ]
+);
+
+export const attributionResults = pgTable(
+  "attribution_results",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    journeyId: uuid("journey_id")
+      .references(() => customerJourneys.id, { onDelete: "cascade" }),
+    linkId: uuid("link_id")
+      .references(() => links.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    credit: numeric("credit", { precision: 5, scale: 4 }).notNull(),
+    creditValue: numeric("credit_value", { precision: 10, scale: 2 }),
+    calculatedAt: timestamp("calculated_at", { withTimezone: true, mode: "date" })
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("attribution_results_workspace_idx").on(t.workspaceId),
+    index("attribution_results_journey_idx").on(t.journeyId),
+    index("attribution_results_link_idx").on(t.linkId),
+    index("attribution_results_model_idx").on(t.model),
+  ]
+);
+
+// ─── webhook_failed_events (dead-letter queue) ─────────────────────────────────
+export const webhookFailedEvents = pgTable(
+  "webhook_failed_events",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    error: text("error").notNull(),
+    attempts: integer("attempts").notNull().default(1),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("webhook_failed_events_resolved_idx").on(t.resolvedAt),
+  ]
+);
 
 // ─── audit_logs ────────────────────────────────────────────────────────────────
 export const auditLogs = pgTable(

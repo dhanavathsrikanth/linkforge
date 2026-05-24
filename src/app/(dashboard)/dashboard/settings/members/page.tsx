@@ -20,6 +20,7 @@ export default function MembersPage() {
   }
 
   const isPersonal = workspace.isPersonal || !organization;
+  const canManage = workspace.role === "owner" || workspace.role === "admin";
   const orgSlug = organization?.slug;
 
   return (
@@ -33,7 +34,7 @@ export default function MembersPage() {
               : `Manage your team and organization settings`}
           </p>
         </div>
-        {!isPersonal && (
+        {!isPersonal && canManage && (
           <Link
             href="/organization-profile"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
@@ -95,7 +96,7 @@ export default function MembersPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          {canManage && <div className="grid gap-4 sm:grid-cols-2">
             <Link
               href="/organization-profile"
               className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:bg-muted/50 transition-all"
@@ -124,7 +125,7 @@ export default function MembersPage() {
                 <div className="text-xs text-muted-foreground">Name, logo, and preferences</div>
               </div>
             </Link>
-          </div>
+          </div>}
 
           {/* Members List Preview */}
           {workspace.members && workspace.members.length > 0 && (
