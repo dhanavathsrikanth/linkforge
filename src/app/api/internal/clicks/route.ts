@@ -6,6 +6,7 @@ import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
 import { incrementUsage } from "@/lib/billing/usage";
+import { sendWebhookEvent } from "@/lib/svix/send";
 
 type ClickPayload = {
   linkId: string;
@@ -172,6 +173,13 @@ export async function POST(req: Request) {
     } catch (e) {
       console.warn("[POST /api/internal/clicks] increment usage failed", e);
     }
+
+    sendWebhookEvent({
+      eventType: "link.clicked",
+      workspaceId,
+      data: { linkId, slug: body.slug, isUnique, device: deviceValue, country, referrer },
+      idempotencyKey: `link.clicked-${linkId}-${body.timestamp}`,
+    });
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {

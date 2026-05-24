@@ -6,6 +6,18 @@
       "sourceType": "github",
       "skillPath": "skills/neon-postgres/SKILL.md",
       "computedHash": "574cf4b7c901ebc7d88d34e2c3e3d08fdec127bd0047f888de148ff0af787d4e"
+    },
+    "svix-best-practices": {
+      "source": "svix/svix-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/svix-best-practices/SKILL.md",
+      "computedHash": "b33bcccce3694535aac8f4143f1ad4f83ef7a318b9153c28b78393e06b87ede4"
+    },
+    "svix-new-integration": {
+      "source": "svix/svix-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/svix-new-integration/SKILL.md",
+      "computedHash": "373a147c485b9fbe76c7c764d5998a74593c257ecec4a3113348ad58d3d60de0"
     }
   }
 }

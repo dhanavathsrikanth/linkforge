@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { PLANS, PlanKey } from '@/lib/billing/plans';
 import { mapProductToPlan, guessPlanFromName } from '@/lib/billing/planMap';
 import { getAppUrl } from '@/lib/utils';
+import { sendWebhookEvent } from '@/lib/svix/send';
 
 // Handle seconds vs milliseconds timestamps safely
 function parseTs(input: unknown): Date | undefined {
@@ -156,6 +157,13 @@ async function processEvent(payload: any, eventType: string) {
       .set({ plan, planUpdatedAt: new Date(), dodoCustomerId: customerId })
       .where(eq(workspaces.id, workspaceId));
 
+    sendWebhookEvent({
+      eventType: 'workspace.plan_changed',
+      workspaceId,
+      data: { fromPlan, toPlan: plan, eventType: 'payment.succeeded' },
+      idempotencyKey: `workspace.plan_changed-${workspaceId}-${payload.id}`,
+    });
+
     if (subscriptionId) {
       const currentPeriodStart = parseTs(payload.data.current_period_start) ?? new Date();
       const currentPeriodEnd =
@@ -237,6 +245,13 @@ async function processEvent(payload: any, eventType: string) {
       workspaceId, eventType: 'subscription.cancelled', fromPlan: fromPlan as PlanKey, toPlan: 'free', dodoEventId: payload.id
     });
 
+    sendWebhookEvent({
+      eventType: 'workspace.plan_changed',
+      workspaceId,
+      data: { fromPlan, toPlan: 'free', eventType: 'subscription.cancelled' },
+      idempotencyKey: `workspace.plan_changed-${workspaceId}-${payload.id}`,
+    });
+
     await resetUsageForWorkspace(workspaceId);
 
     const ownerEmail = workspace?.owner?.email;
@@ -290,6 +305,13 @@ async function processEvent(payload: any, eventType: string) {
     const isHigherTier = newPlan !== fromPlan && newPlan !== 'free';
 
     await db.update(workspaces).set({ plan: newPlan, planUpdatedAt: new Date() }).where(eq(workspaces.id, workspaceId));
+
+    sendWebhookEvent({
+      eventType: 'workspace.plan_changed',
+      workspaceId,
+      data: { fromPlan, toPlan: newPlan, eventType: 'subscription.updated' },
+      idempotencyKey: `workspace.plan_changed-${workspaceId}-${payload.id}`,
+    });
 
     const currentPeriodStart = parseTs(payload.data.current_period_start) ?? new Date();
     const currentPeriodEnd = parseTs(payload.data.current_period_end) ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);

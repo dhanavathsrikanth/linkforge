@@ -14,6 +14,7 @@ import {
   Zap,
   Code2,
   Key,
+  Webhook,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
@@ -39,6 +40,7 @@ const workspaceNav = [
 const developersNav = [
   { name: "API Docs",    href: "/docs",                       icon: Code2 },
   { name: "API Keys",    href: "/dashboard/developers/api-keys", icon: Key },
+  { name: "Webhooks",    href: "/dashboard/settings/webhooks",   icon: Webhook },
 ];
 
 function NavItem({ item, active }: { item: typeof mainNav[number]; active: boolean }) {

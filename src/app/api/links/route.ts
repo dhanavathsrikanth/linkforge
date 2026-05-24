@@ -14,6 +14,7 @@ import { billingLimitError } from "@/lib/billing/middleware";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
 import { rateLimitByUser } from "@/lib/rate-limiter";
+import { sendWebhookEvent } from "@/lib/svix/send";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -241,6 +242,14 @@ export async function POST(req: Request) {
       entityType: "link",
       entityId: link.id,
       metadata: { slug, domain },
+    });
+
+    sendWebhookEvent({
+      eventType: "link.created",
+      workspaceId: v.workspaceId,
+      data: { linkId: link.id, slug, destination: v.destination, domain },
+      actorId: dbUser.id,
+      idempotencyKey: `link.created-${link.id}`,
     });
 
     return NextResponse.json({ link }, { status: 201 });

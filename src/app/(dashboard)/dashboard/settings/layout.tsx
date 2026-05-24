@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, CreditCard, Globe, Users, History } from "lucide-react";
+import { Settings, CreditCard, Globe, Users, History, Webhook } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -11,6 +11,7 @@ const tabs = [
   { name: "Billing", href: "/dashboard/billings", icon: CreditCard },
   { name: "Domains", href: "/dashboard/domain", icon: Globe },
   { name: "Audit Logs", href: "/dashboard/settings/audit-logs", icon: History },
+  { name: "Webhooks", href: "/dashboard/settings/webhooks", icon: Webhook },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

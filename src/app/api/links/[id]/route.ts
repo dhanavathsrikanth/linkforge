@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
+import { sendWebhookEvent } from "@/lib/svix/send";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -169,6 +170,14 @@ export async function PATCH(
       metadata: { changed: Object.keys(updateData) },
     });
 
+    sendWebhookEvent({
+      eventType: "link.updated",
+      workspaceId: v.workspaceId,
+      data: { linkId: id, slug: existing.slug, destination: existing.destination, changes: Object.keys(updateData) },
+      actorId: dbUser.id,
+      idempotencyKey: `link.updated-${id}-${Date.now()}`,
+    });
+
     return NextResponse.json({ link: updated });
   } catch (err) {
     console.error("[PATCH /api/links/[id]]", err);
@@ -223,6 +232,14 @@ export async function DELETE(
       entityType: "link",
       entityId: id,
       metadata: { slug: existing.slug, destination: existing.destination },
+    });
+
+    sendWebhookEvent({
+      eventType: "link.deleted",
+      workspaceId,
+      data: { linkId: id, slug: existing.slug, destination: existing.destination },
+      actorId: dbUser.id,
+      idempotencyKey: `link.deleted-${id}`,
     });
 
     return NextResponse.json({ ok: true });

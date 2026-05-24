@@ -747,6 +747,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                           <p className="mt-0.5 truncate text-xs text-slate-500 max-w-[300px] dark:text-slate-400">
                             {link.destination}
                           </p>
+                        </div>
                         </td>
                         <td className="px-5 py-3 hidden lg:table-cell">
                           <InlineFolderSelector
