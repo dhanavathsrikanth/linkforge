@@ -44,3 +44,7 @@ next-env.d.ts
 /worker/node_modules/
 /worker/.dev.vars
 /worker/.wrangler/
+
+# agents and skills
+/.agents/
+/.claude/
