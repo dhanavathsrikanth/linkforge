@@ -20,6 +20,7 @@ const CreateLinkSchema = z.object({
   description: z.string().max(500).optional().or(z.literal("")),
   password: z.string().max(64).optional().or(z.literal("")),
   tags: z.array(z.string()).optional(),
+  folderId: z.string().uuid().optional().or(z.literal("")),
   expiresAt: z.string().datetime().optional().or(z.literal("")),
   scheduledAt: z.string().datetime().optional().or(z.literal("")),
   clickLimit: z.number().int().positive().optional().nullable(),
@@ -77,14 +78,39 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceId");
+    const folderId = searchParams.get("folderId");
+    const tags = searchParams.get("tags");
 
     const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
 
-    const userLinks = await db.query.links.findMany({
-      where: (l, { eq }) => eq(l.workspaceId, ws.id),
-      orderBy: (l, { desc }) => [desc(l.createdAt)],
-      limit: 100,
-    });
+    let userLinks;
+    if (folderId === "none") {
+      userLinks = await db.query.links.findMany({
+        where: (l, { eq, isNull }) => [eq(l.workspaceId, ws.id), isNull(l.folderId)],
+        orderBy: (l, { desc }) => [desc(l.createdAt)],
+        limit: 100,
+      });
+    } else if (folderId && folderId !== "") {
+      userLinks = await db.query.links.findMany({
+        where: (l, { eq, and }) => and(eq(l.workspaceId, ws.id), eq(l.folderId, folderId)),
+        orderBy: (l, { desc }) => [desc(l.createdAt)],
+        limit: 100,
+      });
+    } else {
+      userLinks = await db.query.links.findMany({
+        where: (l, { eq }) => eq(l.workspaceId, ws.id),
+        orderBy: (l, { desc }) => [desc(l.createdAt)],
+        limit: 100,
+      });
+    }
+
+    if (tags) {
+      const tagList = tags.split(",").map((t) => t.trim());
+      userLinks = userLinks.filter((link) =>
+        tagList.some((tag) => link.tags?.includes(tag))
+      );
+    }
+
     return NextResponse.json({ links: userLinks, workspaceId: ws.id });
   } catch (err) {
     console.error("[GET /api/links]", err);
@@ -158,6 +184,7 @@ export async function POST(req: Request) {
         title: emptyToNull(v.title),
         description: emptyToNull(v.description),
         tags: v.tags ?? [],
+        folderId: v.folderId && v.folderId !== "" ? v.folderId : null,
         password: hashedPassword,
         expiresAt: v.expiresAt && v.expiresAt !== "" ? new Date(v.expiresAt) : null,
         scheduledAt: v.scheduledAt && v.scheduledAt !== "" ? new Date(v.scheduledAt) : null,

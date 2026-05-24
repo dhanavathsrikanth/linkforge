@@ -15,6 +15,7 @@ const UpdateLinkSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   password: z.string().max(64).optional().nullable(),
   tags: z.array(z.string()).optional(),
+  folderId: z.string().uuid().optional().nullable(),
   expiresAt: z.string().datetime().optional().nullable(),
   scheduledAt: z.string().datetime().optional().nullable(),
   clickLimit: z.number().int().positive().optional().nullable(),
@@ -123,6 +124,7 @@ export async function PATCH(
       updateData.password = v.password ? await bcrypt.hash(v.password, 10) : null;
     }
     if (v.tags !== undefined) updateData.tags = v.tags;
+    if (v.folderId !== undefined) updateData.folderId = v.folderId;
     if (v.expiresAt !== undefined) updateData.expiresAt = v.expiresAt ? new Date(v.expiresAt) : null;
     if (v.scheduledAt !== undefined) updateData.scheduledAt = v.scheduledAt ? new Date(v.scheduledAt) : null;
     if (v.clickLimit !== undefined) updateData.clickLimit = v.clickLimit;

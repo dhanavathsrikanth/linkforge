@@ -27,6 +27,8 @@ export {
   usageCounters,
   waitlist,
   apiKeys,
+  workspaceTags,
+  folders,
   // Enums
   planEnum,
   memberRoleEnum,
@@ -41,6 +43,8 @@ export {
   conversionsRelations,
   linkGalleryRelations,
   linkGalleryClicksRelations,
+  foldersRelations,
+  workspaceTagsRelations,
   subscriptions,
   usageOverrides,
   billingEvents,

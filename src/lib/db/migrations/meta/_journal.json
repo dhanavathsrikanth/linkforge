@@ -57,6 +57,13 @@
       "when": 1779586583945,
       "tag": "0007_polite_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779613107017,
+      "tag": "0008_curved_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

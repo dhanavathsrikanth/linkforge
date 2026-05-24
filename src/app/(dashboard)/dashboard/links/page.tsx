@@ -3,6 +3,7 @@
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { useQuery } from "@tanstack/react-query";
 import { LinksDashboardClient } from "@/components/links/LinksDashboardClient";
+import { FolderItem } from "@/components/dashboard/FolderFilter";
 
 export default function LinksPage() {
   const { workspace, isLoading: wsLoading } = useWorkspace();
@@ -16,6 +17,16 @@ export default function LinksPage() {
       if (!res.ok) return [];
       const json = await res.json();
       return json.links || [];
+    },
+    enabled: !!wsId,
+  });
+
+  const { data: folders } = useQuery<{ folders: FolderItem[] }>({
+    queryKey: ["folders", wsId],
+    queryFn: async () => {
+      const res = await fetch(`/api/folders?workspaceId=${wsId}`);
+      if (!res.ok) return { folders: [] };
+      return res.json();
     },
     enabled: !!wsId,
   });
@@ -43,6 +54,7 @@ export default function LinksPage() {
     <LinksDashboardClient
       workspaceId={wsId}
       initialLinks={links as any}
+      folders={folders?.folders || []}
     />
   );
 }

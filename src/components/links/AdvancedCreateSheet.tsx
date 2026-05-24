@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   X,
@@ -16,7 +16,11 @@ import {
   Sparkles,
   Plus,
   Trash2,
+  Folder,
+  ChevronDown,
+  Check2,
 } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { cn, getShortLinkBase } from "@/lib/utils";
 
@@ -26,6 +30,14 @@ type Prefill = {
   id?: string;
   destination?: string;
   slug?: string;
+  folderId?: string | null;
+};
+
+type FolderOption = {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
 };
 
 type Props = {
@@ -35,6 +47,8 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   prefill?: Prefill;
   onCreated?: (link: any) => void;
+  folders?: FolderOption[];
+  onFolderCreate?: (folder: FolderOption) => void;
 };
 
 const initialState = {
@@ -42,6 +56,7 @@ const initialState = {
   slug: "",
   title: "",
   tags: [] as string[],
+  folderId: "" as string | null,
   utmSource: "",
   utmMedium: "",
   utmCampaign: "",
@@ -77,6 +92,8 @@ export function AdvancedCreateSheet({
   onOpenChange,
   prefill,
   onCreated,
+  folders = [],
+  onFolderCreate,
 }: Props) {
   const [tab, setTab] = useState<TabKey>("general");
   const [form, setForm] = useState(initialState);
@@ -105,6 +122,7 @@ export function AdvancedCreateSheet({
               slug: d.slug ?? "",
               title: d.title ?? "",
               tags: d.tags ?? [],
+              folderId: d.folderId ?? null,
               utmSource: d.utmSource ?? "",
               utmMedium: d.utmMedium ?? "",
               utmCampaign: d.utmCampaign ?? "",
@@ -208,6 +226,7 @@ export function AdvancedCreateSheet({
         slug: form.slug.trim() || undefined,
         title: form.title.trim() || undefined,
         tags: form.tags,
+        folderId: form.folderId || null,
         utmSource: form.utmSource || undefined,
         utmMedium: form.utmMedium || undefined,
         utmCampaign: form.utmCampaign || undefined,
@@ -510,6 +529,15 @@ export function AdvancedCreateSheet({
                           className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
                         />
                       </div>
+                    </Field>
+
+                    <Field label="Folder">
+                      <FolderSelector
+                        folders={folders}
+                        selectedId={form.folderId}
+                        onSelect={(id) => update("folderId", id)}
+                        onCreateFolder={onFolderCreate}
+                      />
                     </Field>
                   </div>
                 )}
@@ -1137,5 +1165,167 @@ function Field({
       </div>
       {children}
     </label>
+  );
+}
+
+function FolderSelector({
+  folders,
+  selectedId,
+  onSelect,
+  onCreateFolder,
+}: {
+  folders: FolderOption[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onCreateFolder?: (folder: FolderOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  const selectedFolder = folders.find((f) => f.id === selectedId);
+
+  const handleCreate = useCallback(async () => {
+    if (!newFolderName.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newFolderName.trim(),
+          workspaceId: "",
+        }),
+      });
+      const data = await res.json();
+      if (data.folder) {
+        onSelect(data.folder.id);
+        onCreateFolder?.(data.folder);
+      }
+    } catch {
+    } finally {
+      setCreating(false);
+      setNewFolderName("");
+      setOpen(false);
+    }
+  }, [newFolderName, onSelect, onCreateFolder]);
+
+  return (
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex h-10 w-full items-center justify-between rounded-lg border border-border bg-background px-3 text-sm transition-colors",
+            "hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20",
+            selectedFolder ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          <span className="flex items-center gap-2 truncate">
+            {selectedFolder ? (
+              <>
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-xs"
+                  style={{ backgroundColor: selectedFolder.color + "20", color: selectedFolder.color }}
+                >
+                  <Folder className="h-3 w-3" />
+                </span>
+                <span>{selectedFolder.name}</span>
+              </>
+            ) : (
+              <>
+                <Folder className="h-4 w-4 opacity-50" />
+                <span>No folder</span>
+              </>
+            )}
+          </span>
+          <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform", open && "rotate-180")} />
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="start"
+          sideOffset={4}
+          className="z-50 min-w-[200px] overflow-hidden rounded-lg border border-border bg-background p-1 shadow-lg animate-in fade-in-0 zoom-in-95"
+        >
+          <DropdownMenu.Item
+            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted data-[highlighted]:bg-muted"
+            onClick={() => {
+              onSelect(null);
+              setOpen(false);
+            }}
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-muted text-muted-foreground">
+              <Folder className="h-3 w-3" />
+            </span>
+            <span className="flex-1">No folder</span>
+            {selectedId === null && <Check2 className="h-4 w-4 text-primary" />}
+          </DropdownMenu.Item>
+
+          {folders.map((folder) => (
+            <DropdownMenu.Item
+              key={folder.id}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted data-[highlighted]:bg-muted"
+              onClick={() => {
+                onSelect(folder.id);
+                setOpen(false);
+              }}
+            >
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-md text-xs"
+                style={{ backgroundColor: folder.color + "20", color: folder.color }}
+              >
+                <Folder className="h-3 w-3" />
+              </span>
+              <span className="flex-1">{folder.name}</span>
+              {selectedId === folder.id && <Check2 className="h-4 w-4 text-primary" />}
+            </DropdownMenu.Item>
+          ))}
+
+          <DropdownMenu.Separator className="my-1 h-px bg-border" />
+
+          {creating ? (
+            <div className="px-2 py-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  className="flex-1 h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreate();
+                    if (e.key === "Escape") {
+                      setCreating(false);
+                      setNewFolderName("");
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={!newFolderName.trim() || creating}
+                  className="h-8 rounded bg-primary px-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {creating ? "..." : "Add"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <DropdownMenu.Item
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted data-[highlighted]:bg-muted"
+              onClick={() => setCreating(true)}
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Plus className="h-3 w-3" />
+              </span>
+              <span>Create new folder</span>
+            </DropdownMenu.Item>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }

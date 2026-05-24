@@ -176,6 +176,49 @@ export const domains = pgTable(
   (t) => [index("domains_workspace_idx").on(t.workspaceId)]
 );
 
+// ─── workspaceTags ────────────────────────────────────────────────────────────
+
+export const workspaceTags = pgTable(
+  "workspace_tags",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),           // lowercase-normalized
+    color: text("color").notNull().default("#433BFF"),
+    description: text("description"),
+    usageCount: integer("usage_count").notNull().default(0), // denormalized counter
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("workspace_tags_ws_name_unique_idx").on(t.workspaceId, t.name),
+    index("workspace_tags_workspace_idx").on(t.workspaceId),
+  ]
+);
+
+// ─── folders ──────────────────────────────────────────────────────────────────
+
+export const folders = pgTable(
+  "folders",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    color: text("color").notNull().default("#433BFF"),
+    icon: text("icon").default("folder"),   // lucide icon name
+    ...timestamps,
+  },
+  (t) => [
+    index("folders_workspace_idx").on(t.workspaceId),
+    index("folders_created_at_idx").on(t.createdAt),
+  ]
+);
+
 // ─── links ────────────────────────────────────────────────────────────────────
 
 export const links = pgTable(
@@ -189,6 +232,7 @@ export const links = pgTable(
     domainId: uuid("domain_id").references(() => domains.id, {
       onDelete: "set null",
     }),
+    folderId: uuid("folder_id").references(() => folders.id, { onDelete: "set null" }),
 
     // Core
     slug: text("slug").notNull(),
@@ -389,6 +433,8 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   links: many(links),
   clicks: many(clicks),
   conversions: many(conversions),
+  folders: many(folders),
+  workspaceTags: many(workspaceTags),
 }));
 
 export const workspaceMembersRelations = relations(
@@ -420,8 +466,19 @@ export const linksRelations = relations(links, ({ one, many }) => ({
   }),
   user: one(users, { fields: [links.userId], references: [users.id] }),
   domain: one(domains, { fields: [links.domainId], references: [domains.id] }),
+  folder: one(folders, { fields: [links.folderId], references: [folders.id] }),
   clicks: many(clicks),
   conversions: many(conversions),
+}));
+
+export const foldersRelations = relations(folders, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [folders.workspaceId], references: [workspaces.id] }),
+  user: one(users, { fields: [folders.userId], references: [users.id] }),
+  links: many(links),
+}));
+
+export const workspaceTagsRelations = relations(workspaceTags, ({ one }) => ({
+  workspace: one(workspaces, { fields: [workspaceTags.workspaceId], references: [workspaces.id] }),
 }));
 
 export const clicksRelations = relations(clicks, ({ one }) => ({
