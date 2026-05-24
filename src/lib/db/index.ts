@@ -20,6 +20,7 @@ export {
   links,
   clicks,
   conversions,
+  abTestResults,
   userMessages,
   linkGallery,
   linkGalleryClicks,

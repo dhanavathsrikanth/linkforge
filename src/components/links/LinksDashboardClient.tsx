@@ -2,7 +2,9 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3 } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { QuickCreateBar } from "./QuickCreateBar";
@@ -163,6 +165,55 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
             <p className="text-xs text-blue-600 dark:text-blue-400">
               Goes live on {new Date((link as any).scheduledAt).toLocaleString()}
             </p>
+          </div>
+        )}
+
+        {/* A/B Test Summary (active) */}
+        {(link as any).abTestEnabled && (
+          <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4 shadow-sm dark:border-violet-800 dark:bg-violet-950/20">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-violet-800 dark:text-violet-300 flex items-center gap-2">
+                <BarChart2 className="h-4 w-4" />
+                A/B Test Running
+              </h3>
+              <Link
+                href={`/dashboard/links/${link.id}/ab-test`}
+                className="text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
+              >
+                View details →
+              </Link>
+            </div>
+            <div className="text-xs text-violet-700 dark:text-violet-300 space-y-1">
+              <p>{(link as any).abTestVariants?.length ?? 0} variants</p>
+              {(link as any).abTestStartedAt && (
+                <p>Started {new Date((link as any).abTestStartedAt).toLocaleDateString()}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* A/B Test Summary (completed) */}
+        {(link as any).abTestWinner && !(link as any).abTestEnabled && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                A/B Test Complete
+              </h3>
+              <Link
+                href={`/dashboard/links/${link.id}/ab-test`}
+                className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+              >
+                View results →
+              </Link>
+            </div>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+              Winner: <strong>{(link as any).abTestWinner}</strong>
+            </p>
+            {(link as any).abTestEndedAt && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">
+                Ended {new Date((link as any).abTestEndedAt).toLocaleDateString()}
+              </p>
+            )}
           </div>
         )}
 
@@ -489,6 +540,16 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                                 Routed
                               </span>
                             )}
+                            {(link as any).abTestEnabled && (
+                              <Link
+                                href={`/dashboard/links/${link.id}/ab-test`}
+                                className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold uppercase text-violet-600 border border-violet-200 hover:bg-violet-100 transition-colors"
+                                title="A/B test active"
+                              >
+                                <BarChart2 className="h-3 w-3" />
+                                A/B
+                              </Link>
+                            )}
                           </div>
                           <p className="mt-0.5 truncate text-xs text-slate-500 max-w-[300px] dark:text-slate-400">
                             {link.destination}
@@ -556,6 +617,13 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                             >
                               <QrCode className="h-3.5 w-3.5" />
                             </button>
+                            <Link
+                              href={`/dashboard/links/${link.id}/ab-test`}
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors dark:text-slate-500 dark:hover:text-violet-400 dark:hover:bg-violet-950/30"
+                              title="A/B Testing"
+                            >
+                              <FlaskConical className="h-3.5 w-3.5" />
+                            </Link>
                             {!isViewer && (
                               <button
                                 type="button"

@@ -61,7 +61,7 @@ const initialState = {
   scheduleMode: false,
   scheduledAt: "",
   abTestEnabled: false,
-  abTestVariants: [] as { destination: string; weight: number }[],
+  abTestVariants: [] as { id?: string; destination: string; weight: number; label?: string }[],
   routingRules: [] as { condition: { device?: string; country?: string; language?: string }; destination: string }[],
 };
 
@@ -222,9 +222,11 @@ export function AdvancedCreateSheet({
         abTestEnabled: form.abTestEnabled || undefined,
         abTestVariants:
           form.abTestEnabled && form.abTestVariants.length > 0
-            ? form.abTestVariants.map((v) => ({
+            ? form.abTestVariants.map((v, i) => ({
+                id: (v as any).id ?? crypto.randomUUID(),
                 destination: v.destination,
                 weight: v.weight,
+                label: (v as any).label ?? `Variant ${String.fromCharCode(65 + i)}`,
               }))
             : undefined,
         routingRules:
@@ -591,8 +593,8 @@ export function AdvancedCreateSheet({
                           update("abTestEnabled", e.target.checked);
                           if (e.target.checked && form.abTestVariants.length === 0) {
                             update("abTestVariants", [
-                              { destination: form.destination || "", weight: 50 },
-                              { destination: "", weight: 50 },
+                              { id: crypto.randomUUID(), destination: form.destination || "", weight: 50, label: "Control" },
+                              { id: crypto.randomUUID(), destination: "", weight: 50, label: "Variant B" },
                             ]);
                           }
                         }}
@@ -672,7 +674,7 @@ export function AdvancedCreateSheet({
                           onClick={() =>
                             update("abTestVariants", [
                               ...form.abTestVariants,
-                              { destination: "", weight: 1 },
+                              { id: crypto.randomUUID(), destination: "", weight: 1, label: `Variant ${String.fromCharCode(65 + form.abTestVariants.length)}` },
                             ])
                           }
                           className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"

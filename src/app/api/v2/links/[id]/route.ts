@@ -83,9 +83,15 @@ export async function PATCH(
         if (key === "password" && body.password) {
           updateData[key] = await bcrypt.hash(body.password, 10);
         } else if (key === "abTestVariants" && Array.isArray(body[key])) {
-          updateData[key] = body[key].map((av: { destination: string; weight: number }) => ({
-            ...av,
-            clicks: 0,
+          updateData[key] = body[key].map((av: any) => ({
+            id: av.id ?? crypto.randomUUID(),
+            destination: av.destination,
+            weight: av.weight,
+            label: av.label ?? `Variant ${String.fromCharCode(64 + (body[key].indexOf(av) ?? 0) + 1)}`,
+            clicks: av.clicks ?? 0,
+            conversions: av.conversions ?? 0,
+            conversionRate: av.conversionRate ?? 0,
+            uniqueClicks: av.uniqueClicks ?? 0,
           }));
         } else {
           updateData[key] = body[key];

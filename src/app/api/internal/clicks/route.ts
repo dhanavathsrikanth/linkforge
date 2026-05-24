@@ -145,6 +145,7 @@ export async function POST(req: Request) {
             country,
             referrer: referrer ?? null,
             referrerDomain: referrerDomain ?? null,
+            abVariant: body.variant ?? null,
           })),
           redis.ltrim(`clicks:${slug}`, 0, 49),
           redis.incr(`stats:clicks:${slug}:daily:${today}`),

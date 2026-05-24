@@ -141,6 +141,13 @@ export async function GET(
     const device = parseDevice(ua);
     const referrer = req.headers.get("referer") || "";
 
+    // Pick A/B variant before tracking so we can record which was served
+    let selectedAbVariant: string | null = null;
+    if (link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0) {
+      const picked = pickAbVariant(link.abTestVariants);
+      selectedAbVariant = (picked as any).name || picked.destination;
+    }
+
     if (device !== "bot") {
       (async () => {
         try {
@@ -174,6 +181,7 @@ export async function GET(
               referrer,
               referrerDomain,
               isQrScan,
+              abVariant: selectedAbVariant,
               createdAt: new Date(),
             }),
             db.update(links)
@@ -187,6 +195,7 @@ export async function GET(
               device, browser, os, country, city,
               referrer: referrer || null,
               referrerDomain,
+              abVariant: selectedAbVariant,
             })),
             redis.ltrim(`clicks:${slug}`, 0, 49),
             redis.incr(`stats:clicks:daily:${today}`),
@@ -217,8 +226,8 @@ export async function GET(
     // Resolve base destination: A/B test → smart routing → deep link → default
     let baseDestination = link.destination;
 
-    if (link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0) {
-      const picked = pickAbVariant(link.abTestVariants);
+    if (selectedAbVariant) {
+      const picked = pickAbVariant(link.abTestVariants!);
       baseDestination = picked.destination;
     } else if (link.routingRules && link.routingRules.length > 0) {
       const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "";

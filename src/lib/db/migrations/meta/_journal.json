@@ -50,6 +50,13 @@
       "when": 1779302128272,
       "tag": "0006_windy_sinister_six",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779586583945,
+      "tag": "0007_polite_gunslinger",
+      "breakpoints": true
     }
   ]
 }

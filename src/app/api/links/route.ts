@@ -40,6 +40,7 @@ const CreateLinkSchema = z.object({
       z.object({
         destination: z.string().url(),
         weight: z.number().int().positive(),
+        label: z.string().optional(),
       })
     )
     .optional(),
@@ -173,7 +174,16 @@ export async function POST(req: Request) {
         androidDestination: emptyToNull(v.androidDestination),
         abTestEnabled: v.abTestEnabled ?? false,
         abTestVariants: v.abTestVariants
-          ? v.abTestVariants.map((av) => ({ ...av, clicks: 0 }))
+          ? v.abTestVariants.map((av) => ({
+              id: crypto.randomUUID(),
+              destination: av.destination,
+              weight: av.weight,
+              label: av.label ?? `Variant ${String.fromCharCode(64 + (v.abTestVariants?.indexOf(av) ?? 0) + 1)}`,
+              clicks: 0,
+              conversions: 0,
+              conversionRate: 0,
+              uniqueClicks: 0,
+            }))
           : null,
         routingRules: v.routingRules ?? null,
       })

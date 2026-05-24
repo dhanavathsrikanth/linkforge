@@ -33,8 +33,14 @@ const UpdateLinkSchema = z.object({
   abTestVariants: z
     .array(
       z.object({
+        id: z.string().optional(),
         destination: z.string(),
         weight: z.number().min(1).max(100),
+        label: z.string().optional(),
+        clicks: z.number().optional(),
+        conversions: z.number().optional(),
+        conversionRate: z.number().optional(),
+        uniqueClicks: z.number().optional(),
       })
     )
     .optional(),
@@ -133,7 +139,16 @@ export async function PATCH(
     if (v.androidDestination !== undefined) updateData.androidDestination = emptyToNull(v.androidDestination);
     if (v.abTestEnabled !== undefined) updateData.abTestEnabled = v.abTestEnabled;
     if (v.abTestVariants !== undefined) {
-      updateData.abTestVariants = v.abTestVariants.map((av) => ({ ...av, clicks: 0 }));
+      updateData.abTestVariants = v.abTestVariants.map((av) => ({
+        id: av.id ?? crypto.randomUUID(),
+        destination: av.destination,
+        weight: av.weight,
+        label: av.label ?? `Variant ${String.fromCharCode(64 + (v.abTestVariants?.indexOf(av) ?? 0) + 1)}`,
+        clicks: av.clicks ?? 0,
+        conversions: av.conversions ?? 0,
+        conversionRate: av.conversionRate ?? 0,
+        uniqueClicks: av.uniqueClicks ?? 0,
+      }));
     }
     if (v.routingRules !== undefined) updateData.routingRules = v.routingRules;
 

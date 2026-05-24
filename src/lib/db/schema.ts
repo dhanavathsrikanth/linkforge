@@ -242,8 +242,12 @@ export const links = pgTable(
     // A/B testing
     abTestEnabled: boolean("ab_test_enabled").notNull().default(false),
     abTestVariants: jsonb("ab_test_variants").$type<
-      { destination: string; weight: number; clicks: number }[]
-    >(),
+      { id: string; destination: string; weight: number; label: string; clicks: number; conversions: number; conversionRate: number; uniqueClicks: number }[]
+    >().default(sql`'[]'::jsonb`),
+    abTestWinner: text("ab_test_winner"),
+    abTestSignificance: numeric("ab_test_significance", { precision: 5, scale: 4 }),
+    abTestStartedAt: timestamp("ab_test_started_at", { withTimezone: true, mode: "date" }),
+    abTestEndedAt: timestamp("ab_test_ended_at", { withTimezone: true, mode: "date" }),
 
     // QR customization — stored as JSONB, falls back to DEFAULT_QR_SETTINGS
     qrSettings: jsonb("qr_settings")
@@ -300,6 +304,7 @@ export const clicks = pgTable(
 
     // A/B
     abVariant: text("ab_variant"),
+    abTestId: uuid("ab_test_id"),
 
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
@@ -311,6 +316,34 @@ export const clicks = pgTable(
     index("clicks_created_at_idx").on(t.createdAt),
     index("clicks_country_idx").on(t.country),
     index("clicks_referrer_domain_idx").on(t.referrerDomain),
+  ]
+);
+
+// ─── ab_test_results ──────────────────────────────────────────────────────────
+
+export const abTestResults = pgTable(
+  "ab_test_results",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    linkId: uuid("link_id")
+      .notNull()
+      .references(() => links.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    variantDestination: text("variant_destination").notNull(),
+    clicks: integer("clicks").notNull().default(0),
+    conversions: integer("conversions").notNull().default(0),
+    conversionRate: numeric("conversion_rate", { precision: 5, scale: 4 }).default("0"),
+    uniqueClicks: integer("unique_clicks").notNull().default(0),
+    ctaScore: numeric("cta_score", { precision: 6, scale: 4 }).default("0"),
+    isWinner: boolean("is_winner").default(false),
+    significanceLevel: numeric("significance_level", { precision: 5, scale: 4 }),
+    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" }).defaultNow(),
+  },
+  (t) => [
+    index("ab_test_results_link_id_idx").on(t.linkId),
+    index("ab_test_results_workspace_idx").on(t.workspaceId),
   ]
 );
 
