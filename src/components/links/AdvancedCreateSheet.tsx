@@ -18,7 +18,7 @@ import {
   Trash2,
   Folder,
   ChevronDown,
-  Check2,
+  CircleCheck,
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useClipboard } from "@/hooks/use-clipboard";
@@ -1260,7 +1260,7 @@ function FolderSelector({
               <Folder className="h-3 w-3" />
             </span>
             <span className="flex-1">No folder</span>
-            {selectedId === null && <Check2 className="h-4 w-4 text-primary" />}
+            {selectedId === null && <CircleCheck className="h-4 w-4 text-primary" />}
           </DropdownMenu.Item>
 
           {folders.map((folder) => (
@@ -1279,7 +1279,7 @@ function FolderSelector({
                 <Folder className="h-3 w-3" />
               </span>
               <span className="flex-1">{folder.name}</span>
-              {selectedId === folder.id && <Check2 className="h-4 w-4 text-primary" />}
+              {selectedId === folder.id && <CircleCheck className="h-4 w-4 text-primary" />}
             </DropdownMenu.Item>
           ))}
 

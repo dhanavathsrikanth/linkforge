@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { FolderItem } from "./FolderFilter";
-import { ColorPicker } from "./ColorPicker";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 const FOLDER_COLORS = [
   "#433BFF",

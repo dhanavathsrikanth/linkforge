@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Check2, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, X } from "lucide-react";
+import { Copy, Check, CircleCheck, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1077,7 +1077,7 @@ function InlineFolderSelector({
           >
             <Folder className="h-3 w-3 opacity-50" />
             <span className="flex-1">No folder</span>
-            {currentFolderId === null && <Check2 className="h-3 w-3 text-primary" />}
+            {currentFolderId === null && <CircleCheck className="h-3 w-3 text-primary" />}
           </DropdownMenu.Item>
 
           {folders.map((folder) => (
@@ -1096,7 +1096,7 @@ function InlineFolderSelector({
                 <Folder className="h-3 w-3" />
               </span>
               <span className="flex-1 truncate">{folder.name}</span>
-              {currentFolderId === folder.id && <Check2 className="h-3 w-3 text-primary" />}
+              {currentFolderId === folder.id && <CircleCheck className="h-3 w-3 text-primary" />}
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>
