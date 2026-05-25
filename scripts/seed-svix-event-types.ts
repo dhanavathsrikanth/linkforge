@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { Svix } from "svix";
 import { EVENT_TYPES } from "../src/lib/svix/event-types";
 
@@ -27,15 +28,20 @@ async function seedEventTypes() {
         featureFlag: featureFlags?.[0] ?? null,
       });
       console.log(`  Updated: ${et.name}`);
-    } catch {
-      await svix.eventType.create({
-        name: et.name,
-        description: et.description,
-        schemas: et.schemas,
-        archived: et.archived,
-        featureFlags,
-      });
-      console.log(`  Created: ${et.name}`);
+    } catch (err: any) {
+      console.error(`  Failed to update ${et.name}:`, err?.body?.detail ?? err.message);
+      try {
+        await svix.eventType.create({
+          name: et.name,
+          description: et.description,
+          schemas: et.schemas,
+          archived: et.archived,
+          featureFlags,
+        });
+        console.log(`  Created: ${et.name}`);
+      } catch (createErr: any) {
+        console.error(`  Failed to create ${et.name}:`, createErr?.body?.detail ?? createErr.message);
+      }
     }
   }
 
