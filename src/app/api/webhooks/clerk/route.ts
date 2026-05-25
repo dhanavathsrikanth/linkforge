@@ -600,7 +600,7 @@ export async function POST(req: Request) {
         await withRetry(() =>
           db
             .update(workspaceMembers)
-            .set({ role, updatedAt: new Date() })
+            .set({ role })
             .where(
               and(
                 eq(workspaceMembers.workspaceId, workspace.id),
@@ -651,7 +651,7 @@ export async function POST(req: Request) {
         await withRetry(() =>
           db
             .update(workspaceMembers)
-            .set({ workspaceName: orgName, updatedAt: new Date() })
+            .set({ workspaceName: orgName })
             .where(eq(workspaceMembers.workspaceId, workspace.id))
         );
       } catch (memberErr) {
