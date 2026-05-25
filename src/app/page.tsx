@@ -16,7 +16,7 @@ import {
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 60 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } }
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8 } }
 };
 
 const staggerContainer = {
@@ -57,7 +57,7 @@ function IsometricCard({ children, className = "", rotation = -12 }: {
       initial={{ opacity: 0, rotateX: 15, rotateZ: rotation, y: 80, scale: 0.9 }}
       whileInView={{ opacity: 1, rotateX: 0, rotateZ: rotation, y: 0, scale: 1 }}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 1 }}
       className={`transform-3d ${className}`}
       style={{ perspective: "1200px" }}
     >
@@ -81,7 +81,7 @@ function FloatingOrb({ size = 300, color = "violet", className = "" }: {
         scale: [1, 1.05, 1],
         opacity: [0.4, 0.6, 0.4],
       }}
-      transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      transition={{ duration: 8, repeat: Number.MAX_SAFE_INTEGER }}
       className={`absolute rounded-full blur-[100px] bg-gradient-to-br ${colors[color as keyof typeof colors]} ${className}`}
       style={{ width: size, height: size }}
     />
@@ -176,7 +176,7 @@ function PricingCard({ name, price, period = "/mo", features, highlighted = fals
   return (
     <motion.div
       whileHover={{ y: -12, scale: highlighted ? 1.02 : 1 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.4 }}
       className={`relative ${highlighted ? "scale-[1.02]" : ""} ${popular ? "z-10" : ""}`}
     >
       {badge && (
@@ -347,7 +347,7 @@ function MiniDashboard() {
                   initial={{ height: 0 }}
                   whileInView={{ height: `${h}%` }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.05, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ delay: i * 0.05, duration: 0.5 }}
                   className="flex-1 bg-gradient-to-t from-violet-600 to-purple-400 rounded-t"
                 />
               ))}
@@ -360,7 +360,7 @@ function MiniDashboard() {
                 initial={{ width: 0 }}
                 whileInView={{ width: "72%" }}
                 viewport={{ once: true }}
-                transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 1.5 }}
                 className="h-full bg-gradient-to-r from-violet-600 to-purple-500 rounded-full"
               />
             </div>
@@ -1035,7 +1035,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 120, repeat: Number.MAX_SAFE_INTEGER, ease: "linear" }}
             className="absolute top-1/2 left-1/2 w-[800px] h-[800px] -translate-x-1/2 -translate-y-1/2"
           >
             <div className="absolute inset-0 border border-violet-500/[0.08] rounded-full" />
