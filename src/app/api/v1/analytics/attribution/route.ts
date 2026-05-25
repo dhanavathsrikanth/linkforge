@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { customerJourneys, links } from "@/lib/db";
 import { authenticateApiKey } from "@/lib/api-auth";
-import { eq, and, gte, inArray } from "drizzle-orm";
+import { eq, and, gte, inArray, desc } from "drizzle-orm";
 import type { Touchpoint, AttributionModel, AttributionReport, LinkCredit, CustomerPath } from "@/types/attribution";
 import { generateAttributionReport } from "@/lib/attribution/models";
 
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         gte(customerJourneys.conversionAt!, cutoff)
       )
     )
-    .orderBy(eq(customerJourneys.conversionAt!));
+    .orderBy(desc(customerJourneys.conversionAt!));
 
   const journeys = rows.map((r) => ({
     touchpoints: (r.touchpoints || []) as Touchpoint[],
