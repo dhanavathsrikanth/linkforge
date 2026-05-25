@@ -10,7 +10,7 @@ const TrackConversionSchema = z.object({
   event: z.string().min(1).max(100),
   value: z.number().positive().optional(),
   currency: z.string().length(3).optional().default("USD"),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   sessionId: z.string().optional(),
   customerId: z.string().optional(),
 });

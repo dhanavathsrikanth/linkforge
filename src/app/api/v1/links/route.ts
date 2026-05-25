@@ -37,7 +37,7 @@ const CreateLinkSchema = z.object({
   smartRouting: z.object({
     ios: z.string().url().optional(),
     android: z.string().url().optional(),
-    geo: z.record(z.string()).optional(),
+    geo: z.record(z.string(), z.string()).optional(),
   }).optional(),
 });
 
