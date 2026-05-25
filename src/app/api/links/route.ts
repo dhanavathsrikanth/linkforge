@@ -18,25 +18,25 @@ import { sendWebhookEvent } from "@/lib/svix/send";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
-  title: z.string().max(200).optional().or(z.literal("")),
-  description: z.string().max(500).optional().or(z.literal("")),
-  password: z.string().max(64).optional().or(z.literal("")),
+  title: z.string().max(200).optional().nullable().or(z.literal("")),
+  description: z.string().max(500).optional().nullable().or(z.literal("")),
+  password: z.string().max(64).optional().nullable().or(z.literal("")),
   tags: z.array(z.string()).optional(),
-  folderId: z.string().uuid().optional().or(z.literal("")),
-  expiresAt: z.string().datetime().optional().or(z.literal("")),
-  scheduledAt: z.string().datetime().optional().or(z.literal("")),
+  folderId: z.string().uuid().optional().nullable().or(z.literal("")),
+  expiresAt: z.string().datetime().optional().nullable().or(z.literal("")),
+  scheduledAt: z.string().datetime().optional().nullable().or(z.literal("")),
   clickLimit: z.number().int().positive().optional().nullable(),
   workspaceId: z.string().uuid("Must provide a workspace ID"),
-  utmSource: z.string().max(120).optional().or(z.literal("")),
-  utmMedium: z.string().max(120).optional().or(z.literal("")),
-  utmCampaign: z.string().max(120).optional().or(z.literal("")),
-  utmTerm: z.string().max(120).optional().or(z.literal("")),
-  utmContent: z.string().max(120).optional().or(z.literal("")),
-  ogTitle: z.string().max(200).optional().or(z.literal("")),
-  ogDescription: z.string().max(500).optional().or(z.literal("")),
-  ogImage: z.string().url().optional().or(z.literal("")),
-  iosDestination: z.string().url().optional().or(z.literal("")),
-  androidDestination: z.string().url().optional().or(z.literal("")),
+  utmSource: z.string().max(120).optional().nullable().or(z.literal("")),
+  utmMedium: z.string().max(120).optional().nullable().or(z.literal("")),
+  utmCampaign: z.string().max(120).optional().nullable().or(z.literal("")),
+  utmTerm: z.string().max(120).optional().nullable().or(z.literal("")),
+  utmContent: z.string().max(120).optional().nullable().or(z.literal("")),
+  ogTitle: z.string().max(200).optional().nullable().or(z.literal("")),
+  ogDescription: z.string().max(500).optional().nullable().or(z.literal("")),
+  ogImage: z.string().url().optional().nullable().or(z.literal("")),
+  iosDestination: z.string().url().optional().nullable().or(z.literal("")),
+  androidDestination: z.string().url().optional().nullable().or(z.literal("")),
   abTestEnabled: z.boolean().optional(),
   abTestVariants: z
     .array(
@@ -135,7 +135,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = CreateLinkSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+      const flat = parsed.error.flatten();
+      const firstField = Object.entries(flat.fieldErrors)[0];
+      const msg = firstField ? `${firstField[0]}: ${firstField[1][0]}` : "Validation failed";
+      return NextResponse.json({ error: msg }, { status: 422 });
     }
 
     const v = parsed.data;
