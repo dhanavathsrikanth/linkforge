@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X, Users, Calendar } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, MoreHorizontal, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X, Users, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
@@ -769,7 +769,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                               href={shortUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors dark:text-slate-600 dark:hover:text-slate-400"
+                              className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-slate-100"
                               title="Open in new tab"
                             >
                               <ExternalLink className="h-3 w-3" />
@@ -777,7 +777,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                             <button
                               type="button"
                               onClick={() => setQrLinkId(link.id)}
-                              className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors dark:text-slate-600 dark:hover:text-slate-400"
+                              className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-slate-100"
                               title="QR Code"
                             >
                               <QrCode className="h-3 w-3" />
@@ -845,8 +845,8 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                         {/* Tags */}
                         <td className="hidden xl:table-cell px-2 py-3">
                           {link.tags && link.tags.length > 0 ? (
-                            <div className="flex items-center gap-1">
-                              {link.tags.slice(0, 2).map((t) => {
+                            <div className="flex flex-wrap items-center gap-1">
+                              {link.tags.map((t) => {
                                 const c = tagColor(t);
                                 return (
                                   <span
@@ -858,9 +858,6 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                                   </span>
                                 );
                               })}
-                              {link.tags.length > 2 && (
-                                <span className="text-[11px] text-slate-400">+{link.tags.length - 2}</span>
-                              )}
                             </div>
                           ) : (
                             <span className="text-slate-300 dark:text-slate-600">—</span>
@@ -871,20 +868,20 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                         <td className="px-2 py-3 w-10">
                           <DropdownMenu.DropdownMenu open={actionMenuId === link.id} onOpenChange={(o) => setActionMenuId(o ? link.id : null)}>
                             <DropdownMenu.DropdownMenuTrigger
-                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white"
                               title="More actions"
                             >
-                              <ChevronDown className="h-3.5 w-3.5" />
+                              <MoreHorizontal className="h-3.5 w-3.5" />
                             </DropdownMenu.DropdownMenuTrigger>
                             <DropdownMenu.DropdownMenuContent align="end" className="w-36">
                               {!isViewer && (
-                                <DropdownMenu.DropdownMenuItem closeOnClick={false} onSelect={(e) => { e.preventDefault(); openAdvanced({ id: link.id }); setActionMenuId(null); }}>
+                                <DropdownMenu.DropdownMenuItem onClick={() => { openAdvanced({ id: link.id }); setActionMenuId(null); }}>
                                   <Edit3 className="h-4 w-4" />
                                   Edit
                                 </DropdownMenu.DropdownMenuItem>
                               )}
                               {!isViewer && (
-                                <DropdownMenu.DropdownMenuItem closeOnClick={false} onSelect={(e) => { e.preventDefault(); setDeleteId(link.id); setActionMenuId(null); }} className="text-destructive focus:text-destructive">
+                                <DropdownMenu.DropdownMenuItem onClick={() => { setDeleteId(link.id); setActionMenuId(null); }} className="text-destructive focus:text-destructive">
                                   <Trash2 className="h-4 w-4" />
                                   Delete
                                 </DropdownMenu.DropdownMenuItem>
@@ -911,15 +908,15 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
 
       {!isViewer && (
         <AdvancedCreateSheet
-        workspaceId={workspaceId}
-        defaultDomain={defaultDomain}
-        open={advancedOpen}
-        onOpenChange={setAdvancedOpen}
-        prefill={advancedPrefill}
-        onCreated={handleCreated}
-        folders={localFolders}
-        onFolderCreate={handleFolderCreate}
-      />
+          workspaceId={workspaceId}
+          defaultDomain={defaultDomain}
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+          prefill={advancedPrefill}
+          onCreated={handleCreated}
+          folders={localFolders}
+          onFolderCreate={handleFolderCreate}
+        />
       )}
 
       {!isViewer && (
@@ -1047,4 +1044,3 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
     </div>
   );
 }
-

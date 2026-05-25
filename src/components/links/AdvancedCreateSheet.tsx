@@ -118,6 +118,7 @@ export function AdvancedCreateSheet({
   const [error, setError] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
   const isMobile = useMediaQuery("(max-width: 640px)");
+  const isEdit = !!prefill?.id;
 
   // Reset & apply prefill when opening
   useEffect(() => {
@@ -129,10 +130,10 @@ export function AdvancedCreateSheet({
 
       if (prefill?.id) {
         // Edit mode — fetch full link data
-        fetch(`/api/v2/links/${prefill.id}`)
+        fetch(`/api/links/${prefill.id}?workspaceId=${workspaceId}`)
           .then((r) => r.json())
           .then((res) => {
-            const d = res.data ?? res.link ?? res;
+            const d = res.link ?? res.data ?? res;
             setForm({
               destination: d.destination ?? "",
               slug: d.slug ?? "",
@@ -321,9 +322,9 @@ export function AdvancedCreateSheet({
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle>Create Link</DialogTitle>
+              <DialogTitle>{isEdit ? "Edit Link" : "Create Link"}</DialogTitle>
               <DialogDescription>
-                Configure destination, UTMs and advanced options.
+                {isEdit ? "Update destination, UTMs and advanced options." : "Configure destination, UTMs and advanced options."}
               </DialogDescription>
             </div>
           </div>

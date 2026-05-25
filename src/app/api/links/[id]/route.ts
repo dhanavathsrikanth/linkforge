@@ -62,6 +62,50 @@ const UpdateLinkSchema = z.object({
   workspaceId: z.string().uuid("Must provide a workspace ID"),
 });
 
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
+    const { id } = await params;
+    const url = new URL(req.url);
+    const workspaceId = url.searchParams.get("workspaceId");
+    if (!workspaceId) {
+      return NextResponse.json({ error: "workspaceId query param required" }, { status: 400 });
+    }
+
+    let ws;
+    try {
+      ws = await resolveUserWorkspace(dbUser.id, workspaceId);
+      if (!ws) return NextResponse.json({ error: "Workspace not found or access denied" }, { status: 404 });
+    } catch {
+      return NextResponse.json({ error: "Workspace not found or access denied" }, { status: 404 });
+    }
+
+    const link = await db.query.links.findFirst({
+      where: eq(links.id, id),
+    });
+
+    if (!link) {
+      return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    }
+    if (link.workspaceId !== ws.id) {
+      return NextResponse.json({ error: "Link does not belong to this workspace" }, { status: 403 });
+    }
+
+    return NextResponse.json({ link });
+  } catch (err) {
+    console.error("[GET /api/links/[id]]", err);
+    return NextResponse.json({ error: "Failed to fetch link" }, { status: 500 });
+  }
+}
+
 function emptyToNull<T extends string | undefined | null>(v: T): string | null {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
