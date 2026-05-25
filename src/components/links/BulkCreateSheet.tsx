@@ -602,34 +602,75 @@ export function BulkCreateSheet({
                 <div className="space-y-5 px-6 py-5">
                   {/* File upload zone */}
                   {!csvFile && (
-                    <div
-                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                      onDragLeave={() => setDragOver(false)}
-                      onDrop={handleFileDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={cn(
-                        "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors",
-                        dragOver
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50 hover:bg-muted/30",
-                      )}
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-4">
-                        <Upload className="h-6 w-6 text-muted-foreground" />
+                    <div>
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={handleFileDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={cn(
+                          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors",
+                          dragOver
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50 hover:bg-muted/30",
+                        )}
+                      >
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-4">
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          Drop a CSV file here, or click to browse
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          CSV must have a header row
+                        </p>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".csv"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
                       </div>
-                      <p className="text-sm font-medium text-foreground">
-                        Drop a CSV file here, or click to browse
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        CSV must have a header row
-                      </p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".csv"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
+
+                      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3">
+                        <span className="text-xs text-muted-foreground">
+                          Accepted headers:
+                        </span>
+                        {["destination", "slug", "title", "tags", "utm_source", "utm_medium", "utm_campaign"].map((h) => (
+                          <code key={h} className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-foreground/80">
+                            {h}
+                          </code>
+                        ))}
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          Only <code className="rounded bg-muted px-1 py-0.5 text-[11px] font-mono">destination</code> is required
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const headers = ["destination", "slug", "title", "tags", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+                            const sample = [
+                              "https://example.com/page-1,my-slug-1,Page 1,promo;summer,newsletter,email,spring_sale,running+shoes,logolink",
+                              "https://example.com/page-2,,Page 2,social,newsletter,email,,,",
+                            ];
+                            const csv = [headers.join(","), ...sample].join("\n");
+                            const blob = new Blob([csv], { type: "text/csv" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = "linkforge-bulk-template.csv";
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download template CSV
+                        </button>
+                      </div>
                     </div>
                   )}
 

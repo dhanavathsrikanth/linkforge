@@ -29,7 +29,7 @@ interface RealtimeStats {
   total: number;
 }
 
-export function RealtimeClicks({ slug }: { slug: string }) {
+export function RealtimeClicks({ slug, overviewMobilePercent, overviewDirectPercent }: { slug: string; overviewMobilePercent?: number; overviewDirectPercent?: number }) {
   const [clicks, setClicks] = useState<Click[]>([]);
   const [stats, setStats] = useState<RealtimeStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,56 +77,50 @@ export function RealtimeClicks({ slug }: { slug: string }) {
   }
 
     return (
-    <div className="space-y-8">
+    <div className="space-y-6 max-w-full overflow-hidden">
       {/* Realtime Stats Header */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-border bg-card p-4 relative overflow-hidden group">
-          <div className="flex items-center gap-2 mb-1">
-            <Activity className="h-4 w-4 text-emerald-500" />
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Today</span>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-3 relative overflow-hidden group">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Activity className="h-3.5 w-3.5 text-emerald-500" />
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Today</span>
           </div>
-          <div className="text-2xl font-bold text-foreground">{stats?.today || 0}</div>
-          <div className="absolute -right-2 -bottom-2 opacity-5 transition-transform group-hover:scale-110">
-            <Activity className="h-16 w-16" />
-          </div>
+          <div className="text-xl font-bold text-foreground">{stats?.today || 0}</div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 relative overflow-hidden group">
-          <div className="flex items-center gap-2 mb-1">
-            <Globe className="h-4 w-4 text-violet-500" />
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total (Live)</span>
+        <div className="rounded-xl border border-border bg-card p-3 relative overflow-hidden group">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Globe className="h-3.5 w-3.5 text-violet-500" />
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total (Live)</span>
           </div>
-          <div className="text-2xl font-bold text-foreground">{stats?.total || 0}</div>
-          <div className="absolute -right-2 -bottom-2 opacity-5 transition-transform group-hover:scale-110">
-            <Globe className="h-16 w-16" />
-          </div>
+          <div className="text-xl font-bold text-foreground">{stats?.total || 0}</div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 relative overflow-hidden group">
-          <div className="flex items-center gap-2 mb-1">
-            <Smartphone className="h-4 w-4 text-blue-500" />
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mobile %</span>
+        <div className="rounded-xl border border-border bg-card p-3 relative overflow-hidden group">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Smartphone className="h-3.5 w-3.5 text-blue-500" />
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mobile %</span>
           </div>
-          <div className="text-2xl font-bold text-foreground">
+          <div className="text-xl font-bold text-foreground">
             {clicks.length > 0 
               ? Math.round((clicks.filter(c => c.device === 'mobile').length / clicks.length) * 100) 
-              : 0}%
+              : overviewMobilePercent || 0}%
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 relative overflow-hidden group">
-          <div className="flex items-center gap-2 mb-1">
-            <Navigation className="h-4 w-4 text-orange-500" />
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Direct %</span>
+        <div className="rounded-xl border border-border bg-card p-3 relative overflow-hidden group">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Navigation className="h-3.5 w-3.5 text-orange-500" />
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Direct %</span>
           </div>
-          <div className="text-2xl font-bold text-foreground">
+          <div className="text-xl font-bold text-foreground">
             {clicks.length > 0 
               ? Math.round((clicks.filter(c => !c.referrer).length / clicks.length) * 100) 
-              : 0}%
+              : overviewDirectPercent || 0}%
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {/* Live Feed */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <div className="relative flex h-2 w-2">
@@ -185,9 +179,9 @@ export function RealtimeClicks({ slug }: { slug: string }) {
         </div>
 
         {/* Top Referrers (derived from recent 50) */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <h4 className="text-sm font-semibold text-foreground">Top Referrers</h4>
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <div className="rounded-xl border border-border bg-muted/20 p-3">
             {clicks.length === 0 ? (
               <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
                 No referrers yet
@@ -222,8 +216,8 @@ export function RealtimeClicks({ slug }: { slug: string }) {
             )}
           </div>
 
-          <h4 className="text-sm font-semibold text-foreground pt-2">Top Countries</h4>
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <h4 className="text-sm font-semibold text-foreground">Top Countries</h4>
+          <div className="rounded-xl border border-border bg-muted/20 p-3">
             {clicks.length === 0 ? (
               <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
                 No location data yet

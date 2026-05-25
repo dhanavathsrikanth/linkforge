@@ -2,11 +2,11 @@
 
 import { Fragment, useState, useTransition, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, CircleCheck, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X, Users, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { AdvancedCreateSheet, type FolderOption } from "./AdvancedCreateSheet";
@@ -114,18 +114,18 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       transition={{ duration: 0.2 }}
       className="overflow-hidden"
     >
-      <div className="bg-slate-50 px-5 py-4 space-y-4 dark:bg-slate-900/50">
+      <div className="overflow-x-auto bg-slate-50 px-4 py-4 space-y-4 dark:bg-slate-900/50">
         {/* KPI Cards Row */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <KPICard label="Total Clicks" value={overview?.totalClicks || 0} growth={overview?.clicksGrowth} isLoading={overviewLoading} />
-          <KPICard label="Unique Visitors" value={overview?.uniqueClicks || 0} isLoading={overviewLoading} />
-          <KPICard label="Today" value={overview?.clicksToday || 0} isLoading={overviewLoading} />
-          <KPICard label="Top Device" value={0} subValue={overview?.topDevice && overview.topDevice !== "unknown" ? overview.topDevice : "—"} isLoading={overviewLoading} />
-          <KPICard label="Top Country" value={0} subValue={overview?.topCountry && overview.topCountry !== "Unknown" ? overview.topCountry : "—"} isLoading={overviewLoading} />
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          <KPICard compact label="Total Clicks" value={overview?.totalClicks || 0} growth={overview?.clicksGrowth} isLoading={overviewLoading} />
+          <KPICard compact label="Unique" value={overview?.uniqueClicks || 0} isLoading={overviewLoading} />
+          <KPICard compact label="Today" value={overview?.clicksToday || 0} isLoading={overviewLoading} />
+          <KPICard compact label="Top Device" value={0} subValue={overview?.topDevice && overview.topDevice !== "unknown" ? overview.topDevice : "—"} isLoading={overviewLoading} />
+          <KPICard compact label="Top Country" value={0} subValue={overview?.topCountry && overview.topCountry !== "Unknown" ? overview.topCountry : "—"} isLoading={overviewLoading} />
         </div>
 
         {/* Clicks Chart */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Clicks Over Time</h3>
             <span className="text-[11px] text-slate-500 dark:text-slate-400">Last 7 days</span>
@@ -134,12 +134,12 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
         </div>
 
         {/* Three Column Row */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="grid min-w-0 gap-3 xl:grid-cols-3">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Countries</h3>
             <TopCountries data={countries || []} isLoading={countriesLoading} />
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Device Breakdown</h3>
             <DonutChart data={devices || []} isLoading={devicesLoading} />
             {devices && devices.length > 0 && (
@@ -153,16 +153,20 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
               </div>
             )}
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Referrers</h3>
             <TopReferrers data={referrers || []} isLoading={referrersLoading} />
           </div>
         </div>
 
         {/* Live Activity */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Live Activity</h3>
-          <RealtimeClicks slug={link.slug} />
+          <RealtimeClicks
+            slug={link.slug}
+            overviewMobilePercent={devices?.find((d: any) => d.label?.toLowerCase() === 'mobile')?.percentage || 0}
+            overviewDirectPercent={referrers?.find((d: any) => d.label?.toLowerCase() === 'direct')?.percentage || 0}
+          />
         </div>
 
         {/* Schedule Info */}
@@ -349,6 +353,29 @@ function AiAnalyticsQuery({ workspaceId, linkId }: { workspaceId: string; linkId
   );
 }
 
+const tagPalette = [
+  { bg: "#dbeafe", text: "#1e40af" },
+  { bg: "#fce7f3", text: "#9d174d" },
+  { bg: "#d1fae5", text: "#065f46" },
+  { bg: "#fef3c7", text: "#92400e" },
+  { bg: "#e0e7ff", text: "#3730a3" },
+  { bg: "#f3e8ff", text: "#6b21a8" },
+  { bg: "#ccfbf1", text: "#115e59" },
+  { bg: "#ffe4e6", text: "#9f1239" },
+  { bg: "#fef9c3", text: "#854d0e" },
+  { bg: "#ede9fe", text: "#5b21b6" },
+  { bg: "#e5e7eb", text: "#374151" },
+  { bg: "#ffedd5", text: "#9a3412" },
+];
+
+function tagColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return tagPalette[Math.abs(hash) % tagPalette.length];
+}
+
 export function LinksDashboardClient({
   workspaceId,
   initialLinks,
@@ -358,6 +385,7 @@ export function LinksDashboardClient({
   const { workspace } = useWorkspace();
   const { lastEvent, refreshData } = useRealtime();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const role = workspace?.role;
   const isViewer = role === "viewer";
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
@@ -368,6 +396,7 @@ export function LinksDashboardClient({
   const [deleting, startDelete] = useTransition();
   const [advancedPrefill, setAdvancedPrefill] = useState<{ id?: string; destination?: string; slug?: string }>({});
   const [qrLinkId, setQrLinkId] = useState<string | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
   const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
   const [createdLink, setCreatedLink] = useState<{ slug: string; shortUrl: string; destination: string } | null>(null);
@@ -417,6 +446,19 @@ export function LinksDashboardClient({
     }
   }, [realtimeFoldersData]);
 
+  const allFoldersWithCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    links.forEach((link) => {
+      if (link.folderId) {
+        counts[link.folderId] = (counts[link.folderId] || 0) + 1;
+      }
+    });
+    return localFolders.map((f) => ({
+      ...f,
+      linkCount: counts[f.id] || 0,
+    }));
+  }, [localFolders, links]);
+
   const filteredLinks = useMemo(() => {
     let filtered = [...links];
 
@@ -426,7 +468,7 @@ export function LinksDashboardClient({
 
     if (selectedTags.length > 0) {
       filtered = filtered.filter((link) =>
-        selectedTags.every((tag) => link.tags.includes(tag))
+        selectedTags.some((tag) => link.tags.includes(tag))
       );
     }
 
@@ -543,7 +585,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
   }
 
   return (
-    <div className="space-y-5">
+    <div className="w-full max-w-full overflow-x-hidden space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -560,7 +602,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
             <button
               type="button"
               onClick={() => setBulkOpen(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted cursor-pointer"
             >
               <FileText className="h-4 w-4" />
               Bulk Create
@@ -569,28 +611,15 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
           <button
             type="button"
             onClick={() => exportCSV(links)}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted cursor-pointer"
           >
             <Download className="h-4 w-4" />
             Export CSV
           </button>
           <button
             type="button"
-            onClick={async () => {
-              const res = await fetch("/api/ai/check-links", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ workspaceId }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                const msg = data.broken > 0 || data.changed > 0
-                  ? `${data.broken} broken, ${data.changed} changed`
-                  : "All links OK";
-                alert(`Checked ${data.checked} links. ${msg}.`);
-              }
-            }}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted"
+            onClick={() => router.push("/dashboard/link-checker")}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-muted cursor-pointer"
           >
             <Sparkles className="h-4 w-4" />
             Check Links
@@ -599,7 +628,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
             type="button"
             onClick={() => !isViewer && openAdvanced({})}
             disabled={isViewer}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
             <Plus className="h-4 w-4" />
             Create Link
@@ -634,7 +663,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
               )}
             </div>
             <FolderFilter
-              folders={localFolders}
+              folders={allFoldersWithCounts}
               selectedFolderId={selectedFolderId}
               onFolderSelect={setSelectedFolderId}
               workspaceId={workspaceId}
@@ -679,18 +708,19 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="px-5 py-3 w-8"></th>
-                <th className="px-5 py-3 font-semibold">Link</th>
-                <th className="px-5 py-3 font-semibold hidden lg:table-cell">Folder</th>
-                <th className="px-5 py-3 font-semibold hidden sm:table-cell">Short URL</th>
-                <th className="px-5 py-3 text-right font-semibold">Clicks</th>
-                <th className="px-5 py-3 text-right font-semibold hidden md:table-cell">Unique</th>
-                <th className="px-5 py-3 font-semibold hidden lg:table-cell">Created</th>
-                <th className="px-5 py-3 w-24"></th>
+              <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                <th className="w-8 px-2 py-3 font-medium"></th>
+                <th className="px-2 py-3 font-medium">Short URL</th>
+                <th className="w-14 px-2 py-3 text-center font-medium" title="Clicks"><BarChart2 className="h-3.5 w-3.5 mx-auto" /></th>
+                <th className="w-14 px-2 py-3 text-center font-medium hidden sm:table-cell" title="Unique visitors"><Users className="h-3.5 w-3.5 mx-auto" /></th>
+                <th className="w-20 px-2 py-3 text-center font-medium hidden lg:table-cell" title="Created date"><Calendar className="h-3.5 w-3.5 mx-auto" /></th>
+                <th className="w-8 px-2 py-3 text-center font-medium hidden lg:table-cell" title="A/B testing"><FlaskConical className="h-3.5 w-3.5 mx-auto" /></th>
+                <th className="w-24 px-2 py-3 text-center font-medium hidden xl:table-cell" title="Folder"><Folder className="h-3.5 w-3.5 mx-auto" /></th>
+                <th className="px-2 py-3 font-medium hidden xl:table-cell">Tags</th>
+                <th className="w-10 px-2 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -699,6 +729,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                   const shortUrl = `https://${defaultDomain}/${link.slug}`;
                   const isExpanded = expandedId === link.id;
                   const isCopied = copied === link.id;
+                  const displayFolder = link.folderId ? localFolders.find((f) => f.id === link.folderId) : null;
                   return (
                     <Fragment key={link.id}>
                       <motion.tr
@@ -709,197 +740,162 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                         transition={{ type: "spring", stiffness: 320, damping: 28 }}
                         className={`border-b border-slate-200 transition-colors dark:border-slate-700 ${isExpanded ? "bg-slate-100 dark:bg-slate-800/50" : "hover:bg-slate-50 dark:hover:bg-slate-800/30"}`}
                       >
-                        <td className="px-5 py-3">
+                        {/* Expand */}
+                        <td className="px-2 py-3 w-8">
                           <button
                             type="button"
                             onClick={() => toggleExpand(link.id)}
                             className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
                           >
                             <ChevronDown
-                              className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-0" : "-rotate-90"}`}
+                              className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-0" : "-rotate-90"}`}
                             />
                           </button>
                         </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate font-medium text-slate-900 max-w-[200px] lg:max-w-[280px] dark:text-slate-100">
-                              {link.title || link.destination.replace(/^https?:\/\//, "")}
-                            </p>
-                            {link.password && (
-                              <span className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-600 border border-amber-200">
-                                Locked
-                              </span>
-                            )}
-                            {(link as any).scheduledAt && new Date((link as any).scheduledAt) > new Date() && (
-                              <span className="inline-flex items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-600 border border-blue-200">
-                                Scheduled
-                              </span>
-                            )}
-                            {(link as any).routingRules?.length > 0 && (
-                            <span className="inline-flex items-center rounded-full bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-600 border border-violet-200">
-                              Routed
-                            </span>
-                          )}
-                          {(link as any).abTestEnabled && (
-                            <Link
-                              href={`/dashboard/links/${link.id}/ab-test`}
-                              className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold uppercase text-violet-600 border border-violet-200 hover:bg-violet-100 transition-colors"
-                              title="A/B test active"
-                            >
-                              <BarChart2 className="h-3 w-3" />
-                              A/B
-                            </Link>
-                          )}
-                          {link.folderId && (() => {
-                            const folder = localFolders.find((f) => f.id === link.folderId);
-                            return folder ? (
-                              <span
-                                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium"
-                                style={{
-                                  backgroundColor: folder.color + "15",
-                                  color: folder.color
-                                }}
-                              >
-                                <Folder className="h-3 w-3" />
-                                {folder.name}
-                              </span>
-                            ) : null;
-                          })()}
-                          {link.tags && link.tags.length > 0 && (
-                            <div className="flex items-center gap-1 flex-wrap mt-1">
-                              {link.tags.slice(0, 3).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300"
-                                >
-                                  <Tag className="h-2.5 w-2.5" />
-                                  {tag}
-                                </span>
-                              ))}
-                              {link.tags.length > 3 && (
-                                <span className="text-[10px] text-muted-foreground">+{link.tags.length - 3}</span>
-                              )}
-                            </div>
-                          )}
-                          <p className="mt-0.5 truncate text-xs text-slate-500 max-w-[300px] dark:text-slate-400">
-                            {link.destination}
-                          </p>
-                        </div>
-                        </td>
-                        <td className="px-5 py-3 hidden lg:table-cell">
-                          <InlineFolderSelector
-                            linkId={link.id}
-                            currentFolderId={link.folderId}
-                            folders={localFolders}
-                            onMove={(newFolderId) => {
-                              setLinks((prev) =>
-                                prev.map((l) =>
-                                  l.id === link.id ? { ...l, folderId: newFolderId } : l
-                                )
-                              );
-                              fetch(`/api/links/${link.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ folderId: newFolderId }),
-                              }).catch(console.error);
-                            }}
-                          />
-                        </td>
-                        <td className="px-5 py-3 hidden sm:table-cell">
-                          <div className="flex items-center gap-1.5">
+
+                        {/* Short URL */}
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-1 min-w-0">
                             <button
                               type="button"
                               onClick={() => copy(shortUrl, link.id)}
-                              className="group inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                              className="truncate font-mono text-sm font-medium text-slate-800 hover:text-primary transition-colors dark:text-slate-200 dark:hover:text-primary"
                               title="Click to copy"
                             >
                               {defaultDomain}/{link.slug}
-                              <span className="text-slate-400 group-hover:text-slate-600 transition-colors dark:text-slate-500 dark:group-hover:text-slate-300">
-                                {isCopied ? (
-                                  <Check className="h-3 w-3 text-emerald-500" />
-                                ) : (
-                                  <Copy className="h-3 w-3" />
-                                )}
-                              </span>
                             </button>
+                            {isCopied && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
                             <a
                               href={shortUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:text-slate-300"
+                              className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors dark:text-slate-600 dark:hover:text-slate-400"
+                              title="Open in new tab"
                             >
-                              <ExternalLink className="h-3.5 w-3.5" />
+                              <ExternalLink className="h-3 w-3" />
                             </a>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                          {link.totalClicks ?? 0}
-                        </td>
-                        <td className="px-5 py-3 text-right tabular-nums text-slate-500 hidden md:table-cell dark:text-slate-400">
-                          {link.uniqueClicks ?? 0}
-                        </td>
-                        <td className="px-5 py-3 text-xs text-slate-500 hidden lg:table-cell dark:text-slate-400">
-                          {new Date(link.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-1 justify-end">
-                            <button
-                              type="button"
-                              onClick={() => toggleExpand(link.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
-                              title="Analytics"
-                            >
-                              <BarChart2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { copy(shortUrl, link.id); }}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors sm:hidden dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
-                              title="Copy"
-                            >
-                              {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                            </button>
                             <button
                               type="button"
                               onClick={() => setQrLinkId(link.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                              className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors dark:text-slate-600 dark:hover:text-slate-400"
                               title="QR Code"
                             >
-                              <QrCode className="h-3.5 w-3.5" />
+                              <QrCode className="h-3 w-3" />
                             </button>
+                            {link.password && (
+                              <span className="shrink-0 rounded bg-amber-50 px-1 py-0.5 text-[9px] font-bold text-amber-600 dark:bg-amber-950 dark:text-amber-400" title="Password protected">L</span>
+                            )}
+                            {(link as any).scheduledAt && new Date((link as any).scheduledAt) > new Date() && (
+                              <span className="shrink-0 rounded bg-blue-50 px-1 py-0.5 text-[9px] font-bold text-blue-600 dark:bg-blue-950 dark:text-blue-400" title="Scheduled">S</span>
+                            )}
+                            {(link as any).routingRules?.length > 0 && (
+                              <span className="shrink-0 rounded bg-violet-50 px-1 py-0.5 text-[9px] font-bold text-violet-600 dark:bg-violet-950 dark:text-violet-400" title="Has routing rules">R</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Clicks */}
+                        <td className="px-2 py-3 text-center tabular-nums text-sm font-semibold text-slate-900 dark:text-slate-100 w-14">
+                          {link.totalClicks ?? 0}
+                        </td>
+
+                        {/* Unique */}
+                        <td className="px-2 py-3 text-center tabular-nums text-xs text-slate-500 hidden sm:table-cell dark:text-slate-400 w-14">
+                          {link.uniqueClicks ?? 0}
+                        </td>
+
+                        {/* Created */}
+                        <td className="hidden lg:table-cell px-2 py-3 text-center whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 w-20">
+                          {new Date(link.createdAt).toLocaleDateString()}
+                        </td>
+
+                        {/* A/B */}
+                        <td className="hidden lg:table-cell px-2 py-3 text-center w-8">
+                          {(link as any).abTestEnabled ? (
                             <Link
                               href={`/dashboard/links/${link.id}/ab-test`}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors dark:text-slate-500 dark:hover:text-violet-400 dark:hover:bg-violet-950/30"
-                              title="A/B Testing"
+                              className="inline-flex h-6 w-6 items-center justify-center rounded text-violet-500 hover:bg-violet-50 transition-colors dark:hover:bg-violet-950/30"
+                              title="A/B test active"
                             >
                               <FlaskConical className="h-3.5 w-3.5" />
                             </Link>
-                            {!isViewer && (
-                              <button
-                                type="button"
-                                onClick={() => openAdvanced({ id: link.id })}
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
-                                title="Edit link"
-                              >
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            {!isViewer && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteId(link.id)}
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30"
-                                title="Delete link"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
+                          ) : (
+                            <span className="text-slate-200 dark:text-slate-700">—</span>
+                          )}
+                        </td>
+
+                        {/* Folder (read-only) */}
+                        <td className="hidden xl:table-cell px-2 py-3 text-center w-24">
+                          {displayFolder ? (
+                            <span
+                              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                              style={{
+                                backgroundColor: displayFolder.color + "18",
+                                color: displayFolder.color
+                              }}
+                            >
+                              <Folder className="h-3 w-3" />
+                              {displayFolder.name}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                          )}
+                        </td>
+
+                        {/* Tags */}
+                        <td className="hidden xl:table-cell px-2 py-3">
+                          {link.tags && link.tags.length > 0 ? (
+                            <div className="flex items-center gap-1">
+                              {link.tags.slice(0, 2).map((t) => {
+                                const c = tagColor(t);
+                                return (
+                                  <span
+                                    key={t}
+                                    className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium"
+                                    style={{ backgroundColor: c.bg, color: c.text }}
+                                  >
+                                    {t}
+                                  </span>
+                                );
+                              })}
+                              {link.tags.length > 2 && (
+                                <span className="text-[11px] text-slate-400">+{link.tags.length - 2}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-2 py-3 w-10">
+                          <DropdownMenu.DropdownMenu open={actionMenuId === link.id} onOpenChange={(o) => setActionMenuId(o ? link.id : null)}>
+                            <DropdownMenu.DropdownMenuTrigger
+                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                              title="More actions"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </DropdownMenu.DropdownMenuTrigger>
+                            <DropdownMenu.DropdownMenuContent align="end" className="w-36">
+                              {!isViewer && (
+                                <DropdownMenu.DropdownMenuItem closeOnClick={false} onSelect={(e) => { e.preventDefault(); openAdvanced({ id: link.id }); setActionMenuId(null); }}>
+                                  <Edit3 className="h-4 w-4" />
+                                  Edit
+                                </DropdownMenu.DropdownMenuItem>
+                              )}
+                              {!isViewer && (
+                                <DropdownMenu.DropdownMenuItem closeOnClick={false} onSelect={(e) => { e.preventDefault(); setDeleteId(link.id); setActionMenuId(null); }} className="text-destructive focus:text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete
+                                </DropdownMenu.DropdownMenuItem>
+                              )}
+                            </DropdownMenu.DropdownMenuContent>
+                          </DropdownMenu.DropdownMenu>
                         </td>
                       </motion.tr>
                       {isExpanded && (
                         <tr className="border-b border-slate-200 dark:border-slate-700">
-                          <td colSpan={7} className="p-0">
+                          <td colSpan={9} className="p-0">
                             <ExpandedRow link={link} workspaceId={workspaceId} />
                           </td>
                         </tr>
@@ -1052,92 +1048,3 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
   );
 }
 
-function InlineFolderSelector({
-  linkId,
-  currentFolderId,
-  folders,
-  onMove,
-}: {
-  linkId: string;
-  currentFolderId: string | null;
-  folders: FolderItem[];
-  onMove: (folderId: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const currentFolder = folders.find((f) => f.id === currentFolderId);
-
-  return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-            "hover:bg-muted",
-            currentFolder
-              ? "font-medium"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {currentFolder ? (
-            <>
-              <span
-                className="flex h-4 w-4 items-center justify-center rounded text-[8px]"
-                style={{ color: currentFolder.color }}
-              >
-                <Folder className="h-3 w-3" />
-              </span>
-              <span className="truncate max-w-[80px]">{currentFolder.name}</span>
-            </>
-          ) : (
-            <>
-              <Folder className="h-3 w-3 opacity-50" />
-              <span>None</span>
-            </>
-          )}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </button>
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="start"
-          sideOffset={4}
-          className="z-50 min-w-[160px] overflow-hidden rounded-lg border border-border bg-background p-1 shadow-lg animate-in fade-in-0 zoom-in-95"
-        >
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs outline-none hover:bg-muted data-[highlighted]:bg-muted"
-            onClick={() => {
-              onMove(null);
-              setOpen(false);
-            }}
-          >
-            <Folder className="h-3 w-3 opacity-50" />
-            <span className="flex-1">No folder</span>
-            {currentFolderId === null && <CircleCheck className="h-3 w-3 text-primary" />}
-          </DropdownMenu.Item>
-
-          {folders.map((folder) => (
-            <DropdownMenu.Item
-              key={folder.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs outline-none hover:bg-muted data-[highlighted]:bg-muted"
-              onClick={() => {
-                onMove(folder.id);
-                setOpen(false);
-              }}
-            >
-              <span
-                className="flex h-3 w-3 items-center justify-center rounded text-[8px]"
-                style={{ color: folder.color }}
-              >
-                <Folder className="h-3 w-3" />
-              </span>
-              <span className="flex-1 truncate">{folder.name}</span>
-              {currentFolderId === folder.id && <CircleCheck className="h-3 w-3 text-primary" />}
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  );
-}

@@ -15,6 +15,7 @@ import {
   Code2,
   Key,
   Webhook,
+  SearchCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
@@ -24,11 +25,12 @@ import { WorkspaceSwitcher } from "@/components/dashboard/WorkspaceSwitcher";
 import { useEffect, useState } from "react";
 
 const mainNav = [
-  { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
-  { name: "Links",       href: "/dashboard/links",            icon: Link2 },
-  { name: "Link in Bio", href: "/dashboard/link-in-bio",      icon: LayoutList,      badge: "COMING SOON" },
-  { name: "QR Codes",    href: "/dashboard/qr",               icon: QrCode },
-  { name: "Analytics",   href: "/dashboard/analytics",        icon: BarChart3 },
+  { name: "Overview",        href: "/dashboard",                  icon: LayoutDashboard },
+  { name: "Links",           href: "/dashboard/links",            icon: Link2 },
+  { name: "Link Checker",    href: "/dashboard/link-checker",     icon: SearchCheck },
+  { name: "Link in Bio",     href: "/dashboard/link-in-bio",      icon: LayoutList,      badge: "COMING SOON" },
+  { name: "QR Codes",        href: "/dashboard/qr",               icon: QrCode },
+  { name: "Analytics",       href: "/dashboard/analytics",        icon: BarChart3 },
 ];
 
 const workspaceNav = [
