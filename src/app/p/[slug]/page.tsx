@@ -67,7 +67,7 @@ export default async function PublishedGalleryPage({
   if (!gallery) notFound();
 
   // Track bio page view in PostHog (non-blocking, best effort)
-  trackBioPageViewed({ galleryId: gallery.id });
+  await trackBioPageViewed({ galleryId: gallery.id }).catch(() => {});
 
   const galleryPage: GalleryPage = {
     ...gallery,

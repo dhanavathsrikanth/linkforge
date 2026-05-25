@@ -1,7 +1,22 @@
 import { Redis } from "@upstash/redis";
 
-// Create Redis instance using environment variables
-export const redis = Redis.fromEnv();
+let _redis: Redis | null = null;
+
+function getRedis(): Redis {
+  if (!_redis) {
+    _redis = Redis.fromEnv();
+  }
+  return _redis;
+}
+
+/** Lazily-initialised Redis. Call `getRedis()` in handlers that need it. */
+export const redis = new Proxy({} as Redis, {
+  get(_, prop) {
+    const instance = getRedis();
+    const val = (instance as any)[prop];
+    return typeof val === "function" ? val.bind(instance) : val;
+  },
+});
 
 // Helper function to test Redis connection
 export async function testRedisConnection(): Promise<boolean> {

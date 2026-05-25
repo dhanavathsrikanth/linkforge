@@ -139,7 +139,7 @@ export async function POST(req: Request) {
           await redis.set(`link:${slug}`, item.destination, { ex: 60 * 60 * 24 * 30 });
         } catch {}
 
-        trackLinkCreated({
+        await trackLinkCreated({
           linkId: link.id,
           domain,
           hasCustomSlug: !!item.slug && item.slug.trim().length > 0,

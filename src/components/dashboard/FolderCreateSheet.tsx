@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/Dialog";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 import { toast } from "sonner";
 import { FolderItem } from "./FolderFilter";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -109,86 +110,90 @@ export function FolderCreateSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle>
             {isEditing ? "Edit Folder" : "Create Folder"}
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription>
             {isEditing
               ? "Update your folder details"
               : "Create a new folder to organize your links"}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Marketing Links"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-          </div>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-6 px-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                placeholder="e.g., Marketing Links"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
-            <Input
-              id="description"
-              placeholder="e.g., All marketing and campaign links"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input
+                id="description"
+                placeholder="e.g., All marketing and campaign links"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Color</Label>
-            <ColorPicker
-              colors={FOLDER_COLORS}
-              value={color}
-              onChange={setColor}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <ColorPicker
+                colors={FOLDER_COLORS}
+                value={color}
+                onChange={setColor}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label>Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {FOLDER_ICONS.map((iconName) => (
-                <button
-                  key={iconName}
-                  type="button"
-                  onClick={() => setIcon(iconName)}
-                  className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
-                    icon === iconName
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-muted-foreground/30"
-                  }`}
-                >
-                  <FolderIconDisplay name={iconName} color={color} />
-                </button>
-              ))}
+            <div className="space-y-2">
+              <Label>Icon</Label>
+              <div className="flex flex-wrap gap-2">
+                {FOLDER_ICONS.map((iconName) => (
+                  <button
+                    key={iconName}
+                    type="button"
+                    onClick={() => setIcon(iconName)}
+                    className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
+                      icon === iconName
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <FolderIconDisplay name={iconName} color={color} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" className="flex-1" disabled={loading}>
-              {loading ? "Saving..." : isEditing ? "Update" : "Create"}
-            </Button>
-          </div>
+          <DialogFooter>
+            <div className="flex gap-3 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="flex-1" disabled={loading}>
+                {loading ? "Saving..." : isEditing ? "Update" : "Create"}
+              </Button>
+            </div>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

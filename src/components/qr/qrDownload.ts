@@ -2,7 +2,7 @@
 
 import QRCode from "qrcode";
 import type { QRSettings } from "@/types/qr";
-import { trackQRDownloaded } from "@/lib/posthog";
+import type { PostHog } from "posthog-js";
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -98,6 +98,7 @@ export async function downloadPNG(
   slug: string,
   settings: QRSettings,
   linkId?: string,
+  posthog?: PostHog,
 ): Promise<void> {
   const canvas = await renderToCanvas(targetUrl, settings, 1024);
   const blob = await new Promise<Blob>((resolve, reject) => {
@@ -107,7 +108,7 @@ export async function downloadPNG(
     }, "image/png");
   });
   triggerDownload(blob, `${slug}-qr.png`);
-  if (linkId) trackQRDownloaded({ linkId, format: "png" });
+  if (linkId && posthog) posthog.capture("qr_downloaded", { linkId, format: "png" });
 }
 
 export function downloadSVG(
@@ -115,6 +116,7 @@ export function downloadSVG(
   slug: string,
   settings: QRSettings,
   linkId?: string,
+  posthog?: PostHog,
 ): void {
   const raw = new XMLSerializer().serializeToString(svgElement);
   const withNS = raw.startsWith("<svg")
@@ -122,7 +124,7 @@ export function downloadSVG(
     : raw;
   const blob = new Blob([withNS], { type: "image/svg+xml;charset=utf-8" });
   triggerDownload(blob, `${slug}-qr.svg`);
-  if (linkId) trackQRDownloaded({ linkId, format: "svg" });
+  if (linkId && posthog) posthog.capture("qr_downloaded", { linkId, format: "svg" });
 }
 
 export async function copyPNGToClipboard(

@@ -2,12 +2,14 @@
 
 import { Fragment, useState, useTransition, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, CircleCheck, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, X } from "lucide-react";
+import { Copy, Check, CircleCheck, ExternalLink, Plus, QrCode, ChevronDown, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { cn } from "@/lib/utils";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
+import { AdvancedCreateSheet, type FolderOption } from "./AdvancedCreateSheet";
 import { BulkCreateSheet } from "./BulkCreateSheet";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
@@ -24,8 +26,8 @@ import { useRealtime } from "@/providers/RealtimeProvider";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { getShortLinkBase } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 type LinkRow = {
   id: string;
@@ -372,6 +374,7 @@ export function LinksDashboardClient({
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [localFolders, setLocalFolders] = useState<FolderItem[]>(folders);
 
   const { data: realtimeLinksData, isLoading: realtimeLinksLoading } = useQuery<{ links: LinkRow[] }>({
@@ -427,8 +430,18 @@ export function LinksDashboardClient({
       );
     }
 
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (link) =>
+          link.destination.toLowerCase().includes(q) ||
+          link.slug.toLowerCase().includes(q) ||
+          (link.title && link.title.toLowerCase().includes(q))
+      );
+    }
+
     return filtered;
-  }, [links, selectedFolderId, selectedTags]);
+  }, [links, selectedFolderId, selectedTags, searchQuery]);
 
   const allTags = useMemo(() => {
     const tagMap = new Map<string, TagItem>();
@@ -450,6 +463,7 @@ export function LinksDashboardClient({
     const shortUrl = `https://${defaultDomain}/${link.slug}`;
     setCreatedLink({ slug: link.slug, shortUrl, destination: link.destination });
     setLinks((prev) => [link as LinkRow, ...prev.filter((l) => l.id !== link.id)]);
+    handleFoldersChange();
 
     if (workspaceId) {
       try {
@@ -479,8 +493,8 @@ export function LinksDashboardClient({
       .catch(console.error);
   }
 
-  function handleFolderCreate(folder: FolderItem) {
-    setLocalFolders((prev) => [folder, ...prev]);
+  function handleFolderCreate(folder: FolderItem | FolderOption) {
+    setLocalFolders((prev) => [folder as FolderItem, ...prev]);
   }
 
 function openAdvanced(prefill: { id?: string; destination?: string; slug?: string }) {
@@ -598,35 +612,58 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
           You have read-only access. Contact a workspace admin to create or edit links.
         </div>
       ) : (
-        <div className="mb-6 flex items-center gap-3 flex-wrap">
-          <FolderFilter
-            folders={localFolders}
-            selectedFolderId={selectedFolderId}
-            onFolderSelect={setSelectedFolderId}
-            workspaceId={workspaceId}
-            onFoldersChange={handleFoldersChange}
-          />
-          <TagFilter
-            tags={allTags}
-            selectedTags={selectedTags}
-            onTagsSelect={setSelectedTags}
-          />
-          {(selectedFolderId !== null || selectedTags.length > 0) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedFolderId(null);
-                setSelectedTags([]);
-              }}
-              className="h-8 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3 w-3 mr-1" />
-              Clear filters
-            </Button>
-          )}
-          <div className="ml-auto text-sm text-muted-foreground">
-            {filteredLinks.length} {filteredLinks.length === 1 ? "link" : "links"}
+        <div className="mb-6 flex flex-col gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search links by URL, slug or title..."
+                className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-8 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <FolderFilter
+              folders={localFolders}
+              selectedFolderId={selectedFolderId}
+              onFolderSelect={setSelectedFolderId}
+              workspaceId={workspaceId}
+              onFoldersChange={handleFoldersChange}
+            />
+            <TagFilter
+              tags={allTags}
+              selectedTags={selectedTags}
+              onTagsSelect={setSelectedTags}
+              links={links}
+            />
+            {(selectedFolderId !== null || selectedTags.length > 0 || searchQuery) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedFolderId(null);
+                  setSelectedTags([]);
+                  setSearchQuery("");
+                }}
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear filters
+              </Button>
+            )}
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              {filteredLinks.length} {filteredLinks.length === 1 ? "link" : "links"}
+            </div>
           </div>
         </div>
       )}

@@ -1,46 +1,55 @@
-import PostHog from "posthog-js";
+import { PostHog } from "posthog-node";
 
-export const posthog =
-  typeof window !== "undefined"
-    ? PostHog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY || "", {
-        autocapture: false, // We track custom events only
-        capture_pageview: false, // We handle page views manually if needed
-      })
+const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+
+const serverPosthog =
+  typeof window === "undefined" && token
+    ? new PostHog(token, { host })
     : null;
 
-// Custom event tracking functions
-export const trackLinkCreated = (params: {
+export async function trackLinkCreated(params: {
   linkId: string;
   domain: string;
   hasCustomSlug: boolean;
   hasUTM: boolean;
-}) => {
-  posthog?.capture("link_created", params);
-};
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({ distinctId: "server", event: "link_created", properties: params });
+  await serverPosthog.shutdown();
+}
 
-export const trackLinkClicked = (params: {
+export async function trackLinkClicked(params: {
   linkId: string;
   domain: string;
-}) => {
-  posthog?.capture("link_clicked", params);
-};
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({ distinctId: "server", event: "link_clicked", properties: params });
+  await serverPosthog.shutdown();
+}
 
-export const trackQRDownloaded = (params: {
+export async function trackQRDownloaded(params: {
   linkId: string;
   format: string;
-}) => {
-  posthog?.capture("qr_downloaded", params);
-};
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({ distinctId: "server", event: "qr_downloaded", properties: params });
+  await serverPosthog.shutdown();
+}
 
-export const trackBioPageViewed = (params: {
+export async function trackBioPageViewed(params: {
   galleryId: string;
-}) => {
-  posthog?.capture("bio_page_viewed", params);
-};
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({ distinctId: "server", event: "bio_page_viewed", properties: params });
+  await serverPosthog.shutdown();
+}
 
-export const trackUserUpgraded = (params: {
+export async function trackUserUpgraded(params: {
   fromPlan: string;
   toPlan: string;
-}) => {
-  posthog?.capture("user_upgraded", params);
-};
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({ distinctId: "server", event: "user_upgraded", properties: params });
+  await serverPosthog.shutdown();
+}

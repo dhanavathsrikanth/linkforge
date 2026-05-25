@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Geist } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "@/components/providers";
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { RouteProvider } from "@/providers/route-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
@@ -59,6 +60,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="bg-[var(--bg)] antialiased" suppressHydrationWarning>
+        <PostHogProvider>
         <ClerkProvider>
           <RouteProvider>
             <ThemeProvider>
@@ -68,6 +70,7 @@ export default function RootLayout({
             </ThemeProvider>
           </RouteProvider>
         </ClerkProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

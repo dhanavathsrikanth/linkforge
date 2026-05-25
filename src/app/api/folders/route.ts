@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { folders } from "@/lib/db";
+import { folders, links } from "@/lib/db";
 import { z } from "zod";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
@@ -11,9 +11,9 @@ import { eq, sql, desc } from "drizzle-orm";
 const CreateFolderSchema = z.object({
   workspaceId: z.string().uuid("Must provide a workspace ID"),
   name: z.string().min(1, "Name is required").max(100),
-  description: z.string().max(200).optional(),
-  color: z.string().regex(/^#[0-9a-f]{6}$/i, "Must be a valid hex color").optional(),
-  icon: z.string().max(50).optional(),
+  description: z.string().max(200).nullish(),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i, "Must be a valid hex color").nullish(),
+  icon: z.string().max(50).nullish(),
 });
 
 // GET /api/folders?workspaceId=...
@@ -41,11 +41,11 @@ export async function GET(request: Request) {
         userId: folders.userId,
         createdAt: folders.createdAt,
         updatedAt: folders.updatedAt,
-        linkCount: sql<number>`(
+        linkCount: sql<number>`COALESCE((
           SELECT COUNT(*)::int 
           FROM links 
-          WHERE links.folder_id = folders.id
-        )`.as("link_count"),
+          WHERE ${links.folderId} = ${folders.id}
+        ), 0)`.as("link_count"),
       })
       .from(folders)
       .where(eq(folders.workspaceId, ws.id))
@@ -103,7 +103,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ folder }, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/folders]", err);
-    return NextResponse.json({ error: "Failed to create folder" }, { status: 500 });
+    console.error("[POST /api/folders]", err instanceof Error ? err.stack || err.message : err);
+    return NextResponse.json({
+      error: "Failed to create folder",
+      detail: process.env.NODE_ENV === "development" ? String(err) : undefined,
+    }, { status: 500 });
   }
 }

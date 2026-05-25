@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   X,
   Link2,
@@ -22,7 +21,17 @@ import {
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useClipboard } from "@/hooks/use-clipboard";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn, getShortLinkBase } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/Dialog";
 
 type TabKey = "general" | "utm" | "abtesting" | "routing" | "advanced";
 
@@ -33,11 +42,17 @@ type Prefill = {
   folderId?: string | null;
 };
 
-type FolderOption = {
+export type FolderOption = {
   id: string;
   name: string;
   color: string;
   icon: string;
+  description?: string | null;
+  workspaceId?: string;
+  userId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  linkCount?: number;
 };
 
 type Props = {
@@ -102,6 +117,7 @@ export function AdvancedCreateSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
+  const isMobile = useMediaQuery("(max-width: 640px)");
 
   // Reset & apply prefill when opening
   useEffect(() => {
@@ -294,82 +310,56 @@ export function AdvancedCreateSheet({
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => onOpenChange(false)}
-            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
-          />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className={cn(
+          "flex max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:max-w-full max-sm:h-full max-sm:max-h-full max-sm:rounded-none max-sm:border-0 flex-col p-0 gap-0",
+          "sm:max-w-[960px]"
+        )}
+        showCloseButton={false}
+      >
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Create Link</DialogTitle>
+              <DialogDescription>
+                Configure destination, UTMs and advanced options.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-          {/* Panel */}
-          <motion.aside
-            key="panel"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[960px] flex-col bg-background shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold tracking-tight">Create Link</h2>
-                <p className="text-xs text-muted-foreground">
-                  Configure destination, UTMs and advanced options.
-                </p>
-              </div>
+        {/* Tabs */}
+        <div className="flex items-center gap-1 border-b border-border px-6 shrink-0">
+          {([
+            { key: "general", label: "General" },
+            { key: "utm", label: "UTM Parameters" },
+            { key: "abtesting", label: "A/B Testing" },
+            { key: "routing", label: "Smart Routing" },
+            { key: "advanced", label: "Advanced" },
+          ] as { key: TabKey; label: string }[]).map((t) => {
+            const active = tab === t.key;
+            return (
               <button
+                key={t.key}
                 type="button"
-                onClick={() => onOpenChange(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "relative px-3 py-3 text-sm font-medium transition-colors",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
               >
-                <X className="h-4 w-4" />
+                {t.label}
+                {active && (
+                  <span className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-primary" />
+                )}
               </button>
-            </div>
+            );
+          })}
+        </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-1 border-b border-border px-6">
-              {([
-                { key: "general", label: "General" },
-                { key: "utm", label: "UTM Parameters" },
-                { key: "abtesting", label: "A/B Testing" },
-                { key: "routing", label: "Smart Routing" },
-                { key: "advanced", label: "Advanced" },
-              ] as { key: TabKey; label: string }[]).map((t) => {
-                const active = tab === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setTab(t.key)}
-                    className={cn(
-                      "relative px-3 py-3 text-sm font-medium transition-colors",
-                      active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {t.label}
-                    {active && (
-                      <motion.span
-                        layoutId="adv-create-tab"
-                        className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-primary"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Body */}
-            <div className="grid flex-1 grid-cols-1 lg:grid-cols-[1fr_320px] overflow-hidden">
+        {/* Body */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_320px] overflow-hidden">
               {/* Left: tab content */}
               <div className="overflow-y-auto px-6 py-5">
                 {tab === "general" && (
@@ -537,6 +527,7 @@ export function AdvancedCreateSheet({
                         selectedId={form.folderId}
                         onSelect={(id) => update("folderId", id)}
                         onCreateFolder={onFolderCreate}
+                        workspaceId={workspaceId}
                       />
                     </Field>
                   </div>
@@ -1100,8 +1091,7 @@ export function AdvancedCreateSheet({
               </aside>
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-6 py-4">
+            <DialogFooter className="flex items-center justify-between gap-3 border-t border-border bg-background px-6 py-4">
               <div className="min-h-5 text-xs">
                 {error && <span className="font-medium text-red-500">{error}</span>}
               </div>
@@ -1127,11 +1117,9 @@ export function AdvancedCreateSheet({
               {submitting ? "Saving…" : prefill?.id ? "Save Changes" : "Create Link"}
             </button>
               </div>
-            </div>
-          </motion.aside>
-        </>
-      )}
-    </AnimatePresence>
+            </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1173,11 +1161,13 @@ function FolderSelector({
   selectedId,
   onSelect,
   onCreateFolder,
+  workspaceId,
 }: {
   folders: FolderOption[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onCreateFolder?: (folder: FolderOption) => void;
+  workspaceId: string;
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -1187,28 +1177,36 @@ function FolderSelector({
 
   const handleCreate = useCallback(async () => {
     if (!newFolderName.trim()) return;
-    setCreating(true);
     try {
       const res = await fetch("/api/folders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newFolderName.trim(),
-          workspaceId: "",
+          workspaceId,
+          color: null,
+          icon: null,
+          description: null,
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || "Failed to create folder");
+      }
       const data = await res.json();
       if (data.folder) {
         onSelect(data.folder.id);
         onCreateFolder?.(data.folder);
+        toast.success(`Folder "${data.folder.name}" created`);
       }
-    } catch {
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create folder");
     } finally {
       setCreating(false);
       setNewFolderName("");
       setOpen(false);
     }
-  }, [newFolderName, onSelect, onCreateFolder]);
+  }, [newFolderName, onSelect, onCreateFolder, workspaceId]);
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
@@ -1286,7 +1284,10 @@ function FolderSelector({
           <DropdownMenu.Separator className="my-1 h-px bg-border" />
 
           {creating ? (
-            <div className="px-2 py-2">
+            <div
+              className="px-2 py-2"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -1295,6 +1296,7 @@ function FolderSelector({
                   placeholder="Folder name"
                   className="flex-1 h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:border-primary"
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     if (e.key === "Enter") handleCreate();
                     if (e.key === "Escape") {
                       setCreating(false);
@@ -1305,11 +1307,14 @@ function FolderSelector({
                 />
                 <button
                   type="button"
-                  onClick={handleCreate}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreate();
+                  }}
                   disabled={!newFolderName.trim() || creating}
                   className="h-8 rounded bg-primary px-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
-                  {creating ? "..." : "Add"}
+                  Add
                 </button>
               </div>
             </div>

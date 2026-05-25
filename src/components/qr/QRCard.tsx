@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Download, Settings2, Scan } from "lucide-react";
+import { usePostHog } from "@posthog/react";
 import { cn, getShortLinkBase } from "@/lib/utils";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
@@ -21,6 +22,7 @@ interface Props {
   defaultDomain?: string;
 }
 export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
+  const posthog = usePostHog();
   const shortUrl = `https://${defaultDomain}/${link.slug}`;
   const qrTargetUrl = `${shortUrl}?source=qr`;
   const settings: QRSettings = link.qrSettings ?? DEFAULT_QR_SETTINGS;
@@ -33,7 +35,7 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
   async function handleQuickDownload() {
     setDownloading(true);
     try {
-      await downloadPNG(qrTargetUrl, link.slug, currentSettings);
+      await downloadPNG(qrTargetUrl, link.slug, currentSettings, link.id, posthog);
     } catch {
       // silent — user can use the panel for more control
     } finally {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Link2, Sparkles, Download, QrCode } from "lucide-react";
+import { usePostHog } from "@posthog/react";
 import { QRCard } from "./QRCard";
 import { downloadPNG } from "./qrDownload";
 import type { QRSettings } from "@/types/qr";
@@ -27,6 +28,7 @@ interface Props {
 import { getShortLinkBase } from "@/lib/utils";
 
 export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Props) {
+  const posthog = usePostHog();
   const [standaloneUrl, setStandaloneUrl] = useState("");
   const [standaloneValid, setStandaloneValid] = useState(false);
   const [standaloneDownloading, setStandaloneDownloading] = useState(false);
@@ -47,7 +49,7 @@ export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Pro
     setStandaloneDownloading(true);
     try {
       const slug = encodeURIComponent(new URL(standaloneUrl).hostname);
-      await downloadPNG(standaloneUrl, slug, DEFAULT_QR_SETTINGS);
+      await downloadPNG(standaloneUrl, slug, DEFAULT_QR_SETTINGS, undefined, posthog);
     } catch {
       // silent
     } finally {

@@ -1,25 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
 import posthog from "posthog-js";
+import { PostHogProvider as PHProvider } from "@posthog/react";
 
-interface PostHogProviderProps {
-  children: React.ReactNode;
-}
-
-export function PostHogProvider({ children }: PostHogProviderProps) {
-  const { user, isLoaded } = useUser();
-
+export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (isLoaded && user) {
-      // Identify the user in PostHog
-      posthog.identify(user.id, {
-        email: user.primaryEmailAddress?.emailAddress,
-        name: user.fullName,
-      });
-    }
-  }, [user, isLoaded]);
+    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN as string, {
+      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+      defaults: "2026-01-30",
+    });
+  }, []);
 
-  return <>{children}</>;
+  return <PHProvider client={posthog}>{children}</PHProvider>;
 }

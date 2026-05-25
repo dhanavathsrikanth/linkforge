@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { usePostHog } from "@posthog/react";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,7 @@ export function QRCustomizePanel({
   initialSettings = DEFAULT_QR_SETTINGS,
   onSaved,
 }: Props) {
+  const posthog = usePostHog();
   const isMobile = useMediaQuery("(max-width: 640px)");
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -146,7 +148,7 @@ export function QRCustomizePanel({
     setPngLoading(true);
     setActionError(null);
     try {
-      await downloadPNG(qrTargetUrl, linkSlug, debounced, linkId);
+      await downloadPNG(qrTargetUrl, linkSlug, debounced, linkId, posthog);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Download failed");
     } finally {
@@ -160,7 +162,7 @@ export function QRCustomizePanel({
     try {
       const svg = svgRef.current;
       if (!svg) throw new Error("SVG not rendered");
-      downloadSVG(svg, linkSlug, debounced, linkId);
+      downloadSVG(svg, linkSlug, debounced, linkId, posthog);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "SVG export failed");
     } finally {

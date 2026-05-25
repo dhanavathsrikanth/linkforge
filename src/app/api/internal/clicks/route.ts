@@ -161,10 +161,10 @@ export async function POST(req: Request) {
 
     // Track click event in PostHog (non-blocking, best effort)
     if (link) {
-      trackLinkClicked({
+      await trackLinkClicked({
         linkId,
         domain: domain?.domain || getDefaultDomain(),
-      });
+      }).catch(() => {});
     }
 
     // Increment monthly clicksTracked usage (best-effort)

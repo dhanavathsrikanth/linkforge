@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { cn } from "@/lib/utils";
 import { Tags, X, ChevronDown } from "lucide-react";
 
 export interface TagItem {
@@ -64,21 +65,20 @@ export function TagFilter({
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant={selectedTags.length > 0 ? "secondary" : "outline"}
-          size="sm"
-          className="h-8 gap-2"
-        >
-          <Tags className="h-4 w-4" />
-          Tags
-          {selectedTags.length > 0 && (
-            <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-              {selectedTags.length}
-            </Badge>
-          )}
-          <ChevronDown className="h-3 w-3 ml-1" />
-        </Button>
+      <DropdownMenuTrigger
+        className={cn(
+          buttonVariants({ variant: selectedTags.length > 0 ? "secondary" : "outline", size: "sm" }),
+          "h-8 gap-2"
+        )}
+      >
+        <Tags className="h-4 w-4" />
+        Tags
+        {selectedTags.length > 0 && (
+          <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+            {selectedTags.length}
+          </Badge>
+        )}
+        <ChevronDown className="h-3 w-3 ml-1" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
         {sortedTags.length === 0 ? (

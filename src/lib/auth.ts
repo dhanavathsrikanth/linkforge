@@ -18,72 +18,123 @@ export async function requireAuth(): Promise<string> {
  * Safe to call on every request — uses upsert.
  */
 export async function getOrCreateDbUser() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) return null;
+  const { userId } = await auth();
+  if (!userId) return null;
 
-  const primaryEmail =
-    clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
-      ?.emailAddress ?? "";
-  const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
-  const userValues = {
-    clerkId: clerkUser.id,
-    email: primaryEmail,
-    name: fullName,
-    firstName: clerkUser.firstName ?? null,
-    lastName: clerkUser.lastName ?? null,
-    username: clerkUser.username ?? null,
-    avatar: clerkUser.imageUrl ?? null,
-    profileImageUrl: clerkUser.imageUrl ?? null,
-    birthday: null,
-    gender: null,
-    externalId: clerkUser.externalId ?? null,
-    primaryEmailAddressId: clerkUser.primaryEmailAddressId ?? null,
-    primaryPhoneNumberId: clerkUser.primaryPhoneNumberId ?? null,
-    primaryWeb3WalletId: clerkUser.primaryWeb3WalletId ?? null,
-    passwordEnabled: clerkUser.passwordEnabled ?? null,
-    twoFactorEnabled: clerkUser.twoFactorEnabled ?? null,
-    lastSignInAt: clerkUser.lastSignInAt ? new Date(clerkUser.lastSignInAt) : null,
-    clerkCreatedAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : null,
-    clerkUpdatedAt: clerkUser.updatedAt ? new Date(clerkUser.updatedAt) : null,
-    emailAddresses: clerkUser.emailAddresses,
-    phoneNumbers: clerkUser.phoneNumbers,
-    externalAccounts: clerkUser.externalAccounts,
-    web3Wallets: clerkUser.web3Wallets,
-    publicMetadata: clerkUser.publicMetadata,
-    privateMetadata: clerkUser.privateMetadata,
-    unsafeMetadata: clerkUser.unsafeMetadata,
-  };
+  let clerkUser;
+  try {
+    clerkUser = await currentUser();
+  } catch {
+    clerkUser = null;
+  }
 
-  const [user] = await db
-    .insert(users)
-    .values(userValues)
-    .onConflictDoUpdate({
-      target: users.clerkId,
-      set: {
-        ...userValues,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+  if (clerkUser) {
+    const primaryEmail =
+      clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
+        ?.emailAddress ?? "";
+    const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+    const userValues = {
+      clerkId: clerkUser.id,
+      email: primaryEmail,
+      name: fullName,
+      firstName: clerkUser.firstName ?? null,
+      lastName: clerkUser.lastName ?? null,
+      username: clerkUser.username ?? null,
+      avatar: clerkUser.imageUrl ?? null,
+      profileImageUrl: clerkUser.imageUrl ?? null,
+      birthday: null,
+      gender: null,
+      externalId: clerkUser.externalId ?? null,
+      primaryEmailAddressId: clerkUser.primaryEmailAddressId ?? null,
+      primaryPhoneNumberId: clerkUser.primaryPhoneNumberId ?? null,
+      primaryWeb3WalletId: clerkUser.primaryWeb3WalletId ?? null,
+      passwordEnabled: clerkUser.passwordEnabled ?? null,
+      twoFactorEnabled: clerkUser.twoFactorEnabled ?? null,
+      lastSignInAt: clerkUser.lastSignInAt ? new Date(clerkUser.lastSignInAt) : null,
+      clerkCreatedAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : null,
+      clerkUpdatedAt: clerkUser.updatedAt ? new Date(clerkUser.updatedAt) : null,
+      emailAddresses: clerkUser.emailAddresses,
+      phoneNumbers: clerkUser.phoneNumbers,
+      externalAccounts: clerkUser.externalAccounts,
+      web3Wallets: clerkUser.web3Wallets,
+      publicMetadata: clerkUser.publicMetadata,
+      privateMetadata: clerkUser.privateMetadata,
+      unsafeMetadata: clerkUser.unsafeMetadata,
+    };
 
-  // Ensure user has a personal workspace
-  if (user) {
-    const existing = await db.query.workspaces.findFirst({
-      where: eq(workspaces.ownerId, user.id),
+    const [user] = await db
+      .insert(users)
+      .values(userValues)
+      .onConflictDoUpdate({
+        target: users.clerkId,
+        set: {
+          ...userValues,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    // Ensure user has a personal workspace
+    if (user) {
+      const existing = await db.query.workspaces.findFirst({
+        where: eq(workspaces.ownerId, user.id),
+      });
+      if (!existing) {
+        const slugBase = (user.name || user.email || "personal").toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "")
+          .slice(0, 32) || "personal";
+        await db.insert(workspaces).values({
+          name: "Personal",
+          slug: `${slugBase}-${user.id.slice(0, 8)}`,
+          ownerId: user.id,
+          isDefault: true,
+        }).onConflictDoNothing();
+      }
+    }
+
+    return user;
+  }
+
+  // Fallback when currentUser() fails (cold start, network blip, etc.)
+  // Use the local session userId to find or create a minimal record
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(eq(users.clerkId, userId))
+    .limit(1);
+
+  if (existing) {
+    // Ensure existing user still has a personal workspace
+    const existingWs = await db.query.workspaces.findFirst({
+      where: eq(workspaces.ownerId, existing.id),
     });
-    if (!existing) {
-      const slugBase = (user.name || user.email || "personal").toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)+/g, "")
-        .slice(0, 32) || "personal";
+    if (!existingWs) {
       await db.insert(workspaces).values({
         name: "Personal",
-        slug: `${slugBase}-${user.id.slice(0, 8)}`,
-        ownerId: user.id,
+        slug: `personal-${existing.id.slice(0, 8)}`,
+        ownerId: existing.id,
         isDefault: true,
       }).onConflictDoNothing();
     }
+    return existing;
   }
 
-  return user;
+  const fallbackEmail = `${userId}@placeholder.local`;
+  const [user] = await db
+    .insert(users)
+    .values({ clerkId: userId, email: fallbackEmail })
+    .onConflictDoNothing()
+    .returning();
+
+  if (user) {
+    await db.insert(workspaces).values({
+      name: "Personal",
+      slug: `personal-${user.id.slice(0, 8)}`,
+      ownerId: user.id,
+      isDefault: true,
+    }).onConflictDoNothing();
+  }
+
+  return user || null;
 }

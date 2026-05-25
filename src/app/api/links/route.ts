@@ -229,7 +229,7 @@ export async function POST(req: Request) {
 
     // PostHog + audit (fire-and-forget)
     const domain = getDefaultDomain();
-    trackLinkCreated({
+    await trackLinkCreated({
       linkId: link.id,
       domain,
       hasCustomSlug: !!v.slug && v.slug.trim().length > 0,

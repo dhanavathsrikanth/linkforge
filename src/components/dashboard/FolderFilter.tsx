@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { buttonVariants } from "@/components/ui/Button";
 import {
   Folder,
   FolderOpen,
@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FolderCreateSheet } from "./FolderCreateSheet";
 
@@ -81,25 +82,21 @@ export function FolderFilter({
     <>
       <div className="flex items-center gap-2 flex-wrap">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-2"
-            >
-              <Folder className="h-4 w-4" />
-              {selectedFolder ? (
-                <span className="flex items-center gap-1">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: selectedFolder.color }}
-                  />
-                  {selectedFolder.name}
-                </span>
-              ) : (
-                <span>All Links</span>
-              )}
-            </Button>
+          <DropdownMenuTrigger
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 gap-2")}
+          >
+            <Folder className="h-4 w-4" />
+            {selectedFolder ? (
+              <span className="flex items-center gap-1">
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: selectedFolder.color }}
+                />
+                {selectedFolder.name}
+              </span>
+            ) : (
+              <span>All Links</span>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuItem
@@ -139,17 +136,10 @@ export function FolderFilter({
                   }}
                 >
                   <DropdownMenuTrigger
-                    asChild
+                    className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-6 w-6 ml-1")}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 ml-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="h-3 w-3" />
-                    </Button>
+                    <MoreHorizontal className="h-3 w-3" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem

@@ -528,30 +528,7 @@ export const conversionsRelations = relations(conversions, ({ one }) => ({
   }),
 }));
 
-export const customerJourneysRelations = relations(customerJourneys, ({ one, many }) => ({
-  workspace: one(workspaces, {
-    fields: [customerJourneys.workspaceId],
-    references: [workspaces.id],
-  }),
-  attributionResults: many(attributionResults),
-}));
-
-export const attributionResultsRelations = relations(attributionResults, ({ one }) => ({
-  journey: one(customerJourneys, {
-    fields: [attributionResults.journeyId],
-    references: [customerJourneys.id],
-  }),
-  link: one(links, {
-    fields: [attributionResults.linkId],
-    references: [links.id],
-  }),
-  workspace: one(workspaces, {
-    fields: [attributionResults.workspaceId],
-    references: [workspaces.id],
-  }),
-}));
-
-// ─── usage_counters (monthly) ───────────────────────────────────────────────────
+// ��� usage_counters (monthly) ���������������������������������������������������
 // Tracks per-workspace monthly usage for billing enforcement & UX.
 // month_start uses the first day of the month in UTC (e.g., 2026-05-01 00:00:00Z).
 export const usageCounters = pgTable(
@@ -868,6 +845,29 @@ export const attributionResults = pgTable(
     index("attribution_results_model_idx").on(t.model),
   ]
 );
+
+export const customerJourneysRelations = relations(customerJourneys, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [customerJourneys.workspaceId],
+    references: [workspaces.id],
+  }),
+  attributionResults: many(attributionResults),
+}));
+
+export const attributionResultsRelations = relations(attributionResults, ({ one }) => ({
+  journey: one(customerJourneys, {
+    fields: [attributionResults.journeyId],
+    references: [customerJourneys.id],
+  }),
+  link: one(links, {
+    fields: [attributionResults.linkId],
+    references: [links.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [attributionResults.workspaceId],
+    references: [workspaces.id],
+  }),
+}));
 
 // ─── webhook_failed_events (dead-letter queue) ─────────────────────────────────
 export const webhookFailedEvents = pgTable(

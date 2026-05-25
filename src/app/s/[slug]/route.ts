@@ -215,7 +215,7 @@ export async function GET(
             }
           }
 
-          trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() });
+          await trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() }).catch(() => {});
           await incrementUsage(link.workspaceId, "clicksTracked", 1);
         } catch (e) {
           console.error("Click tracking failed (non-blocking):", e);

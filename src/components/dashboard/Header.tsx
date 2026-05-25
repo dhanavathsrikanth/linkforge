@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton, OrganizationSwitcher } from "@clerk/nextjs";
+import { UserButton, OrganizationSwitcher, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
 import { Bell, Search, Building2, Plus } from "lucide-react";
 
 export function Header() {
@@ -17,18 +17,25 @@ export function Header() {
       </div>
 
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
-        <OrganizationSwitcher
-          afterCreateOrganizationUrl="/dashboard"
-          afterSelectOrganizationUrl="/dashboard"
-          afterSelectPersonalUrl="/dashboard"
-          organizationProfileUrl="/organization-profile"
-          createOrganizationUrl="/create-organization"
-          appearance={{
-            elements: {
-              organizationSwitcherTrigger: "h-9 rounded-lg border border-border bg-background px-2 sm:px-3 text-sm text-foreground hover:bg-muted transition-colors max-w-[120px] sm:max-w-none truncate",
-            },
-          }}
-        />
+        <div className="flex items-center h-9">
+          <ClerkLoading>
+            <div className="h-9 w-24 rounded-lg bg-muted animate-pulse" />
+          </ClerkLoading>
+          <ClerkLoaded>
+            <OrganizationSwitcher
+              afterCreateOrganizationUrl="/dashboard"
+              afterSelectOrganizationUrl="/dashboard"
+              afterSelectPersonalUrl="/dashboard"
+              organizationProfileUrl="/organization-profile"
+              createOrganizationUrl="/create-organization"
+              appearance={{
+                elements: {
+                  organizationSwitcherTrigger: "h-9 rounded-lg border border-border bg-background px-2 sm:px-3 text-sm text-foreground hover:bg-muted transition-colors max-w-[120px] sm:max-w-none truncate",
+                },
+              }}
+            />
+          </ClerkLoaded>
+        </div>
         <button
           type="button"
           suppressHydrationWarning
@@ -36,21 +43,26 @@ export function Header() {
         >
           <Bell className="h-4 w-4" />
         </button>
-        <div className="ml-0 sm:ml-1">
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "h-7 w-7 sm:h-8 sm:w-8",
-              },
-            }}
-          >
-            <UserButton.MenuItems>
-              <UserButton.Action label="manageAccount" />
-              <UserButton.Action label="signOut" />
-              <UserButton.Link label="Organizations" href="/organizations" labelIcon={<Building2 className="h-4 w-4" />} />
-              <UserButton.Link label="Create Organization" href="/create-organization" labelIcon={<Plus className="h-4 w-4" />} />
-            </UserButton.MenuItems>
-          </UserButton>
+        <div className="ml-0 sm:ml-1 flex items-center h-9">
+          <ClerkLoading>
+            <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+          </ClerkLoading>
+          <ClerkLoaded>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "h-7 w-7 sm:h-8 sm:w-8",
+                },
+              }}
+            >
+              <UserButton.MenuItems>
+                <UserButton.Action label="manageAccount" />
+                <UserButton.Action label="signOut" />
+                <UserButton.Link label="Organizations" href="/organizations" labelIcon={<Building2 className="h-4 w-4" />} />
+                <UserButton.Link label="Create Organization" href="/create-organization" labelIcon={<Plus className="h-4 w-4" />} />
+              </UserButton.MenuItems>
+            </UserButton>
+          </ClerkLoaded>
         </div>
       </div>
     </header>
