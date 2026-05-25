@@ -1,5 +1,8 @@
-import { NextResponse } from "next/server";
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
 import { getSvixAppPortalUrl, createSvixApp } from "@/lib/svix/application";
