@@ -17,6 +17,7 @@ const tabs = [
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isIndex = pathname === "/dashboard/settings";
+  const isWebhooks = pathname === "/dashboard/settings/webhooks";
 
   if (isIndex) {
     return <>{children}</>;
@@ -75,12 +76,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             );
           })}
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className={cn("flex-1 overflow-y-auto", isWebhooks ? "p-4 pr-0" : "p-4")}>
           {children}
         </div>
       </div>
 
-      <div className="hidden md:flex flex-1 overflow-y-auto p-6">
+      <div className={cn("hidden md:flex flex-1 overflow-y-auto", isWebhooks ? "p-6 pr-0" : "p-6")}>
         {children}
       </div>
     </div>

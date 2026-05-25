@@ -208,11 +208,13 @@ export default function WebhooksSettingsPage() {
       )}
 
       {portalUrl && !loading && (
-        <iframe
-          src={portalUrl}
-          className="flex-1 w-full border border-border rounded-lg min-h-[600px]"
-          title="Svix Webhook Portal"
-        />
+        <div className="flex-1 overflow-hidden">
+          <iframe
+            src={portalUrl}
+            className="w-full h-full border-0"
+            title="Svix Webhook Portal"
+          />
+        </div>
       )}
     </div>
   );

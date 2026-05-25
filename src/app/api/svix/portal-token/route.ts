@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
-import { getSvixAppPortalUrl } from "@/lib/svix/application";
+import { getSvixAppPortalUrl, createSvixApp } from "@/lib/svix/application";
 import type { AppPortalOptions } from "@/lib/svix/application";
 
 export async function POST(req: Request) {
@@ -44,8 +44,14 @@ export async function POST(req: Request) {
     if (body.noGutters) options.noGutters = body.noGutters;
     if (body.next) options.next = body.next;
 
-    const portalUrl = await getSvixAppPortalUrl(workspaceId, options);
-    return NextResponse.json({ url: portalUrl });
+    try {
+      const portalUrl = await getSvixAppPortalUrl(workspaceId, options);
+      return NextResponse.json({ url: portalUrl });
+    } catch {
+      await createSvixApp(workspaceId, ws.name);
+      const portalUrl = await getSvixAppPortalUrl(workspaceId, options);
+      return NextResponse.json({ url: portalUrl });
+    }
   } catch (err) {
     console.error("[POST /api/svix/portal-token]", err);
     return NextResponse.json({ error: "Failed to generate portal token" }, { status: 500 });

@@ -7,6 +7,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { sendWelcomeEmail } from "@/lib/email";
 import { checkUserWorkspaceLimit } from "@/lib/billing/workspace-limits";
 import { withRetry } from "@/lib/retry";
+import { createSvixApp } from "@/lib/svix/application";
 
 type ClerkWebhookEvent = {
   type: string;
@@ -139,12 +140,18 @@ export async function POST(req: Request) {
               .replace(/[^a-z0-9]+/g, "-")
               .replace(/(^-|-$)+/g, "")
               .slice(0, 32) || "personal";
-            await db.insert(workspaces).values({
+            const [personalWs] = await db.insert(workspaces).values({
               name: "Personal",
               slug: `${slugBase}-${createdUser.id.slice(0, 8)}`,
               ownerId: createdUser.id,
               isDefault: true,
-            }).onConflictDoNothing();
+            }).onConflictDoNothing().returning({ id: workspaces.id });
+
+            if (personalWs) {
+              createSvixApp(personalWs.id, "Personal").catch((e) =>
+                console.error("[clerk-webhook] Failed to create Svix app for personal workspace", e)
+              );
+            }
           }
         }
 
@@ -322,6 +329,12 @@ export async function POST(req: Request) {
         }
       }
 
+      if (ws) {
+        createSvixApp(ws.id, orgName).catch((e) =>
+          console.error("[clerk-webhook] Failed to create Svix app for org workspace", e)
+        );
+      }
+
       console.log("[clerk-webhook] workspace created for org", orgId, orgName);
     }
 
@@ -447,6 +460,12 @@ export async function POST(req: Request) {
             console.error("[clerk-webhook] Failed to insert creator as workspace member", msg);
             await persistFailedEvent(type, data, msg);
           }
+        }
+
+        if (ws) {
+          createSvixApp(ws.id, ws.name || orgName).catch((e) =>
+            console.error("[clerk-webhook] Failed to create Svix app for membership workspace", e)
+          );
         }
 
         console.log("[clerk-webhook] workspace auto-created for membership", orgId, orgName);
