@@ -16,12 +16,15 @@ async function seedEventTypes() {
   console.log("Registering event types with Svix...");
 
   for (const et of EVENT_TYPES) {
+    const featureFlags = "featureFlags" in et ? [...et.featureFlags] : undefined;
+
     try {
       const existing = await svix.eventType.get(et.name);
       await svix.eventType.update(et.name, {
         description: et.description,
         schemas: et.schemas,
         archived: et.archived,
+        featureFlag: featureFlags?.[0] ?? null,
       });
       console.log(`  Updated: ${et.name}`);
     } catch {
@@ -30,6 +33,7 @@ async function seedEventTypes() {
         description: et.description,
         schemas: et.schemas,
         archived: et.archived,
+        featureFlags,
       });
       console.log(`  Created: ${et.name}`);
     }

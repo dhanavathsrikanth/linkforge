@@ -14,12 +14,16 @@ import {
   EyeOff,
   LogOut,
   RefreshCw,
+  Flag,
 } from "lucide-react";
+
+const AVAILABLE_FLAGS = ["admin"] as const;
 
 type PortalOptions = {
   darkMode: "false" | "true" | "auto";
   readOnly: boolean;
   next: string;
+  featureFlags: string[];
 };
 
 export default function WebhooksSettingsPage() {
@@ -28,11 +32,22 @@ export default function WebhooksSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expiring, setExpiring] = useState(false);
+  const [sessionId] = useState(() => crypto.randomUUID());
   const [options, setOptions] = useState<PortalOptions>({
     darkMode: "auto",
     readOnly: false,
     next: "",
+    featureFlags: [],
   });
+
+  const toggleFlag = (flag: string) => {
+    setOptions((prev) => ({
+      ...prev,
+      featureFlags: prev.featureFlags.includes(flag)
+        ? prev.featureFlags.filter((f) => f !== flag)
+        : [...prev.featureFlags, flag],
+    }));
+  };
 
   const fetchPortalUrl = useCallback(async () => {
     if (!workspace?.id) return;
@@ -40,12 +55,13 @@ export default function WebhooksSettingsPage() {
     setLoading(true);
     setError(null);
 
-    const body: Record<string, unknown> = { workspaceId: workspace.id };
+    const body: Record<string, unknown> = { workspaceId: workspace.id, sessionId };
     if (options.darkMode !== "false") body.darkMode = options.darkMode;
     if (options.readOnly) {
       body.capabilities = ["ViewBase"];
     }
     if (options.next) body.next = options.next;
+    if (options.featureFlags.length > 0) body.featureFlags = options.featureFlags;
 
     try {
       const res = await fetch("/api/svix/portal-token", {
@@ -79,7 +95,7 @@ export default function WebhooksSettingsPage() {
       const res = await fetch("/api/svix/expire-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId: workspace.id }),
+        body: JSON.stringify({ workspaceId: workspace.id, sessionId, expiry: 0 }),
       });
       if (!res.ok) throw new Error("Failed to expire sessions");
       await fetchPortalUrl();
@@ -176,6 +192,20 @@ export default function WebhooksSettingsPage() {
 
         <Separator orientation="vertical" className="h-6" />
 
+        {AVAILABLE_FLAGS.map((flag) => (
+          <Button
+            key={flag}
+            variant={options.featureFlags.includes(flag) ? "default" : "outline"}
+            size="sm"
+            onClick={() => toggleFlag(flag)}
+          >
+            <Flag className="h-3.5 w-3.5" />
+            {flag}
+          </Button>
+        ))}
+
+        <Separator orientation="vertical" className="h-6" />
+
         <Button
           variant="outline"
           size="sm"
@@ -213,6 +243,8 @@ export default function WebhooksSettingsPage() {
             src={portalUrl}
             className="w-full h-full border-0"
             title="Svix Webhook Portal"
+            allow="clipboard-write"
+            loading="lazy"
           />
         </div>
       )}

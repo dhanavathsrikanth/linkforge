@@ -65,13 +65,13 @@ export async function getSvixAppPortalUrl(
   if (!queryString) return url;
 
   const parsed = new URL(url);
-  parsed.search = queryString;
+  searchParams.forEach((value, key) => parsed.searchParams.set(key, value));
   return parsed.toString();
 }
 
 export async function expireAllSessions(
   workspaceId: string,
-  sessionIds?: string[],
+  options?: { sessionIds?: string[]; expiry?: number },
 ) {
-  await svix.authentication.expireAll(workspaceId, { sessionIds });
+  await svix.authentication.expireAll(workspaceId, options ?? {});
 }

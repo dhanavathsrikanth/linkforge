@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 401 });
     }
 
-    const { workspaceId, sessionId, sessionIds, expiry }: { workspaceId?: string; sessionId?: string; sessionIds?: string[]; expiry?: number } = await req.json();
+    const { workspaceId, sessionId }: { workspaceId?: string; sessionId?: string } = await req.json();
     if (!workspaceId) {
       return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
     }
@@ -26,10 +26,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only admins can manage webhooks" }, { status: 403 });
     }
 
-    await expireAllSessions(workspaceId, { sessionIds: sessionIds ?? (sessionId ? [sessionId] : undefined), expiry });
+    await expireAllSessions(workspaceId, { sessionIds: sessionId ? [sessionId] : undefined, expiry: 0 });
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[POST /api/svix/expire-all]", err);
-    return NextResponse.json({ error: "Failed to expire sessions" }, { status: 500 });
+    console.error("[POST /api/svix/logout]", err);
+    return NextResponse.json({ error: "Failed to logout" }, { status: 500 });
   }
 }
