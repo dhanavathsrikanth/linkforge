@@ -1,8 +1,8 @@
 "use client";
 
 import { useRealtime } from "@/providers/RealtimeProvider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar } from "@/components/ui/avatar";
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { Wifi, WifiOff } from "lucide-react";
 
 export function ActiveUsersIndicator() {
@@ -21,19 +21,22 @@ export function ActiveUsersIndicator() {
         <div className="flex items-center">
           <div className="relative flex -space-x-2">
             {displayUsers.map((user) => (
-              <Tooltip key={user.id}>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-7 w-7 border-2 border-background">
-                    <AvatarImage src={user.imageUrl} alt={user.name} />
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {user.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="font-medium">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">Active now</p>
-                </TooltipContent>
+              <Tooltip
+                key={user.id}
+                content={
+                  <div className="text-center">
+                    <p className="font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">Active now</p>
+                  </div>
+                }
+              >
+                <Avatar
+                  src={user.imageUrl}
+                  alt={user.name}
+                  fallback={user.name.charAt(0).toUpperCase()}
+                  className="h-7 w-7 border-2 border-background"
+                  size="sm"
+                />
               </Tooltip>
             ))}
             {remainingCount > 0 && (
@@ -62,25 +65,26 @@ export function RealtimeStatusIndicator() {
 
   return (
     <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-            <div className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-            </div>
-            <Wifi className="h-3.5 w-3.5" />
-            <span>Live</span>
+      <Tooltip
+        content={
+          <div>
+            <p className="text-xs">Real-time sync active</p>
+            {lastEvent && (
+              <p className="text-xs text-muted-foreground">
+                Last update: {new Date(lastEvent.timestamp).toLocaleTimeString()}
+              </p>
+            )}
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p className="text-xs">Real-time sync active</p>
-          {lastEvent && (
-            <p className="text-xs text-muted-foreground">
-              Last update: {new Date(lastEvent.timestamp).toLocaleTimeString()}
-            </p>
-          )}
-        </TooltipContent>
+        }
+      >
+        <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+          <div className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+          </div>
+          <Wifi className="h-3.5 w-3.5" />
+          <span>Live</span>
+        </div>
       </Tooltip>
     </TooltipProvider>
   );

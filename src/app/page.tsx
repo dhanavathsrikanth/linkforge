@@ -10,7 +10,7 @@ import {
   Target, Award, Heart, Building2, Key, Smartphone, Split,
   Database, Code2, Layers, Rocket, ChevronRight, Menu, X,
   MousePointerClick, Eye, Clock3, Share2, Fingerprint, Cpu,
-  TrendingDown, Minus, Plus, Infinity, Hash, Tag, Timer,
+  TrendingDown, Minus, Plus, Infinity as InfinityIcon, Hash, Tag, Timer,
   Crown, ShieldCheck, Headphones, MessageCircle, ArrowUpRight
 } from "lucide-react";
 
@@ -749,7 +749,7 @@ export default function LandingPage() {
       title: "Smart Link Management",
       description: "Create branded short links with custom slugs, automatic redirect rules, and advanced targeting. Hide affiliate URLs with link cloaking.",
       badge: "Core Feature",
-      stats: [{ label: "Links created", value: "100M+" }, { label: "Click rate increase", value: "+340%", trend: "up" }]
+      stats: [{ label: "Links created", value: "100M+" }, { label: "Click rate increase", value: "+340%", trend: "up" as const }]
     },
     {
       icon: Shield,
@@ -1119,7 +1119,7 @@ export default function LandingPage() {
         {/* Scroll Indicator */}
         <motion.div
           animate={{ y: [0, 15, 0] }}
-          transition={{ duration: 2.5, repeat: Infinity }}
+          transition={{ duration: 2.5, repeat: Number.MAX_SAFE_INTEGER }}
           className="absolute bottom-8 left-1/2 -translate-x-1/2"
         >
           <ChevronDown className="w-8 h-8 text-slate-600" />
@@ -1409,7 +1409,7 @@ export default function LandingPage() {
 
                 <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-slate-500">
                   <div className="flex items-center gap-2">
-                    <Infinity className="w-4 h-4" />
+                    <InfinityIcon className="w-4 h-4" />
                     <span className="text-sm">Unlimited links on Pro</span>
                   </div>
                   <div className="flex items-center gap-2">

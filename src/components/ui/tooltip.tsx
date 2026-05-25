@@ -15,7 +15,7 @@ export function TooltipProvider({ children }: { children: React.ReactNode }) {
 
 export function Tooltip({ children, content, delay = 300 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const show = () => {
     timerRef.current = setTimeout(() => setVisible(true), delay);
