@@ -88,20 +88,20 @@ export async function GET(request: Request) {
     let userLinks;
     if (folderId === "none") {
       userLinks = await db.query.links.findMany({
-        where: (l, { eq, isNull }) => [eq(l.workspaceId, ws.id), isNull(l.folderId)],
-        orderBy: (l, { desc }) => [desc(l.createdAt)],
+        where: (l, { eq, and, isNull }) => and(eq(l.workspaceId, ws.id), isNull(l.folderId)),
+        orderBy: (l, { desc }) => desc(l.createdAt),
         limit: 100,
       });
     } else if (folderId && folderId !== "") {
       userLinks = await db.query.links.findMany({
         where: (l, { eq, and }) => and(eq(l.workspaceId, ws.id), eq(l.folderId, folderId)),
-        orderBy: (l, { desc }) => [desc(l.createdAt)],
+        orderBy: (l, { desc }) => desc(l.createdAt),
         limit: 100,
       });
     } else {
       userLinks = await db.query.links.findMany({
         where: (l, { eq }) => eq(l.workspaceId, ws.id),
-        orderBy: (l, { desc }) => [desc(l.createdAt)],
+        orderBy: (l, { desc }) => desc(l.createdAt),
         limit: 100,
       });
     }
