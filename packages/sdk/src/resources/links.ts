@@ -1,4 +1,4 @@
-import type { LinkForgeClient } from "../client";
+import type { PivotUrlClient } from "../client";
 import type {
   Link,
   CreateLinkOptions,
@@ -10,7 +10,7 @@ import type {
 } from "../types";
 
 export class LinksResource {
-  constructor(private readonly client: LinkForgeClient) {}
+  constructor(private readonly client: PivotUrlClient) {}
 
   async create(options: CreateLinkOptions): Promise<Link> {
     return this.client.request<Link>("POST", "/links", options);

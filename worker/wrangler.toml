@@ -11,7 +11,7 @@ id      = "d42094ab250442ec82ba7cdea8afc573"
 
 # ─── Environment Variables ────────────────────────────────────────────────────
 [vars]
-API_URL = "https://linkforge-jet.vercel.app"
+API_URL = "https://pivoturl.vercel.app"
 # WORKER_SECRET is set via Cloudflare Dashboard (not in this file)
 
 # ─── Local dev overrides ──────────────────────────────────────────────────────

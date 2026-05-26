@@ -661,7 +661,7 @@ export function BulkCreateSheet({
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement("a");
                             a.href = url;
-                            a.download = "linkforge-bulk-template.csv";
+                            a.download = "pivoturl-bulk-template.csv";
                             a.click();
                             URL.revokeObjectURL(url);
                           }}

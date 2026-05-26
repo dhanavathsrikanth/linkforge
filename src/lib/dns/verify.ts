@@ -4,16 +4,16 @@ import dns from "dns/promises";
  * Verifies a domain's DNS settings.
  * 
  * We check for:
- * 1. A TXT record at _linkforge.<domain> containing linkforge-verification=<token>
+ * 1. A TXT record at _pivoturl.<domain> containing pivoturl-verification=<token>
  * 2. (Optional) A CNAME record pointing to our edge infrastructure
  */
 export async function verifyDomainDNS(domain: string, expectedToken: string) {
   try {
     // 1. Check TXT record for verification
     // This is the most reliable way to verify ownership without affecting traffic
-    const txtRecords = await dns.resolveTxt(`_linkforge.${domain}`);
+    const txtRecords = await dns.resolveTxt(`_pivoturl.${domain}`);
     const hasTxtMatch = txtRecords.some((record) => 
-      record.some(part => part.includes(`linkforge-verification=${expectedToken}`))
+      record.some(part => part.includes(`pivoturl-verification=${expectedToken}`))
     );
     
     // 2. Check CNAME record
@@ -21,7 +21,7 @@ export async function verifyDomainDNS(domain: string, expectedToken: string) {
     let hasCnameMatch = false;
     try {
       const cnameRecords = await dns.resolveCname(domain);
-      const target = process.env.NEXT_PUBLIC_CNAME_TARGET || "cname.linkforge.com";
+      const target = process.env.NEXT_PUBLIC_CNAME_TARGET || "cname.pivoturl.com";
       hasCnameMatch = cnameRecords.some((record) => record.toLowerCase().includes(target.toLowerCase()));
     } catch (e) {
       // Might be using an A record or just not set up yet

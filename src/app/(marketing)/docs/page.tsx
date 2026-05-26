@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-const BASE_URL = "https://linkforge-jet.vercel.app";
+const BASE_URL = "https://pivoturl.vercel.app";
 
 const sections = [
   { id: "overview", label: "Overview" },
@@ -128,7 +128,7 @@ export default function DocsPage() {
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight text-slate-900">
-            LinkForge<span className="text-slate-600">.</span>
+            PivotUrl<span className="text-slate-600">.</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-500">
             <Link href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</Link>
@@ -162,7 +162,7 @@ export default function DocsPage() {
                 API Documentation
               </h1>
               <p className="text-lg text-slate-500">
-                Integrate link shortening, click analytics, and QR code generation into your applications using the LinkForge REST API and first-party SDKs.
+                Integrate link shortening, click analytics, and QR code generation into your applications using the PivotUrl REST API and first-party SDKs.
               </p>
             </div>
 
@@ -170,7 +170,7 @@ export default function DocsPage() {
             <Section id="overview">
               <h2 className="text-2xl font-bold text-slate-900 mb-4">Overview</h2>
               <p className="text-slate-600 mb-4 leading-relaxed">
-                LinkForge exposes a REST API at <Code>{`${BASE_URL}/api/v2`}</Code>. All requests must be authenticated with a Bearer token. The API supports two key types: <strong>secret keys</strong> (<Code>lf_sk_...</Code>) for full CRUD access, and <strong>publishable keys</strong> (<Code>lf_pk_...</Code>) for read-only operations safe to use in browser environments.
+                PivotUrl exposes a REST API at <Code>{`${BASE_URL}/api/v2`}</Code>. All requests must be authenticated with a Bearer token. The API supports two key types: <strong>secret keys</strong> (<Code>lf_sk_...</Code>) for full CRUD access, and <strong>publishable keys</strong> (<Code>lf_pk_...</Code>) for read-only operations safe to use in browser environments.
               </p>
               <p className="text-slate-600 mb-4 leading-relaxed">
                 Responses are JSON. Errors use a consistent <Code>{`{ error: { code, message } }`}</Code> shape. Rate limit information is returned in response headers on every request.
@@ -503,14 +503,14 @@ document.querySelector("#qr").src = imgUrl;`} />
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3">TypeScript / JavaScript</h3>
               <p className="text-slate-600 mb-4 leading-relaxed">
-                The <Code>linkforge-sdk</Code> package is a first-party TypeScript client. It uses native <Code>fetch</Code> and works in Node.js 18+, Edge Runtimes, and modern browsers.
+                The <Code>pivoturl-sdk</Code> package is a first-party TypeScript client. It uses native <Code>fetch</Code> and works in Node.js 18+, Edge Runtimes, and modern browsers.
               </p>
-              <CodeBlock code={`npm install linkforge-sdk`} lang="bash" />
+              <CodeBlock code={`npm install pivoturl-sdk`} lang="bash" />
 
               <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Setup</h4>
-              <CodeBlock code={`import { LinkForgeClient } from "linkforge-sdk";
+              <CodeBlock code={`import { PivotUrlClient } from "pivoturl-sdk";
 
-const client = new LinkForgeClient({
+const client = new PivotUrlClient({
   apiKey: "lf_sk_your-secret-key",
   // baseUrl: "${BASE_URL}/api/v2",  // optional — auto-detected
 });`} />
@@ -618,12 +618,12 @@ client.getKeyType(); // "secret" | "publishable"`} />
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-10">Python</h3>
               <p className="text-slate-600 mb-4 leading-relaxed">
-                The <Code>linkforge</Code> Python package provides a typed client for the LinkForge API.
+                The <Code>pivoturl</Code> Python package provides a typed client for the PivotUrl API.
               </p>
-              <CodeBlock code={`pip install linkforge`} lang="bash" />
-              <CodeBlock code={`from linkforge import LinkForge
+              <CodeBlock code={`pip install pivoturl`} lang="bash" />
+              <CodeBlock code={`from pivoturl import PivotUrl
 
-client = LinkForge(api_key="lf_sk_your-secret-key")
+client = PivotUrl(api_key="lf_sk_your-secret-key")
 
 # List links
 links = client.links.list(limit=10)
@@ -644,33 +644,33 @@ with open("qr.png", "wb") as f:
     f.write(client.qr.generate("https://example.com"))`} lang="python" />
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-10">Go</h3>
-              <CodeBlock code={`go get github.com/linkforge/sdk-go`} lang="bash" />
+              <CodeBlock code={`go get github.com/pivoturl/sdk-go`} lang="bash" />
               <CodeBlock code={`package main
 
 import (
     "context"
     "fmt"
-    "github.com/linkforge/sdk-go"
+    "github.com/pivoturl/sdk-go"
 )
 
 func main() {
-    client := linkforge.NewClient("lf_sk_your-secret-key")
+    client := PivotUrl.NewClient("lf_sk_your-secret-key")
 
     // List links
-    links, _ := client.Links.List(context.Background(), &linkforge.ListParams{Limit: 10})
+    links, _ := client.Links.List(context.Background(), &PivotUrl.ListParams{Limit: 10})
     for _, l := range links.Data {
         fmt.Printf("%s → %s\\n", l.Slug, l.Destination)
     }
 
     // Create a link
-    newLink, _ := client.Links.Create(context.Background(), &linkforge.CreateLinkParams{
+    newLink, _ := client.Links.Create(context.Background(), &PivotUrl.CreateLinkParams{
         Destination: "https://example.com",
         Slug:        "my-slug",
         Title:       "My Link",
     })
 
     // Analytics
-    overview, _ := client.Analytics.Overview(context.Background(), &linkforge.AnalyticsParams{
+    overview, _ := client.Analytics.Overview(context.Background(), &PivotUrl.AnalyticsParams{
         Range: "30d",
     })
     fmt.Printf("Total clicks: %d\\n", overview.TotalClicks)
@@ -747,13 +747,13 @@ func main() {
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">SDK Error Handling</h3>
               <CodeBlock code={`import {
-  LinkForgeError,
+  PivotUrlError,
   AuthenticationError,
   RateLimitError,
   ValidationError,
   NotFoundError,
   ForbiddenError,
-} from "linkforge-sdk";
+} from "pivoturl-sdk";
 
 try {
   await client.links.create({ destination: "not-a-url" });
@@ -764,7 +764,7 @@ try {
     console.error(\`Rate limited. Retry after \${err.resetTime}s\`);
   } else if (err instanceof AuthenticationError) {
     console.error("Invalid API key. Check your credentials.");
-  } else if (err instanceof LinkForgeError) {
+  } else if (err instanceof PivotUrlError) {
     console.error(\`\${err.code}: \${err.message}\`);
   }
 }`} />
@@ -817,7 +817,7 @@ console.log(\`\${remaining} requests remaining, resets at \${resetAt}\`);`} />
 
             {/* Footer */}
             <div className="mt-20 border-t border-slate-200 pt-8 text-sm text-slate-500">
-              <p>Need help? <a href="mailto:support@linkforge.app" className="text-slate-900 underline">support@linkforge.app</a></p>
+              <p>Need help? <a href="mailto:support@pivoturl.com" className="text-slate-900 underline">support@pivoturl.com</a></p>
             </div>
 
           </div>

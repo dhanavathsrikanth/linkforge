@@ -18,7 +18,7 @@ export default function SignInPage() {
         <div className="relative z-10 flex flex-col justify-center px-12 text-white">
           <div className="max-w-md">
             <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-              Welcome back to LinkForge
+              Welcome back to PivotUrl
             </h1>
             <p className="text-xl text-gray-300 mb-12">
               The smart link management platform that grows with your business
@@ -28,7 +28,7 @@ export default function SignInPage() {
             <div className="border-l-2 border-violet-500/30 pl-6">
               <Quote className="w-6 h-6 text-violet-400 mb-3" />
               <blockquote className="text-gray-200 text-lg leading-relaxed mb-4">
-                "LinkForge transformed how we manage our marketing links. The analytics are incredible and the interface is beautiful."
+                "PivotUrl transformed how we manage our marketing links. The analytics are incredible and the interface is beautiful."
               </blockquote>
               <cite className="text-gray-400 text-sm not-italic">
                 Sarah Chen • Marketing Director at TechCorp
@@ -47,7 +47,7 @@ export default function SignInPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-lg flex items-center justify-center">
                 <ArrowRight className="w-4 h-4 text-white" />
               </div>
-              <span className="text-xl font-bold text-white">LinkForge</span>
+              <span className="text-xl font-bold text-white">PivotUrl</span>
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "https://linkforge.app";
+const DEFAULT_API_URL = "https://pivoturl.com";
 
 export interface ShortLink {
   id: string;

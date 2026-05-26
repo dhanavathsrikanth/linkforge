@@ -1,5 +1,5 @@
-export { LinkForgeClient } from "./client.js";
-export type { LinkForgeClientConfig } from "./client.js";
+export { PivotUrlClient } from "./client.js";
+export type { PivotUrlClientConfig } from "./client.js";
 
 export * from "./types.js";
 export * from "./errors.js";

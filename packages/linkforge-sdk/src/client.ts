@@ -10,12 +10,12 @@ export interface RequestOptions {
   body?: string;
 }
 
-export interface LinkForgeClientConfig {
+export interface PivotUrlClientConfig {
   apiKey: string;
   baseUrl?: string;
 }
 
-export class LinkForgeClient {
+export class PivotUrlClient {
   public readonly links: LinksResource;
   public readonly analytics: AnalyticsResource;
   public readonly qr: QRResource;
@@ -25,9 +25,9 @@ export class LinkForgeClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
 
-  constructor(config: LinkForgeClientConfig) {
+  constructor(config: PivotUrlClientConfig) {
     this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl || "https://api.linkforge.app").replace(/\/+$/, "");
+    this.baseUrl = (config.baseUrl || "https://api.pivoturl.com").replace(/\/+$/, "");
 
     this.links = new LinksResource(this.request.bind(this));
     this.analytics = new AnalyticsResource(this.request.bind(this));

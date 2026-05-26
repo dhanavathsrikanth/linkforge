@@ -6,7 +6,7 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Link Not Found | LinkForge</title>
+  <title>Link Not Found | PivotUrl</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -57,10 +57,10 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html>
 </head>
 <body>
   <div class="container">
-    <div class="logo">⬡ LinkForge</div>
+    <div class="logo">⬡ PivotUrl</div>
     <h1>Link not found</h1>
     <p>This link doesn't exist or has been deleted.</p>
-    <a href="https://linkforge.app" class="cta-button">Shorten your own links free →</a>
+    <a href="https://pivoturl.com" class="cta-button">Shorten your own links free →</a>
   </div>
 </body>
 </html>`;

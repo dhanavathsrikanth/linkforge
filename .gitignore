@@ -48,6 +48,7 @@ next-env.d.ts
 # agents and skills
 /.agents/
 /.claude/
+/.opencode/skills/
 
 # generated files inside installed agent skills
 /.agents/skills/**/node_modules/

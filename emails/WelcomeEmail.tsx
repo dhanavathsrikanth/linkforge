@@ -25,22 +25,22 @@ const steps = [
   {
     icon: "🌐",
     title: "Connect your domain",
-    desc: "Use your own branded domain for short links instead of linkforge.app.",
-    href: "https://linkforge.app/dashboard/settings/domains",
+    desc: "Use your own branded domain for short links instead of pivoturl.com.",
+    href: "https://pivoturl.com/dashboard/settings/domains",
     cta: "Add Domain",
   },
   {
     icon: "🔗",
     title: "Create your first link",
     desc: "Shorten any URL, add UTM params, set expiry dates, and enable password protection.",
-    href: "https://linkforge.app/dashboard/links",
+    href: "https://pivoturl.com/dashboard/links",
     cta: "Create Link",
   },
   {
     icon: "📊",
     title: "Share and track",
     desc: "See real-time clicks, top countries, devices, and referrers in your analytics dashboard.",
-    href: "https://linkforge.app/dashboard/analytics",
+    href: "https://pivoturl.com/dashboard/analytics",
     cta: "View Analytics",
   },
 ];
@@ -51,19 +51,19 @@ export default function WelcomeEmail({ name, email }: WelcomeEmailProps) {
   return (
     <Html>
       <Head />
-      <Preview>Welcome to LinkForge — your link management platform 🎉</Preview>
+      <Preview>Welcome to PivotUrl — your link management platform 🎉</Preview>
       <Body style={body}>
         <Container style={container}>
           {/* Logo / Header */}
           <Section style={header}>
-            <Text style={logoText}>⚡ LinkForge</Text>
+            <Text style={logoText}>⚡ PivotUrl</Text>
           </Section>
 
           {/* Hero */}
           <Section style={heroSection}>
-            <Heading style={h1}>Welcome to LinkForge, {firstName}! 🎉</Heading>
+            <Heading style={h1}>Welcome to PivotUrl, {firstName}! 🎉</Heading>
             <Text style={heroDesc}>
-              You're all set. LinkForge gives you blazing-fast short links, real-time analytics,
+              You're all set. PivotUrl gives you blazing-fast short links, real-time analytics,
               custom domains, QR codes, and much more — all in one place.
             </Text>
           </Section>
@@ -102,17 +102,17 @@ export default function WelcomeEmail({ name, email }: WelcomeEmailProps) {
             </Text>
             <Row style={socialRow}>
               <Column>
-                <Link href="https://twitter.com/linkforgeapp" style={socialLink}>
+                <Link href="https://twitter.com/PivotUrlapp" style={socialLink}>
                   Twitter
                 </Link>
               </Column>
               <Column>
-                <Link href="https://linkforge.app/docs" style={socialLink}>
+                <Link href="https://pivoturl.com/docs" style={socialLink}>
                   Docs
                 </Link>
               </Column>
               <Column>
-                <Link href="https://linkforge.app/blog" style={socialLink}>
+                <Link href="https://pivoturl.com/blog" style={socialLink}>
                   Blog
                 </Link>
               </Column>
@@ -122,11 +122,11 @@ export default function WelcomeEmail({ name, email }: WelcomeEmailProps) {
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              LinkForge · 123 SaaS Street, Internet City
+              PivotUrl · 123 SaaS Street, Internet City
             </Text>
             <Text style={footerText}>
               You're receiving this because you signed up with {email}.{" "}
-              <Link href={`https://linkforge.app/unsubscribe?email=${email}`} style={unsubLink}>
+              <Link href={`https://pivoturl.com/unsubscribe?email=${email}`} style={unsubLink}>
                 Unsubscribe
               </Link>
             </Text>

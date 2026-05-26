@@ -36,7 +36,7 @@ export default function LinkClickAlert({
   topDevice,
   workspaceId,
 }: LinkClickAlertProps) {
-  const analyticsUrl = `https://linkforge.app/dashboard/links/${linkSlug}/analytics`;
+  const analyticsUrl = `https://pivoturl.com/dashboard/links/${linkSlug}/analytics`;
 
   const milestoneEmoji =
     milestone >= 10000 ? "🚀" : milestone >= 1000 ? "🎯" : "🎉";
@@ -51,7 +51,7 @@ export default function LinkClickAlert({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logoText}>⚡ LinkForge</Text>
+            <Text style={logoText}>⚡ PivotUrl</Text>
           </Section>
 
           {/* Hero */}
@@ -107,7 +107,7 @@ export default function LinkClickAlert({
             <Text style={footerText}>
               You're receiving this because you have click alerts enabled.{" "}
               <Link
-                href={`https://linkforge.app/dashboard/settings?tab=notifications`}
+                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Manage alerts

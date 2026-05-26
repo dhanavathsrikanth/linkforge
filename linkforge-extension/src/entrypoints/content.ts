@@ -39,8 +39,8 @@ export default defineContentScript({
     }
 
     function addShortenButton(link: HTMLLinkElement) {
-      if (link.dataset.linkforgeProcessed) return;
-      link.dataset.linkforgeProcessed = "true";
+      if (link.dataset.PivotUrlProcessed) return;
+      link.dataset.PivotUrlProcessed = "true";
 
       let btn: HTMLButtonElement | null = null;
 
@@ -97,7 +97,7 @@ export default defineContentScript({
             showToast(`Copied: ${response.shortUrl}`);
             navigator.clipboard.writeText(response.shortUrl).catch(() => {});
           } else if (response?.error) {
-            showToast(`LinkForge: ${response.error}`);
+            showToast(`PivotUrl: ${response.error}`);
           }
         },
       );
@@ -130,7 +130,7 @@ export default defineContentScript({
 
     const style = document.createElement("style");
     style.textContent = `
-      @keyframes linkforge-slide-in {
+      @keyframes PivotUrl-slide-in {
         from { transform: translateY(10px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
@@ -151,7 +151,7 @@ export default defineContentScript({
 
     const observer = new MutationObserver(() => {
       const newLinks = detectExternalLinks().filter(
-        (a) => !a.dataset.linkforgeProcessed,
+        (a) => !a.dataset.PivotUrlProcessed,
       );
       newLinks.forEach(addShortenButton);
 

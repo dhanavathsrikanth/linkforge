@@ -1,9 +1,9 @@
 {
-  "name": "linkforge-sdk",
+  "name": "pivoturl-sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for the LinkForge API — link shorting, analytics, and QR codes.",
+  "description": "TypeScript SDK for the PivotUrl API — link shorting, analytics, and QR codes.",
   "license": "MIT",
-  "author": "LinkForge",
+  "author": "PivotUrl",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -31,7 +31,7 @@
     "node": ">=18"
   },
   "keywords": [
-    "linkforge",
+    "PivotUrl",
     "link-shortener",
     "analytics",
     "qr-code",

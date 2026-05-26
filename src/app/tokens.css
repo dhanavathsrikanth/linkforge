@@ -1,5 +1,5 @@
 /**
- * LinkForge Design Tokens
+ * PivotUrl Design Tokens
  * Generated from DESIGN.md specification
  * 
  * This file contains all design tokens as CSS custom properties,
@@ -11,7 +11,7 @@
      VERSION & META
      ============================================ */
   --ds-version: "alpha";
-  --ds-name: "LinkForge";
+  --ds-name: "PivotUrl";
 
   /* ============================================
      COLORS - Primary Palette

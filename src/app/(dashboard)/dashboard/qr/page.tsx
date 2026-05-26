@@ -7,7 +7,7 @@ import { QRCodesClient } from "@/components/qr/QRCodesClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "QR Codes — LinkForge",
+  title: "QR Codes — PivotUrl",
   description: "Generate and customize QR codes for all your short links.",
 };
 

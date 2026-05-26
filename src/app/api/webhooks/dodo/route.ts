@@ -258,8 +258,8 @@ async function processEvent(payload: any, eventType: string) {
     if (ownerEmail) {
       try {
         await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'hello@linkforge.app', to: ownerEmail,
-          subject: `Your LinkForge subscription has been cancelled`,
+          from: process.env.RESEND_FROM_EMAIL || 'hello@pivoturl.com', to: ownerEmail,
+          subject: `Your PivotUrl subscription has been cancelled`,
           html: `<p>Your subscription has been cancelled. You're now on the Free plan.</p>`
         });
       } catch (e) { console.error('Email error:', e); }
@@ -356,8 +356,8 @@ async function processEvent(payload: any, eventType: string) {
       if (ownerEmail) {
         try {
           await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'hello@linkforge.app', to: ownerEmail,
-            subject: `Payment Failed - LinkForge`,
+            from: process.env.RESEND_FROM_EMAIL || 'hello@pivoturl.com', to: ownerEmail,
+            subject: `Payment Failed - PivotUrl`,
             html: `<p>We were unable to process your recent payment. Please update your billing information in the portal.</p><p><a href="${getAppUrl()}/dashboard/settings/billing">Update Billing Info</a></p>`
           });
         } catch (e) { console.error('Email error:', e); }

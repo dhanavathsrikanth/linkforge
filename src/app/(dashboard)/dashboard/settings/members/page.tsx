@@ -81,10 +81,10 @@ export default function MembersPage() {
                 {orgSlug && (
                   <div className="flex items-center gap-2 mt-3">
                     <code className="text-xs bg-muted px-2 py-1 rounded">
-                      linkforge.app/{orgSlug}
+                      pivoturl.com/{orgSlug}
                     </code>
                     <button
-                      onClick={() => copy(`linkforge.app/${orgSlug}`)}
+                      onClick={() => copy(`pivoturl.com/${orgSlug}`)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}

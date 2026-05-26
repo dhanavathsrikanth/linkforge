@@ -6,9 +6,9 @@ export default defineConfig({
   extensionApi: "chrome",
   modules: [],
   manifest: {
-    name: "LinkForge",
-    short_name: "LinkForge",
-    description: "Shorten, share, and track links with LinkForge",
+    name: "PivotUrl",
+    short_name: "PivotUrl",
+    description: "Shorten, share, and track links with PivotUrl",
     version: "1.0.0",
     permissions: [
       "contextMenus",
@@ -29,7 +29,7 @@ export default defineConfig({
         suggested_key: {
           default: "Alt+L",
         },
-        description: "Open LinkForge popup",
+        description: "Open PivotUrl popup",
       },
     },
   },

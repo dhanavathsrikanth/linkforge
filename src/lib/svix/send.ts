@@ -1,8 +1,8 @@
 import { svix } from "./client";
-import type { LinkForgeEventType } from "./event-types";
+import type { PivotUrlEventType } from "./event-types";
 
 export type WebhookPayload<T = Record<string, unknown>> = {
-  eventType: LinkForgeEventType;
+  eventType: PivotUrlEventType;
   workspaceId: string;
   data: T;
   actorId?: string;

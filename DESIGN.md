@@ -1,7 +1,7 @@
 ---
 version: alpha
 
-name: LinkForge
+name: PivotUrl
 
 description: A modern link-in-bio platform with a clean, professional aesthetic featuring electric indigo accents and generous whitespace.
 
@@ -240,11 +240,11 @@ components:
 
 ---
 
-# LinkForge Design System
+# PivotUrl Design System
 
 ## Overview
 
-LinkForge is a modern link-in-bio platform designed for creators, professionals, and businesses who want to consolidate their online presence into a single, elegant destination. The design philosophy centers on **clarity, confidence, and conversion**.
+PivotUrl is a modern link-in-bio platform designed for creators, professionals, and businesses who want to consolidate their online presence into a single, elegant destination. The design philosophy centers on **clarity, confidence, and conversion**.
 
 **Brand Personality:**
 - **Professional yet approachable** — Clean interfaces that don't feel sterile
@@ -257,7 +257,7 @@ LinkForge is a modern link-in-bio platform designed for creators, professionals,
 
 ## Colors
 
-The LinkForge color system balances high-contrast neutrals with an electric indigo primary that creates visual energy without overwhelming.
+The PivotUrl color system balances high-contrast neutrals with an electric indigo primary that creates visual energy without overwhelming.
 
 ### Primary Palette
 - **Primary (#433BFF):** Electric indigo — the signature brand color. Used for primary actions, links, and key interactive elements. Commands attention without aggression.
@@ -294,7 +294,7 @@ A carefully crafted dark palette using desaturated purple-grays:
 
 ## Typography
 
-LinkForge uses **Geist** as the primary typeface — a modern, highly legible sans-serif that performs beautifully at all sizes. **Instrument** is used for decorative/heading accents when a more distinctive voice is needed.
+PivotUrl uses **Geist** as the primary typeface — a modern, highly legible sans-serif that performs beautifully at all sizes. **Instrument** is used for decorative/heading accents when a more distinctive voice is needed.
 
 ### Headline Styles
 - **Headline Display (48px):** Page titles and hero text. Bold weight with tight letter-spacing for impact.
@@ -321,7 +321,7 @@ LinkForge uses **Geist** as the primary typeface — a modern, highly legible sa
 
 ## Layout
 
-LinkForge follows a **constraint-based spacing system** built on a 4px base unit, ensuring pixel-perfect alignment and rhythmic consistency.
+PivotUrl follows a **constraint-based spacing system** built on a 4px base unit, ensuring pixel-perfect alignment and rhythmic consistency.
 
 ### Spacing Scale
 - **Base unit:** 4px
@@ -340,7 +340,7 @@ LinkForge follows a **constraint-based spacing system** built on a 4px base unit
 
 ## Elevation & Depth
 
-LinkForge uses a **subtle, modern approach to elevation** that favors clean borders over heavy shadows, creating a flat-yet-layered aesthetic.
+PivotUrl uses a **subtle, modern approach to elevation** that favors clean borders over heavy shadows, creating a flat-yet-layered aesthetic.
 
 ### Shadow System
 - **Shadow SM:** `0 1px 2px rgba(15,23,42,0.08)` — Micro-elevation for buttons, inputs
@@ -355,7 +355,7 @@ LinkForge uses a **subtle, modern approach to elevation** that favors clean bord
 
 ## Shapes
 
-The LinkForge shape language balances **friendly curves** with **professional structure**.
+The PivotUrl shape language balances **friendly curves** with **professional structure**.
 
 ### Border Radius Scale
 - **None (0px):** Sharp corners for secondary buttons, minimal aesthetic
@@ -457,7 +457,7 @@ The LinkForge shape language balances **friendly curves** with **professional st
 
 ## Consumer Behavior for Unknown Content
 
-This DESIGN.md follows the Stitch specification and can be extended for LinkForge-specific needs:
+This DESIGN.md follows the Stitch specification and can be extended for PivotUrl-specific needs:
 
 - Additional component variants can be added under `components:`
 - Custom sections beyond the canonical 8 can be added for specific features (e.g., "## Iconography")

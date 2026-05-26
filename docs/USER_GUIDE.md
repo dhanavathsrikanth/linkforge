@@ -1,8 +1,8 @@
-# LinkForge User Guide
+# PivotUrl User Guide
 
-## What is LinkForge?
+## What is PivotUrl?
 
-LinkForge turns long, ugly URLs into short, clean ones you can share anywhere — social media, emails, text messages, QR codes, or your link-in-bio page. You can also password-protect links, send phone users to different pages, run A/B tests, auto-fill previews with AI, and ask questions about your clicks in plain English.
+PivotUrl turns long, ugly URLs into short, clean ones you can share anywhere — social media, emails, text messages, QR codes, or your link-in-bio page. You can also password-protect links, send phone users to different pages, run A/B tests, auto-fill previews with AI, and ask questions about your clicks in plain English.
 
 ---
 

@@ -1,9 +1,9 @@
 import type { ShortLink } from "./api";
 
 const KEYS = {
-  API_KEY: "linkforge_api_key",
-  API_URL: "linkforge_api_url",
-  RECENT_LINKS: "linkforge_recent_links",
+  API_KEY: "pivoturl_api_key",
+  API_URL: "pivoturl_api_url",
+  RECENT_LINKS: "pivoturl_recent_links",
 };
 
 export async function getApiKey(): Promise<string | null> {

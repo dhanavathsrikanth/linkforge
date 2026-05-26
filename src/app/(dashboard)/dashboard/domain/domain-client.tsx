@@ -226,8 +226,8 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
                         id: d.id,
                         domain: d.domain,
                         verificationToken: d.verificationToken,
-                        cnameTarget: "links.linkforge.app",
-                        txtRecord: `_linkforge-verify.${d.domain}`
+                        cnameTarget: "links.pivoturl.com",
+                        txtRecord: `_pivoturl-verify.${d.domain}`
                       });
                       setStep(2);
                       setIsSlideOverOpen(true);

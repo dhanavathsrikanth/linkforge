@@ -11,12 +11,12 @@ interface PageInfo {
   image: string | null;
 }
 
-const LINKFORGE_DOMAIN = "https://linkforge.app";
+const PivotUrl_DOMAIN = "https://pivoturl.com";
 
 export default function App() {
   const [view, setView] = useState<View>("main");
   const [apiKey, setApiKeyState] = useState<string | null>(null);
-  const [apiUrl, setApiUrlState] = useState<string>(LINKFORGE_DOMAIN);
+  const [apiUrl, setApiUrlState] = useState<string>(PivotUrl_DOMAIN);
   const [destination, setDestination] = useState("");
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
@@ -288,7 +288,7 @@ function Header({
         }}>
           L
         </div>
-        <span style={{ fontWeight: 600, fontSize: "15px" }}>LinkForge</span>
+        <span style={{ fontWeight: 600, fontSize: "15px" }}>PivotUrl</span>
       </div>
       <div style={{ display: "flex", gap: "4px" }}>
         <button onClick={onRecent} style={iconBtnStyle} title="Recent links">
@@ -344,7 +344,7 @@ function SettingsView({
           style={inputStyle}
         />
         <p style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-          Generate from LinkForge Dashboard → Developers → API Keys
+          Generate from PivotUrl Dashboard → Developers → API Keys
         </p>
         <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
           <button onClick={onSave} disabled={!keyInput.trim()} style={{ ...smallBtnStyle, flex: 1 }}>Save</button>
@@ -358,11 +358,11 @@ function SettingsView({
           type="url"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
-          placeholder="https://linkforge.app"
+          placeholder="https://pivoturl.com"
           style={inputStyle}
         />
         <p style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-          Custom self-hosted URL (leave default for LinkForge Cloud)
+          Custom self-hosted URL (leave default for PivotUrl Cloud)
         </p>
         <button onClick={onSaveUrl} disabled={!urlInput.trim()} style={{ ...smallBtnStyle, marginTop: "6px", width: "100%" }}>
           Save

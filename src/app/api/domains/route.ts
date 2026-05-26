@@ -102,8 +102,8 @@ export async function POST(req: Request) {
       id: newDomain.id,
       domain: newDomain.domain,
       verificationToken: newDomain.verificationToken,
-      cnameTarget: "links.linkforge.app",
-      txtRecord: `_linkforge-verify.${newDomain.domain}`,
+      cnameTarget: "links.pivoturl.com",
+      txtRecord: `_pivoturl-verify.${newDomain.domain}`,
     }, { status: 201 });
 
   } catch (err) {

@@ -10,7 +10,7 @@ interface PageProps {
 }
 
 export const metadata = {
-  title: "Link Analytics - LinkForge",
+  title: "Link Analytics - PivotUrl",
 };
 
 export default async function LinkAnalyticsPage({ params }: PageProps) {

@@ -274,7 +274,7 @@ export async function POST(req: Request) {
           .insert(users)
           .values({
             clerkId: createdBy,
-            email: `${createdBy}@placeholder.linkforge.app`,
+            email: `${createdBy}@placeholder.pivoturl.com`,
             name: null,
           })
           .onConflictDoNothing({ target: users.clerkId })

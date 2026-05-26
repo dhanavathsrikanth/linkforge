@@ -91,8 +91,8 @@ export function DomainVerification({ domainId, domainName, token, isVerified }: 
         <div className="space-y-2">
           <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Host / Name</label>
           <div className="flex h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950">
-            <code className="text-[#433BFF]">_linkforge</code>
-            <button onClick={() => copyToClipboard("_linkforge")} className="text-slate-500 transition-colors hover:text-slate-950">
+            <code className="text-[#433BFF]">_pivoturl</code>
+            <button onClick={() => copyToClipboard("_pivoturl")} className="text-slate-500 transition-colors hover:text-slate-950">
               <Copy className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -100,8 +100,8 @@ export function DomainVerification({ domainId, domainName, token, isVerified }: 
         <div className="col-span-full space-y-2">
           <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Value</label>
           <div className="flex h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950">
-            <code className="mr-2 truncate text-[#433BFF]">linkforge-verification={token}</code>
-            <button onClick={() => copyToClipboard(`linkforge-verification=${token}`)} className="text-slate-500 transition-colors hover:text-slate-950">
+            <code className="mr-2 truncate text-[#433BFF]">pivoturl-verification={token}</code>
+            <button onClick={() => copyToClipboard(`pivoturl-verification=${token}`)} className="text-slate-500 transition-colors hover:text-slate-950">
               <Copy className="h-3.5 w-3.5" />
             </button>
           </div>

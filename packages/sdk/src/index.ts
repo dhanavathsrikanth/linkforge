@@ -1,22 +1,22 @@
-import { LinkForgeClient } from "./client";
+import { PivotUrlClient } from "./client";
 import { LinksResource } from "./resources/links";
 import { AnalyticsResource } from "./resources/analytics";
-import type { LinkForgeConfig } from "./types";
+import type { PivotUrlConfig } from "./types";
 
-export class LinkForge {
+export class PivotUrl {
   readonly links: LinksResource;
   readonly analytics: AnalyticsResource;
 
-  constructor(config: LinkForgeConfig | string) {
+  constructor(config: PivotUrlConfig | string) {
     const resolvedConfig = typeof config === "string" ? { apiKey: config } : config;
-    const client = new LinkForgeClient(resolvedConfig);
+    const client = new PivotUrlClient(resolvedConfig);
     this.links = new LinksResource(client);
     this.analytics = new AnalyticsResource(client);
   }
 }
 
 export * from "./types";
-export { LinkForgeClient } from "./client";
+export { PivotUrlClient } from "./client";
 export { LinksResource } from "./resources/links";
 export { AnalyticsResource } from "./resources/analytics";
-export default LinkForge;
+export default PivotUrl;

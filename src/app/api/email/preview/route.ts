@@ -10,7 +10,7 @@ const SAMPLE_PROPS: Record<TemplateName, object> = {
   LinkClickAlert: {
     linkTitle: "My Awesome Campaign",
     linkSlug: "awesome",
-    shortUrl: "https://linkforge.app/awesome",
+    shortUrl: "https://pivoturl.com/awesome",
     milestone: 1000,
     totalClicks: 1023,
     topCountry: "🇮🇳 India",

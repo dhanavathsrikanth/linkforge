@@ -40,7 +40,7 @@ export async function POST(
       return NextResponse.json({ error: "No verification token found" }, { status: 400 });
     }
 
-    const txtRecordName = `_linkforge-verify.${domainRecord.domain}`;
+    const txtRecordName = `_pivoturl-verify.${domainRecord.domain}`;
     const dnsUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(txtRecordName)}&type=TXT`;
 
     const dnsRes = await fetch(dnsUrl, {

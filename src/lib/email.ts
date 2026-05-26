@@ -3,8 +3,8 @@ import { resend } from "./resend";
 import type { PlanKey } from "./billing/plans";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const FROM = "LinkForge <noreply@linkforge.io>";
-const REPLY_TO = "support@linkforge.io";
+const FROM = "PivotUrl <noreply@pivoturl.com>";
+const REPLY_TO = "support@pivoturl.com";
 
 // ── Lazy template imports (avoids bundling in Edge runtime) ────────────────────
 async function renderWelcome(props: { name: string; email: string }) {
@@ -75,7 +75,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
       from: FROM,
       replyTo: REPLY_TO,
       to,
-      subject: `Welcome to LinkForge, ${name.split(" ")[0]}! 🎉`,
+      subject: `Welcome to PivotUrl, ${name.split(" ")[0]}! 🎉`,
       html,
     });
   } catch (err) {
@@ -162,7 +162,7 @@ export async function sendTeamInviteEmail(
       from: FROM,
       replyTo: REPLY_TO,
       to,
-      subject: `${props.inviterName} invited you to join ${props.workspaceName} on LinkForge`,
+      subject: `${props.inviterName} invited you to join ${props.workspaceName} on PivotUrl`,
       html,
     });
   } catch (err) {

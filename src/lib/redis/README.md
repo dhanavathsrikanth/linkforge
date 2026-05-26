@@ -1,6 +1,6 @@
-# Upstash Redis Configuration for LinkForge
+# Upstash Redis Configuration for PivotUrl
 
-This document explains how Upstash Redis is configured and used throughout the LinkForge application.
+This document explains how Upstash Redis is configured and used throughout the PivotUrl application.
 
 ## Configuration
 
@@ -112,7 +112,7 @@ const session = await getSessionData("session-123");
 await deleteSessionData("session-123");
 ```
 
-## Use Cases in LinkForge
+## Use Cases in PivotUrl
 
 ### 1. Link Analytics Caching
 

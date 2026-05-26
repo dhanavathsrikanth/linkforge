@@ -22,7 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Production Setup
 
-LinkForge requires several environment variables to function in production.
+PivotUrl requires several environment variables to function in production.
 
 ### Environment Variables
 

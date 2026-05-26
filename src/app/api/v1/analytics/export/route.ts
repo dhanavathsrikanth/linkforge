@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     status: 200,
     headers: {
       "Content-Type": "text/csv",
-      "Content-Disposition": `attachment; filename="linkforge-analytics-${range}.csv"`,
+      "Content-Disposition": `attachment; filename="pivoturl-analytics-${range}.csv"`,
     },
   });
 }

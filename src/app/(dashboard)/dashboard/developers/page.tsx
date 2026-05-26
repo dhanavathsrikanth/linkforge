@@ -6,7 +6,7 @@ import { Key, BookOpen, Code2, Terminal, Webhook, ArrowUpRight, ChevronRight } f
 const sections = [
   {
     title: "Getting Started",
-    description: "Learn the basics of the LinkForge API — authentication, endpoints, and rate limits.",
+    description: "Learn the basics of the PivotUrl API — authentication, endpoints, and rate limits.",
     icon: BookOpen,
     href: "#getting-started",
     items: [
@@ -48,9 +48,9 @@ const sections = [
     href: "#sdks",
     comingSoon: true,
     items: [
-      "JavaScript / TypeScript — <code>npm install linkforge-sdk</code>",
-      "Python — <code>pip install linkforge</code>",
-      "Go — <code>go get github.com/linkforge/sdk-go</code>",
+      "JavaScript / TypeScript — <code>npm install pivoturl-sdk</code>",
+      "Python — <code>pip install pivoturl</code>",
+      "Go — <code>go get github.com/pivoturl/sdk-go</code>",
       "curl — Ready-to-use examples in every endpoint doc",
     ],
   },
@@ -81,7 +81,7 @@ export default function DevelopersPage() {
           <h1 className="text-2xl font-bold text-slate-900">Developers</h1>
         </div>
         <p className="max-w-2xl text-sm text-slate-600">
-          Build with LinkForge. Integrate link shortening, click analytics, and QR code generation
+          Build with PivotUrl. Integrate link shortening, click analytics, and QR code generation
           directly into your applications using our REST API and official SDKs.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">

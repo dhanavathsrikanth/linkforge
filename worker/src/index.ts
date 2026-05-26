@@ -17,7 +17,7 @@ function notFoundPage(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Link Not Found – LinkForge</title>
+  <title>Link Not Found – PivotUrl</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,13 +75,13 @@ function notFoundPage(): string {
 </head>
 <body>
   <div class="logo">
-    <span class="hex">⬡</span> LinkForge
+    <span class="hex">⬡</span> PivotUrl
   </div>
   <div class="card">
     <div class="icon">🔗</div>
     <h1>Link not found</h1>
     <p>This link doesn't exist, has expired, or has been deactivated.</p>
-    <a class="cta" href="https://linkforge.app">Shorten your own links free →</a>
+    <a class="cta" href="https://pivoturl.com">Shorten your own links free →</a>
   </div>
 </body>
 </html>`;
@@ -149,7 +149,7 @@ export default {
 
     // Health check
     if (url.pathname === "/health") {
-      return Response.json({ status: "ok", service: "linkforge-worker", ts: Date.now() });
+      return Response.json({ status: "ok", service: "PivotUrl-worker", ts: Date.now() });
     }
 
     // ── Step 1: Parse domain + slug ──────────────────────────────────────────

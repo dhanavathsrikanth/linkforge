@@ -4,7 +4,7 @@ export function getNotFoundHtml(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Link Not Found - LinkForge</title>
+  <title>Link Not Found - PivotUrl</title>
   <style>
     body {
       margin: 0;
@@ -63,12 +63,12 @@ export function getNotFoundHtml(): string {
 <body>
   <div class="logo">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-    LinkForge
+    PivotUrl
   </div>
   <div class="container">
     <h1>Link Not Found</h1>
     <p>This link doesn't exist or has expired.</p>
-    <a href="https://linkforge.io">Go to LinkForge</a>
+    <a href="https://pivoturl.com">Go to PivotUrl</a>
   </div>
 </body>
 </html>`;
@@ -80,7 +80,7 @@ export function getErrorHtml(message: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Error - LinkForge</title>
+  <title>Error - PivotUrl</title>
   <style>
     body {
       margin: 0;

@@ -1,7 +1,7 @@
 {
-  "name": "@linkforge/sdk",
+  "name": "@pivoturl/sdk",
   "version": "1.0.0",
-  "description": "Official TypeScript SDK for LinkForge link management platform",
+  "description": "Official TypeScript SDK for PivotUrl link management platform",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -19,7 +19,7 @@
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["linkforge", "url-shortener", "link-management", "analytics", "sdk"],
+  "keywords": ["PivotUrl", "url-shortener", "link-management", "analytics", "sdk"],
   "engines": { "node": ">=18" },
   "devDependencies": {
     "tsup": "^8.4.0",

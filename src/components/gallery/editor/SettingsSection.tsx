@@ -115,7 +115,7 @@ export function SettingsSection({
         </label>
         <div className="flex items-center rounded-xl border border-border overflow-hidden focus-within:ring-2 focus-within:ring-primary/40 bg-background">
           <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-border shrink-0 select-none">
-            linkfor.ge/
+            pivoturl.com/
           </span>
           <input
             type="text"
@@ -158,7 +158,7 @@ export function SettingsSection({
             onChange={(e) => onUpdate({ customDomainId: e.target.value || null })}
             className="w-full px-3 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
-            <option value="">Use default (linkfor.ge)</option>
+            <option value="">Use default (pivoturl.com)</option>
             {domains.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.domain}
@@ -177,7 +177,7 @@ export function SettingsSection({
           type="text"
           value={seoTitle}
           onChange={(e) => onUpdate({ seoTitle: e.target.value })}
-          placeholder="My LinkForge Page"
+          placeholder="My PivotUrl Page"
           maxLength={200}
           className="w-full px-3 py-2 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/50"
         />
@@ -200,7 +200,7 @@ export function SettingsSection({
       {/* Branding toggle */}
       <div className="flex items-center justify-between py-3 px-4 bg-muted/50 rounded-xl border border-border">
         <div>
-          <p className="text-sm font-medium">Powered by LinkForge</p>
+          <p className="text-sm font-medium">Powered by PivotUrl</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {isPaidPlan ? "Show or hide the branding footer" : "Required on free plan"}
           </p>

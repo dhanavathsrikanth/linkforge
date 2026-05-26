@@ -32,19 +32,19 @@ export default function TeamInvite({
   recipientEmail,
   expiresInDays = 7,
 }: TeamInviteProps) {
-  const inviteUrl = `https://linkforge.app/invite/${inviteToken}`;
+  const inviteUrl = `https://pivoturl.com/invite/${inviteToken}`;
 
   return (
     <Html>
       <Head />
       <Preview>
-        {inviterName} invited you to join {workspaceName} on LinkForge
+        {inviterName} invited you to join {workspaceName} on PivotUrl
       </Preview>
       <Body style={body}>
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logoText}>⚡ LinkForge</Text>
+            <Text style={logoText}>⚡ PivotUrl</Text>
           </Section>
 
           {/* Hero */}
@@ -56,7 +56,7 @@ export default function TeamInvite({
               <span style={{ color: "#71717a" }}>({inviterEmail})</span> has
               invited you to join the{" "}
               <strong style={{ color: "#433BFF" }}>{workspaceName}</strong>{" "}
-              workspace on LinkForge as a{" "}
+              workspace on PivotUrl as a{" "}
               <strong style={{ color: "#fafafa" }}>{role}</strong>.
             </Text>
           </Section>
@@ -76,11 +76,11 @@ export default function TeamInvite({
 
           <Hr style={hr} />
 
-          {/* What is LinkForge */}
+          {/* What is PivotUrl */}
           <Section style={whatSection}>
-            <Text style={sectionLabel}>WHAT IS LINKFORGE?</Text>
+            <Text style={sectionLabel}>WHAT IS PivotUrl?</Text>
             <Text style={whatText}>
-              LinkForge is a powerful link management platform that lets teams
+              PivotUrl is a powerful link management platform that lets teams
               create branded short links, track clicks in real time, manage
               custom domains, and generate QR codes — all from one dashboard.
             </Text>
@@ -101,7 +101,7 @@ export default function TeamInvite({
             <Text style={footerText}>
               This invite was sent to {recipientEmail}.{" "}
               <Link
-                href={`https://linkforge.app/unsubscribe?email=${recipientEmail}`}
+                href={`https://pivoturl.com/unsubscribe?email=${recipientEmail}`}
                 style={unsubLink}
               >
                 Unsubscribe

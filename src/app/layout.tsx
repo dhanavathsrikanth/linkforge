@@ -18,28 +18,28 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "LinkForge — Branded Link Shortener",
-    template: "%s | LinkForge",
+    default: "PivotUrl — Branded Link Shortener",
+    template: "%s | PivotUrl",
   },
   description:
     "Shorten, brand, and track links at scale. The most powerful link management platform for teams.",
   keywords: ["link shortener", "branded links", "url shortener", "link analytics", "custom domains"],
-  authors: [{ name: "LinkForge" }],
-  creator: "LinkForge",
+  authors: [{ name: "PivotUrl" }],
+  creator: "PivotUrl",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "/",
-    siteName: "LinkForge",
-    title: "LinkForge — Branded Link Shortener",
+    siteName: "PivotUrl",
+    title: "PivotUrl — Branded Link Shortener",
     description: "Shorten, brand, and track links at scale.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "LinkForge",
+    title: "PivotUrl",
     description: "Shorten, brand, and track links at scale.",
-    creator: "@linkforgeapp",
+    creator: "@pivoturl",
   },
   robots: { index: true, follow: true },
 };

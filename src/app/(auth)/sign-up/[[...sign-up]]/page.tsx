@@ -10,7 +10,7 @@ export default function SignUpPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-lg flex items-center justify-center">
               <ArrowRight className="w-4 h-4 text-white" />
             </div>
-            <span className="text-xl font-bold text-white">LinkForge</span>
+            <span className="text-xl font-bold text-white">PivotUrl</span>
           </div>
         </div>
 

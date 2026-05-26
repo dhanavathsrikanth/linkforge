@@ -1,20 +1,20 @@
-# @linkforge/sdk
+# @pivoturl/sdk
 
-Official TypeScript SDK for the [LinkForge](https://linkforge.app) link management platform.  
+Official TypeScript SDK for the [PivotUrl](https://pivoturl.com) link management platform.  
 Full type inference on every method — zero `any` types.
 
 ## Installation
 
 ```bash
-npm install @linkforge/sdk
+npm install @pivoturl/sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import LinkForge from "@linkforge/sdk";
+import PivotUrl from "@pivoturl/sdk";
 
-const lf = new LinkForge("lf_sk_your_api_key");
+const lf = new PivotUrl("lf_sk_your_api_key");
 
 const link = await lf.links.create({ destination: "https://example.com" });
 console.log(link.shortUrl); // https://lf.app/abc123
@@ -22,18 +22,18 @@ console.log(link.shortUrl); // https://lf.app/abc123
 
 ## API Reference
 
-### `new LinkForge(config)`
+### `new PivotUrl(config)`
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `config` | `string \| LinkForgeConfig` | — | API key string or config object |
+| `config` | `string \| PivotUrlConfig` | — | API key string or config object |
 
-**`LinkForgeConfig`:**
+**`PivotUrlConfig`:**
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `apiKey` | `string` | — | Your API key |
-| `baseUrl` | `string` | `https://api.linkforge.app` | API base URL |
+| `baseUrl` | `string` | `https://api.pivoturl.com` | API base URL |
 | `timeout` | `number` | `30000` | Request timeout in ms |
 | `retry` | `{ attempts: number, delay: number }` | `{ attempts: 3, delay: 1000 }` | Retry policy |
 
@@ -190,9 +190,9 @@ const blob = await lf.analytics.exportCSV({ range: "30d", linkId: "link_id" });
 All methods are fully typed — no `any` types anywhere:
 
 ```typescript
-import LinkForge, { Link, LinkAnalytics, AttributionReport } from "@linkforge/sdk";
+import PivotUrl, { Link, LinkAnalytics, AttributionReport } from "@pivoturl/sdk";
 
-const lf = new LinkForge("lf_sk_key");
+const lf = new PivotUrl("lf_sk_key");
 
 // Full type inference on create
 const link: Link = await lf.links.create({
@@ -218,14 +218,14 @@ const report: AttributionReport = await lf.analytics.getAttribution({
 ## Error Handling
 
 ```typescript
-import LinkForge, { LinkForgeError } from "@linkforge/sdk";
+import PivotUrl, { PivotUrlError } from "@pivoturl/sdk";
 
-const lf = new LinkForge("lf_sk_key");
+const lf = new PivotUrl("lf_sk_key");
 
 try {
   await lf.links.create({ destination: "invalid" });
 } catch (err) {
-  const apiError = err as LinkForgeError;
+  const apiError = err as PivotUrlError;
   console.error(apiError.code);    // "VALIDATION_ERROR"
   console.error(apiError.status);  // 422
   console.error(apiError.message); // Human-readable message

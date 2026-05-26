@@ -1,4 +1,4 @@
-# LinkForge Features
+# PivotUrl Features
 
 ## Link Cloaking (Affiliate Links)
 

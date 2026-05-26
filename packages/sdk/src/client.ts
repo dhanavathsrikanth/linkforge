@@ -1,15 +1,15 @@
-import type { LinkForgeConfig, LinkForgeError } from "./types";
+import type { PivotUrlConfig, PivotUrlError } from "./types";
 
-export class LinkForgeClient {
+export class PivotUrlClient {
   readonly apiKey: string;
   readonly baseUrl: string;
   readonly timeout: number;
   private readonly retry: { attempts: number; delay: number };
 
-  constructor(config: LinkForgeConfig) {
-    if (!config.apiKey) throw new Error("LinkForge SDK: apiKey is required");
+  constructor(config: PivotUrlConfig) {
+    if (!config.apiKey) throw new Error("PivotUrl SDK: apiKey is required");
     this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl ?? "https://api.linkforge.app";
+    this.baseUrl = config.baseUrl ?? "https://api.pivoturl.com";
     this.timeout = config.timeout ?? 30000;
     this.retry = config.retry ?? { attempts: 3, delay: 1000 };
   }
@@ -57,7 +57,7 @@ export class LinkForgeClient {
           const errBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
           const message =
             (errBody.error as { message?: string })?.message || `HTTP ${res.status}`;
-          const err = new Error(message) as LinkForgeError;
+          const err = new Error(message) as PivotUrlError;
           err.code = ((errBody.error as { code?: string })?.code) || "UNKNOWN_ERROR";
           err.status = res.status;
           if (res.status >= 400 && res.status < 500) throw err;

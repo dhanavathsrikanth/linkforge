@@ -1,6 +1,6 @@
 export { svix } from "./client";
 export { EVENT_TYPES } from "./event-types";
-export type { LinkForgeEventType } from "./event-types";
+export type { PivotUrlEventType } from "./event-types";
 export {
   createSvixApp,
   deleteSvixApp,

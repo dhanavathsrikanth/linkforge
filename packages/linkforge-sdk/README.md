@@ -1,19 +1,19 @@
-# LinkForge SDK
+# PivotUrl SDK
 
-TypeScript SDK for the [LinkForge](https://linkforge.app) API — link shorting, analytics, and QR code generation.
+TypeScript SDK for the [PivotUrl](https://pivoturl.com) API — link shorting, analytics, and QR code generation.
 
 ## Installation
 
 ```bash
-npm install linkforge-sdk
+npm install pivoturl-sdk
 ```
 
 ## Quickstart
 
 ```typescript
-import { LinkForgeClient } from "linkforge-sdk";
+import { PivotUrlClient } from "pivoturl-sdk";
 
-const client = new LinkForgeClient({
+const client = new PivotUrlClient({
   apiKey: "lf_sk_...",
 });
 
@@ -40,7 +40,7 @@ const { data: links, meta } = await client.links.list({
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `apiKey` | `string` | — | Your API key (`lf_sk_` or `lf_pk_`) |
-| `baseUrl` | `string` | `https://api.linkforge.app` | API base URL |
+| `baseUrl` | `string` | `https://api.pivoturl.com` | API base URL |
 
 ## Key Types
 
@@ -160,13 +160,13 @@ await client.workspace.patch({ name: "New Name" });
 
 ```typescript
 import {
-  LinkForgeError,
+  PivotUrlError,
   AuthenticationError,
   RateLimitError,
   ValidationError,
   NotFoundError,
   ForbiddenError,
-} from "linkforge-sdk";
+} from "pivoturl-sdk";
 
 try {
   await client.links.create({ destination: "not-a-url" });
@@ -175,7 +175,7 @@ try {
     console.error(err.message, err.details);
   } else if (err instanceof RateLimitError) {
     console.error(`Rate limited, retry at ${err.resetTime}`);
-  } else if (err instanceof LinkForgeError) {
+  } else if (err instanceof PivotUrlError) {
     console.error(`${err.code}: ${err.message}`);
   }
 }

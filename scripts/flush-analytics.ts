@@ -1,5 +1,5 @@
 /**
- * LinkForge Analytics Flush Script
+ * PivotUrl Analytics Flush Script
  * 
  * This script triggers the /api/analytics/flush endpoint to migrate
  * buffered click data from Redis to the permanent Postgres database.

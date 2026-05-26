@@ -1,7 +1,7 @@
 import {
   AuthenticationError,
   ForbiddenError,
-  LinkForgeError,
+  PivotUrlError,
   NotFoundError,
   RateLimitError,
   ValidationError,
@@ -32,7 +32,7 @@ export async function handleResponse<T>(response: Response): Promise<T> {
       case 400:
         throw new ValidationError(message, body);
       default:
-        throw new LinkForgeError(message, code, response.status);
+        throw new PivotUrlError(message, code, response.status);
     }
   }
 

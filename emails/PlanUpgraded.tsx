@@ -46,7 +46,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
     "Unlimited short links",
     "15 custom domains",
     "Unlimited clicks tracked",
-    "White-label (remove LinkForge branding)",
+    "White-label (remove PivotUrl branding)",
     "25 team members",
     "2 years analytics retention",
     "Priority support",
@@ -89,7 +89,7 @@ export default function PlanUpgraded({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logoText}>⚡ LinkForge</Text>
+            <Text style={logoText}>⚡ PivotUrl</Text>
           </Section>
 
           {/* Hero */}
@@ -120,7 +120,7 @@ export default function PlanUpgraded({
           <Section style={ctaSection}>
             <Button
               style={ctaBtn}
-              href="https://linkforge.app/dashboard"
+              href="https://pivoturl.com/dashboard"
             >
               Explore Your Dashboard →
             </Button>
@@ -133,7 +133,7 @@ export default function PlanUpgraded({
             <Text style={billingText}>
               You'll find your invoice and billing details in{" "}
               <Link
-                href="https://linkforge.app/dashboard/settings/billing"
+                href="https://pivoturl.com/dashboard/settings/billing"
                 style={inlineLink}
               >
                 Settings → Billing
@@ -147,7 +147,7 @@ export default function PlanUpgraded({
             <Text style={footerText}>
               Receipt sent to {email}.{" "}
               <Link
-                href={`https://linkforge.app/dashboard/settings/billing`}
+                href={`https://pivoturl.com/dashboard/settings/billing`}
                 style={unsubLink}
               >
                 Manage subscription

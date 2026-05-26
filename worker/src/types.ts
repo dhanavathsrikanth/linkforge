@@ -49,7 +49,7 @@ export type RequestContext = {
 
 export type Env = {
   LINKS_KV: KVNamespace;
-  /** Base URL of the Next.js app, e.g. https://linkforge.app */
+  /** Base URL of the Next.js app, e.g. https://pivoturl.com */
   API_URL: string;
   /** Shared secret sent as x-worker-secret header to internal APIs */
   WORKER_SECRET: string;

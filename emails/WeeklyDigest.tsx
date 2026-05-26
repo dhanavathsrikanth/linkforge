@@ -69,7 +69,7 @@ export default function WeeklyDigest({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logoText}>⚡ LinkForge</Text>
+            <Text style={logoText}>⚡ PivotUrl</Text>
           </Section>
 
           {/* Hero */}
@@ -150,7 +150,7 @@ export default function WeeklyDigest({
           <Section style={ctaSection}>
             <Button
               style={ctaBtn}
-              href="https://linkforge.app/dashboard/analytics"
+              href="https://pivoturl.com/dashboard/analytics"
             >
               View Full Analytics →
             </Button>
@@ -163,7 +163,7 @@ export default function WeeklyDigest({
             <Text style={footerText}>
               You're receiving this weekly digest as {email}.{" "}
               <Link
-                href={`https://linkforge.app/dashboard/settings?tab=notifications`}
+                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Unsubscribe

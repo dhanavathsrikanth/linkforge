@@ -231,4 +231,4 @@ export const EVENT_TYPES = [
   },
 ] as const;
 
-export type LinkForgeEventType = (typeof EVENT_TYPES)[number]["name"];
+export type PivotUrlEventType = (typeof EVENT_TYPES)[number]["name"];

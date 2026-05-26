@@ -75,7 +75,7 @@ export function FeedbackModal() {
               <Send className="h-6 w-6 text-[#27CE7A]" />
             </div>
             <h3 className="text-lg font-medium text-slate-950">Message sent!</h3>
-            <p className="text-sm text-slate-500 mt-1">Thanks for helping us improve LinkForge.</p>
+            <p className="text-sm text-slate-500 mt-1">Thanks for helping us improve PivotUrl.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

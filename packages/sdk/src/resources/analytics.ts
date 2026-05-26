@@ -1,8 +1,8 @@
-import type { LinkForgeClient } from "../client";
+import type { PivotUrlClient } from "../client";
 import type { AttributionReport, ConversionEvent } from "../types";
 
 export class AnalyticsResource {
-  constructor(private readonly client: LinkForgeClient) {}
+  constructor(private readonly client: PivotUrlClient) {}
 
   async getWorkspaceAnalytics(options: {
     range?: string;

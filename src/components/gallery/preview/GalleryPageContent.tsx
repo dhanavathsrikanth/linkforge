@@ -233,10 +233,10 @@ export function GalleryPageContent({
           ))}
         </div>
 
-        {/* Powered by LinkForge — M4: UTM-tagged for viral growth tracking */}
+        {/* Powered by PivotUrl — M4: UTM-tagged for viral growth tracking */}
         {gallery.showBranding && (
           <a
-            href={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://linkfor.ge"}?utm_source=bio&utm_medium=branding&utm_campaign=${gallery.slug}`}
+            href={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}?utm_source=bio&utm_medium=branding&utm_campaign=${gallery.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -251,7 +251,7 @@ export function GalleryPageContent({
               textTransform: "uppercase",
             }}
           >
-            ⚡ Made with LinkForge
+            ⚡ Made with PivotUrl
           </a>
         )}
       </div>

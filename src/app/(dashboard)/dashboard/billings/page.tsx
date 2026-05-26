@@ -201,7 +201,7 @@ export default async function BillingsPage(props: Props) {
                 {history.map((event) => (
                   <tr key={event.id} className="hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-3">{event.createdAt ? format(new Date(event.createdAt), 'MMM do, yyyy') : '-'}</td>
-                    <td className="px-4 py-3 font-medium">LinkForge {event.toPlan} Plan</td>
+                    <td className="px-4 py-3 font-medium">PivotUrl {event.toPlan} Plan</td>
                     <td className="px-4 py-3">
                       {event.amount && event.currency ? `${(Number(event.amount) / 100).toLocaleString('en-US', { style: 'currency', currency: event.currency })}` : '-'}
                     </td>

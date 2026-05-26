@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { LinkForge } from "./index";
+import { PivotUrl } from "./index";
 
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -17,20 +17,20 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
-describe("LinkForge constructor", () => {
+describe("PivotUrl constructor", () => {
   it("accepts a string API key", () => {
-    const client = new LinkForge("lf_sk_test_key");
+    const client = new PivotUrl("lf_sk_test_key");
     expect(client.links).toBeDefined();
     expect(client.analytics).toBeDefined();
   });
 
   it("accepts a config object", () => {
-    const client = new LinkForge({ apiKey: "lf_sk_test_key", baseUrl: "https://custom.example.com" });
+    const client = new PivotUrl({ apiKey: "lf_sk_test_key", baseUrl: "https://custom.example.com" });
     expect(client.links).toBeDefined();
   });
 
   it("throws when apiKey is missing", () => {
-    expect(() => new LinkForge({ apiKey: "" } as any)).toThrow("apiKey is required");
+    expect(() => new PivotUrl({ apiKey: "" } as any)).toThrow("apiKey is required");
   });
 });
 
@@ -69,7 +69,7 @@ describe("links.create()", () => {
       })
     );
 
-    const client = new LinkForge("lf_sk_test");
+    const client = new PivotUrl("lf_sk_test");
     const link = await client.links.create({ destination: "https://example.com" });
 
     expect(link.id).toBe("link-1");
@@ -115,7 +115,7 @@ describe("links.create()", () => {
       })
     );
 
-    const client = new LinkForge("lf_sk_test");
+    const client = new PivotUrl("lf_sk_test");
     const link = await client.links.create({
       destination: "https://example.com",
       slug: "my-slug",
@@ -143,7 +143,7 @@ describe("links.list()", () => {
       })
     );
 
-    const client = new LinkForge("lf_sk_test");
+    const client = new PivotUrl("lf_sk_test");
     const result = await client.links.list({ page: 1, limit: 10 });
 
     expect(result.total).toBe(0);
@@ -169,7 +169,7 @@ describe("links.analytics()", () => {
       })
     );
 
-    const client = new LinkForge("lf_sk_test");
+    const client = new PivotUrl("lf_sk_test");
     const analytics = await client.links.analytics("link-1", { range: "30d" });
 
     expect(analytics.summary.totalClicks).toBe(100);
@@ -183,7 +183,7 @@ describe("analytics.trackConversion()", () => {
   it("sends conversion event with value", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse(undefined, 200));
 
-    const client = new LinkForge("lf_sk_test");
+    const client = new PivotUrl("lf_sk_test");
     await client.analytics.trackConversion({
       linkId: "link-1",
       event: "purchase",
@@ -206,7 +206,7 @@ describe("error handling", () => {
       jsonResponse({ error: { code: "UNAUTHORIZED", message: "Invalid API key" } }, 401)
     );
 
-    const client = new LinkForge("lf_sk_bad");
+    const client = new PivotUrl("lf_sk_bad");
     await expect(client.links.get("link-1")).rejects.toMatchObject({
       code: "UNAUTHORIZED",
       status: 401,
@@ -218,7 +218,7 @@ describe("error handling", () => {
       jsonResponse({ error: { code: "NOT_FOUND", message: "Link not found" } }, 404)
     );
 
-    const client = new LinkForge("lf_sk_test");
+    const client = new PivotUrl("lf_sk_test");
     await expect(client.links.get("nonexistent")).rejects.toMatchObject({
       code: "NOT_FOUND",
       status: 404,
@@ -230,7 +230,7 @@ describe("error handling", () => {
     abortError.name = "AbortError";
     mockFetch.mockRejectedValue(abortError);
 
-    const client = new LinkForge({ apiKey: "lf_sk_test", timeout: 1 });
+    const client = new PivotUrl({ apiKey: "lf_sk_test", timeout: 1 });
     await expect(client.links.get("link-1")).rejects.toThrow("timeout");
   });
 });
@@ -273,7 +273,7 @@ describe("retry logic", () => {
         })
       );
 
-    const client = new LinkForge({ apiKey: "lf_sk_test", retry: { attempts: 3, delay: 10 } });
+    const client = new PivotUrl({ apiKey: "lf_sk_test", retry: { attempts: 3, delay: 10 } });
     const link = await client.links.get("link-1");
 
     expect(link.id).toBe("link-1");

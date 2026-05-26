@@ -3,7 +3,7 @@
 // Requires TEST_API_KEY environment variable and the app running on port 3000.
 
 import { describe, it, expect, beforeAll } from "vitest";
-import LinkForge from "./index";
+import PivotUrl from "./index";
 
 const API_KEY = process.env.TEST_API_KEY;
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
@@ -12,7 +12,7 @@ const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
 const itIf = (condition: boolean) => condition ? it : it.skip;
 
 describe("integration", () => {
-  let lf: LinkForge;
+  let lf: PivotUrl;
   let createdLinkId: string;
 
   beforeAll(() => {
@@ -20,7 +20,7 @@ describe("integration", () => {
       console.warn("⚠  TEST_API_KEY not set — integration tests will be skipped.");
       return;
     }
-    lf = new LinkForge({ apiKey: API_KEY, baseUrl: BASE_URL, retry: { attempts: 1, delay: 10 } });
+    lf = new PivotUrl({ apiKey: API_KEY, baseUrl: BASE_URL, retry: { attempts: 1, delay: 10 } });
   });
 
   describe("links.create()", () => {
@@ -148,7 +148,7 @@ describe("integration", () => {
 
   describe("error handling", () => {
     itIf(!!API_KEY)("throws UNAUTHORIZED on invalid API key", async () => {
-      const badLf = new LinkForge({ apiKey: "lf_sk_invalid_key", baseUrl: BASE_URL });
+      const badLf = new PivotUrl({ apiKey: "lf_sk_invalid_key", baseUrl: BASE_URL });
       await expect(badLf.links.list()).rejects.toMatchObject({
         code: "UNAUTHORIZED",
         status: 401,

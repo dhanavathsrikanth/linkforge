@@ -96,7 +96,7 @@ export default function ChallengePage() {
           <p className="text-sm text-zinc-500">
             Powered by{" "}
             <a href="/" className="font-medium text-zinc-400 hover:text-white transition-colors">
-              LinkForge
+              PivotUrl
             </a>
           </p>
         </div>

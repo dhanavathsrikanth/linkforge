@@ -1,6 +1,6 @@
-# LinkForge Design System
+# PivotUrl Design System
 
-A comprehensive design system that provides consistent branding, colors, typography, and components across the entire LinkForge platform.
+A comprehensive design system that provides consistent branding, colors, typography, and components across the entire PivotUrl platform.
 
 ## Overview
 

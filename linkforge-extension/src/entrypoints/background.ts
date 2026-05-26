@@ -4,13 +4,13 @@ import { getApiKey, getApiUrl, addRecentLink } from "../shared/storage";
 export default defineBackground(() => {
   chrome.contextMenus.create({
     id: "shorten-page",
-    title: "Shorten this page with LinkForge",
+    title: "Shorten this page with PivotUrl",
     contexts: ["page"],
   });
 
   chrome.contextMenus.create({
     id: "shorten-link",
-    title: "Shorten this link with LinkForge",
+    title: "Shorten this link with PivotUrl",
     contexts: ["link"],
   });
 
@@ -40,7 +40,7 @@ export default defineBackground(() => {
       chrome.notifications.create({
         type: "basic",
         iconUrl: "/icon/128.png",
-        title: "LinkForge",
+        title: "PivotUrl",
         message: `Short link created: ${result.shortUrl}`,
       });
 
@@ -53,7 +53,7 @@ export default defineBackground(() => {
       chrome.notifications.create({
         type: "basic",
         iconUrl: "/icon/128.png",
-        title: "LinkForge Error",
+        title: "PivotUrl Error",
         message: err instanceof Error ? err.message : "Failed to create link",
       });
     }

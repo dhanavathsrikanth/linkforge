@@ -277,7 +277,7 @@ function MiniDashboard() {
           </div>
           <div className="flex-1 bg-slate-800/80 rounded-lg px-4 py-1.5 text-xs text-slate-400 flex items-center gap-2">
             <Link2 className="w-3 h-3" />
-            app.linkforge.io/dashboard
+            app.pivoturl.com/dashboard
           </div>
           <div className="flex -space-x-2">
             {[1, 2, 3].map((i) => (
@@ -572,13 +572,13 @@ function LossAversionBanner() {
 
 function ComparisonTable() {
   const features = [
-    { name: "Link Tracking", linkforge: true, competitors: false },
-    { name: "Real-time Analytics", linkforge: true, competitors: "Partial" },
-    { name: "Custom Branded Links", linkforge: true, competitors: false },
-    { name: "Team Collaboration", linkforge: true, competitors: "Basic" },
-    { name: "AI-Powered A/B Testing", linkforge: true, competitors: false },
-    { name: "Enterprise SSO/SAML", linkforge: true, competitors: "Expensive Add-on" },
-    { name: "Priority Support", linkforge: true, competitors: false },
+    { name: "Link Tracking", PivotUrl: true, competitors: false },
+    { name: "Real-time Analytics", PivotUrl: true, competitors: "Partial" },
+    { name: "Custom Branded Links", PivotUrl: true, competitors: false },
+    { name: "Team Collaboration", PivotUrl: true, competitors: "Basic" },
+    { name: "AI-Powered A/B Testing", PivotUrl: true, competitors: false },
+    { name: "Enterprise SSO/SAML", PivotUrl: true, competitors: "Expensive Add-on" },
+    { name: "Priority Support", PivotUrl: true, competitors: false },
   ];
 
   return (
@@ -590,7 +590,7 @@ function ComparisonTable() {
     >
       <div className="bg-slate-900/90 backdrop-blur-xl p-6 sm:p-8">
         <h3 className="text-2xl font-bold text-white text-center mb-8">
-          Why Teams Switch to LinkForge
+          Why Teams Switch to PivotUrl
         </h3>
         <div className="space-y-4">
           {features.map((feature, i) => (
@@ -605,13 +605,13 @@ function ComparisonTable() {
               <span className="text-slate-300">{feature.name}</span>
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 min-w-[120px] justify-end">
-                  {typeof feature.linkforge === "boolean" && feature.linkforge ? (
+                  {typeof feature.PivotUrl === "boolean" && feature.PivotUrl ? (
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                       <span className="text-emerald-400 font-medium">Included</span>
                     </div>
                   ) : (
-                    <span className="text-amber-400 text-sm">{feature.linkforge}</span>
+                    <span className="text-amber-400 text-sm">{feature.PivotUrl}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 min-w-[120px] justify-end">
@@ -639,7 +639,7 @@ function ComparisonTable() {
         </div>
         <div className="flex items-center justify-center gap-8 mt-8 pt-6 border-t border-white/[0.08]">
           <div className="text-center">
-            <p className="text-2xl font-bold text-violet-400">LinkForge</p>
+            <p className="text-2xl font-bold text-violet-400">PivotUrl</p>
             <p className="text-xs text-slate-500 mt-1">Your Team</p>
           </div>
           <div className="text-center">
@@ -814,7 +814,7 @@ export default function LandingPage() {
       name: "Sarah Chen",
       role: "Marketing Director",
       company: "TechFlow",
-      quote: "LinkForge cut our campaign setup time by 70%. The A/B testing feature alone increased our conversions by 34%. It's become essential to our stack.",
+      quote: "PivotUrl cut our campaign setup time by 70%. The A/B testing feature alone increased our conversions by 34%. It's become essential to our stack.",
       metric: { value: "+34%", label: "conversion increase" }
     },
     {
@@ -964,7 +964,7 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 group-hover:shadow-violet-500/50 transition-shadow">
                   <Link2 className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-white group-hover:text-violet-300 transition-colors">LinkForge</span>
+                <span className="text-xl font-bold text-white group-hover:text-violet-300 transition-colors">PivotUrl</span>
               </Link>
 
               <div className="hidden md:flex items-center gap-8">
@@ -1179,7 +1179,7 @@ export default function LandingPage() {
               <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent"> Dominate</span>
             </h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              From basic link shortening to enterprise-grade link management. LinkForge grows with your ambitions.
+              From basic link shortening to enterprise-grade link management. PivotUrl grows with your ambitions.
             </p>
           </motion.div>
 
@@ -1387,7 +1387,7 @@ export default function LandingPage() {
                   <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent"> Your Links?</span>
                 </h2>
                 <p className="text-xl text-slate-300 mb-10 max-w-lg mx-auto leading-relaxed">
-                  Join 50,000+ teams using LinkForge to build better customer experiences, one link at a time.
+                  Join 50,000+ teams using PivotUrl to build better customer experiences, one link at a time.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -1435,7 +1435,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center">
                 <Link2 className="w-5 h-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-white">LinkForge</span>
+              <span className="text-lg font-bold text-white">PivotUrl</span>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-slate-400">
@@ -1458,7 +1458,7 @@ export default function LandingPage() {
 
           <div className="mt-8 pt-8 border-t border-white/[0.05] text-center">
             <p className="text-slate-600 text-sm">
-              © 2026 LinkForge. All rights reserved.
+              © 2026 PivotUrl. All rights reserved.
             </p>
           </div>
         </div>

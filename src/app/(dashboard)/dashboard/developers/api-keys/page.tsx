@@ -99,7 +99,7 @@ export default function ApiKeysPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">API Keys</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Create and manage API keys for programmatic access to LinkForge.
+            Create and manage API keys for programmatic access to PivotUrl.
           </p>
         </div>
         <button

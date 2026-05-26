@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       link = undefined;
     }
 
-    // Fallback: find link without custom domain (default linkforge.app domain)
+    // Fallback: find link without custom domain (default pivoturl.com domain)
     if (!link) {
       link = await db.query.links.findFirst({
         where: (l, { eq, and, isNull }) =>

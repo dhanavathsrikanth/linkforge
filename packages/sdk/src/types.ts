@@ -192,12 +192,12 @@ export interface AttributionReport {
   avgDaysToConvert: number;
 }
 
-export interface LinkForgeError extends Error {
+export interface PivotUrlError extends Error {
   code: string;
   status: number;
 }
 
-export interface LinkForgeConfig {
+export interface PivotUrlConfig {
   apiKey: string;
   baseUrl?: string;
   timeout?: number;

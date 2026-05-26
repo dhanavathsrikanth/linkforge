@@ -10,11 +10,11 @@ export function DesignSystemShowcase() {
         {/* Header */}
         <div className="text-center space-y-4">
           <Typography variant="h1" as="h1">
-            LinkForge Design System
+            PivotUrl Design System
           </Typography>
           <Typography variant="body" as="p" className="text-gray-600 max-w-2xl mx-auto">
             A comprehensive design system that provides consistent branding, colors, typography, 
-            and components across the entire LinkForge platform.
+            and components across the entire PivotUrl platform.
           </Typography>
         </div>
 
@@ -176,7 +176,7 @@ const primaryColor = designSystem.branding.colors.primary;
 </Button>
 
 <Typography variant="h1">
-  Welcome to LinkForge
+  Welcome to PivotUrl
 </Typography>`}
               </pre>
             </div>

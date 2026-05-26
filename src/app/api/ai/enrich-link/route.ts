@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     try {
       const pageRes = await fetch(url, {
         signal: AbortSignal.timeout(5000),
-        headers: { "User-Agent": "LinkForge/1.0" },
+        headers: { "User-Agent": "PivotUrl/1.0" },
       });
       if (pageRes.ok) {
         const html = await pageRes.text();

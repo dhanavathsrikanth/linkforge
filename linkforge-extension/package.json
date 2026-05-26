@@ -1,7 +1,7 @@
 {
-  "name": "linkforge-extension",
+  "name": "pivoturl-extension",
   "version": "1.0.0",
-  "description": "Shorten, share, and track links with LinkForge",
+  "description": "Shorten, share, and track links with PivotUrl",
   "private": true,
   "type": "module",
   "scripts": {

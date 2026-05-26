@@ -173,7 +173,7 @@ function DesktopFrame({ gallery }: { gallery: GalleryPage }) {
             fontFamily: "monospace",
           }}
         >
-          linkfor.ge/{gallery.slug}
+          pivoturl.com/{gallery.slug}
         </div>
       </div>
       {/* Page viewport */}

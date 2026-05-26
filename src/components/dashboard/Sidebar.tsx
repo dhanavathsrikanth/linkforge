@@ -93,7 +93,7 @@ export function Sidebar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
             <Zap className="h-3.5 w-3.5 text-primary-foreground" />
           </div>
-          <span className="text-sm font-bold tracking-tight text-foreground">LinkForge</span>
+          <span className="text-sm font-bold tracking-tight text-foreground">PivotUrl</span>
         </div>
         <div className="px-2 pb-2">
           <WorkspaceSwitcher />
