@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Link2,
@@ -19,7 +20,6 @@ import {
   ChevronDown,
   CircleCheck,
 } from "lucide-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn, getShortLinkBase } from "@/lib/utils";
@@ -1171,13 +1171,47 @@ function FolderSelector({
   workspaceId: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [pos, setPos] = useState({ bottom: 0, left: 0, width: 200 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const selectedFolder = folders.find((f) => f.id === selectedId);
 
-  const handleCreate = useCallback(async () => {
-    if (!newFolderName.trim()) return;
+  const toggle = useCallback(() => {
+    if (!open && triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setPos({ bottom: window.innerHeight - r.top + 4, left: r.left, width: Math.max(r.width, 200) });
+    }
+    setOpen((v) => !v);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    function handleScroll() { setOpen(false); }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [open]);
+
+  const handleCreate = async () => {
+    if (!newFolderName.trim() || creating) return;
+    setCreating(true);
     try {
       const res = await fetch("/api/folders", {
         method: "POST",
@@ -1205,71 +1239,68 @@ function FolderSelector({
     } finally {
       setCreating(false);
       setNewFolderName("");
+      setCreateOpen(false);
       setOpen(false);
     }
-  }, [newFolderName, onSelect, onCreateFolder, workspaceId]);
+  };
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "flex h-10 w-full items-center justify-between rounded-lg border border-border bg-background px-3 text-sm transition-colors",
-            "hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20",
-            selectedFolder ? "text-foreground" : "text-muted-foreground"
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        className={cn(
+          "flex h-10 w-full items-center justify-between rounded-lg border border-border bg-background px-3 text-sm transition-colors",
+          "hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20",
+          selectedFolder ? "text-foreground" : "text-muted-foreground"
+        )}
+      >
+        <span className="flex items-center gap-2 truncate">
+          {selectedFolder ? (
+            <>
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-md text-xs"
+                style={{ backgroundColor: selectedFolder.color + "20", color: selectedFolder.color }}
+              >
+                <Folder className="h-3 w-3" />
+              </span>
+              <span>{selectedFolder.name}</span>
+            </>
+          ) : (
+            <>
+              <Folder className="h-4 w-4 opacity-50" />
+              <span>No folder</span>
+            </>
           )}
-        >
-          <span className="flex items-center gap-2 truncate">
-            {selectedFolder ? (
-              <>
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-md text-xs"
-                  style={{ backgroundColor: selectedFolder.color + "20", color: selectedFolder.color }}
-                >
-                  <Folder className="h-3 w-3" />
-                </span>
-                <span>{selectedFolder.name}</span>
-              </>
-            ) : (
-              <>
-                <Folder className="h-4 w-4 opacity-50" />
-                <span>No folder</span>
-              </>
-            )}
-          </span>
-          <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform", open && "rotate-180")} />
-        </button>
-      </DropdownMenu.Trigger>
+        </span>
+        <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform", open && "rotate-180")} />
+      </button>
 
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="start"
-          sideOffset={4}
-          className="z-50 min-w-[200px] overflow-hidden rounded-lg border border-border bg-background p-1 shadow-lg animate-in fade-in-0 zoom-in-95"
+      {open && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: "fixed", left: pos.left + "px", bottom: pos.bottom + "px", width: pos.width + "px" }}
+          className="z-[200] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-background p-1 shadow-xl"
         >
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted data-[highlighted]:bg-muted"
-            onClick={() => {
-              onSelect(null);
-              setOpen(false);
-            }}
+          <button
+            type="button"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
+            onClick={() => { onSelect(null); setOpen(false); }}
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <Folder className="h-3 w-3" />
             </span>
-            <span className="flex-1">No folder</span>
+            <span className="flex-1 text-left">No folder</span>
             {selectedId === null && <CircleCheck className="h-4 w-4 text-primary" />}
-          </DropdownMenu.Item>
+          </button>
 
           {folders.map((folder) => (
-            <DropdownMenu.Item
+            <button
               key={folder.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted data-[highlighted]:bg-muted"
-              onClick={() => {
-                onSelect(folder.id);
-                setOpen(false);
-              }}
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
+              onClick={() => { onSelect(folder.id); setOpen(false); }}
             >
               <span
                 className="flex h-5 w-5 items-center justify-center rounded-md text-xs"
@@ -1277,61 +1308,67 @@ function FolderSelector({
               >
                 <Folder className="h-3 w-3" />
               </span>
-              <span className="flex-1">{folder.name}</span>
+              <span className="flex-1 text-left">{folder.name}</span>
               {selectedId === folder.id && <CircleCheck className="h-4 w-4 text-primary" />}
-            </DropdownMenu.Item>
+            </button>
           ))}
 
-          <DropdownMenu.Separator className="my-1 h-px bg-border" />
+          <div className="my-1 h-px bg-border" />
 
-          {creating ? (
-            <div
-              className="px-2 py-2"
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Folder name"
-                  className="flex-1 h-8 rounded border border-border bg-background px-2 text-xs outline-none focus:border-primary"
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === "Enter") handleCreate();
-                    if (e.key === "Escape") {
-                      setCreating(false);
-                      setNewFolderName("");
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCreate();
-                  }}
-                  disabled={!newFolderName.trim() || creating}
-                  className="h-8 rounded bg-primary px-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
+          <button
+            type="button"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted text-primary"
+            onClick={() => setCreateOpen(true)}
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Plus className="h-3 w-3" />
+            </span>
+            <span>Create new folder</span>
+          </button>
+        </div>,
+        document.body
+      )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-sm" showCloseButton={false}>
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Create Folder</DialogTitle>
+            <DialogDescription>
+              Create a new folder to organize your links
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-4 pt-2">
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Folder name"
+              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter showCloseButton={false}>
+            <div className="flex gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => { setCreateOpen(false); setNewFolderName(""); }}
+                className="flex-1 h-9 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={!newFolderName.trim() || creating}
+                className="flex-1 h-9 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {creating ? "Creating..." : "Create"}
+              </button>
             </div>
-          ) : (
-            <DropdownMenu.Item
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none hover:bg-muted data-[highlighted]:bg-muted"
-              onClick={() => setCreating(true)}
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Plus className="h-3 w-3" />
-              </span>
-              <span>Create new folder</span>
-            </DropdownMenu.Item>
-          )}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

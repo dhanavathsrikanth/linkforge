@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { links } from "@/lib/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { aiComplete } from "@/lib/ai/client";
 
 interface CheckResult {
@@ -15,57 +15,62 @@ interface CheckResult {
 
 export async function POST(req: Request) {
   try {
-    const { workspaceId } = await req.json();
+    const { workspaceId, linkIds } = await req.json();
     if (!workspaceId) {
       return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
     }
 
-    const allLinks = await db.query.links.findFirst({
-      where: and(eq(links.workspaceId, workspaceId), isNull(links.domainId)),
-    });
-
-    const batch = await db.query.links.findMany({
-      where: eq(links.workspaceId, workspaceId),
-      limit: 50,
-      columns: { id: true, slug: true, destination: true, title: true },
-    });
+    let batch;
+    if (linkIds && Array.isArray(linkIds) && linkIds.length > 0) {
+      batch = await db.query.links.findMany({
+        where: and(eq(links.workspaceId, workspaceId), inArray(links.id, linkIds)),
+        limit: 50,
+        columns: { id: true, slug: true, destination: true, title: true },
+      });
+    } else {
+      batch = await db.query.links.findMany({
+        where: eq(links.workspaceId, workspaceId),
+        limit: 50,
+        columns: { id: true, slug: true, destination: true, title: true },
+      });
+    }
 
     const results: CheckResult[] = [];
 
     for (const link of batch) {
       let statusCode = 0;
-      let bodySample = "";
 
       try {
         const res = await fetch(link.destination, {
-          method: "HEAD",
-          signal: AbortSignal.timeout(8000),
-          headers: { "User-Agent": "LinkForge/1.0" },
+          method: "GET",
+          signal: AbortSignal.timeout(15000),
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; LinkForge/1.0; +https://linkforge.co)",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+          },
+          redirect: "follow",
         });
         statusCode = res.status;
 
-        if (res.status >= 400) {
+        if (statusCode >= 400) {
           results.push({
             linkId: link.id,
             slug: link.slug,
             destination: link.destination,
             status: "broken",
-            statusCode: res.status,
+            statusCode,
           });
           continue;
         }
 
-        // Content-drift check: fetch a small sample for links with a title
         if (link.title) {
-          const bodyRes = await fetch(link.destination, {
-            signal: AbortSignal.timeout(5000),
-            headers: { "User-Agent": "LinkForge/1.0" },
-          });
-          if (bodyRes.ok) {
-            const html = await bodyRes.text();
+          try {
+            const html = await res.text();
             const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
             const currentTitle = titleMatch ? titleMatch[1].trim() : "";
-            bodySample = html
+            const bodySample = html
               .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
               .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
               .replace(/<[^>]+>/g, " ")
@@ -100,6 +105,8 @@ export async function POST(req: Request) {
                 continue;
               }
             }
+          } catch {
+            // Body read failed — link is still accessible, just skip content-drift
           }
         }
       } catch {

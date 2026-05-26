@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { links, workspaces } from "@/lib/db/schema";
 import { authenticateApiKey } from "@/lib/api-auth";
+import { corsHeaders, addCors } from "@/lib/cors";
 import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 import { redis } from "@/lib/redis";
@@ -102,10 +103,10 @@ export async function GET(request: Request) {
       .where(whereClause),
   ]);
 
-  return NextResponse.json({
+  return addCors(NextResponse.json({
     data: allLinks,
     meta: { total: count, offset, limit },
-  });
+  }));
 }
 
 export async function POST(request: Request) {
@@ -113,20 +114,20 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   if (auth.mode === "read-only") {
-    return NextResponse.json(
+    return addCors(NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Publishable API keys cannot create links." } },
       { status: 403 }
-    );
+    ));
   }
 
   try {
     const body = await request.json();
     const parsed = CreateLinkSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
+      return addCors(NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: parsed.error.flatten() } },
         { status: 422 }
-      );
+      ));
     }
 
     const v = parsed.data;
@@ -136,22 +137,22 @@ export async function POST(request: Request) {
       where: eq(workspaces.id, auth.workspaceId),
     });
     if (!ws) {
-      return NextResponse.json(
+      return addCors(NextResponse.json(
         { error: { code: "NOT_FOUND", message: "Workspace not found." } },
         { status: 404 }
-      );
+      ));
     }
 
     const limits = await getEffectiveLimits(auth.workspaceId);
     if (v.abTestEnabled && !limits.abTestingEnabled) {
-      return NextResponse.json({
+      return addCors(NextResponse.json({
         error: { code: "FEATURE_NOT_AVAILABLE", message: "A/B testing requires the Growth plan or above.", upgradeTo: "growth" },
-      }, { status: 402 });
+      }, { status: 402 }));
     }
 
     const limitCheck = await checkLimit(auth.workspaceId, "linksPerMonth", false);
     if (!limitCheck.allowed) {
-      return billingLimitError("linksPerMonth", limitCheck.current, limitCheck.limit, ws.plan);
+      return addCors(billingLimitError("linksPerMonth", limitCheck.current, limitCheck.limit, ws.plan));
     }
 
     let hashedPassword: string | null = null;
@@ -163,10 +164,10 @@ export async function POST(request: Request) {
       where: eq(links.slug, slug),
     });
     if (existing) {
-      return NextResponse.json(
+      return addCors(NextResponse.json(
         { error: { code: "CONFLICT", message: "Slug already taken." } },
         { status: 409 }
-      );
+      ));
     }
 
     const [link] = await db
@@ -221,12 +222,16 @@ export async function POST(request: Request) {
       // best-effort
     }
 
-    return NextResponse.json({ data: link }, { status: 201 });
+    return addCors(NextResponse.json({ data: link }, { status: 201 }));
   } catch (err) {
     console.error("[POST /api/v2/links]", err);
-    return NextResponse.json(
+    return addCors(NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create link." } },
       { status: 500 }
-    );
+    ));
   }
+}
+
+export async function OPTIONS() {
+  return NextResponse.json(null, { status: 204, headers: corsHeaders });
 }

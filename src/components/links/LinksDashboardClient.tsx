@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useState, useTransition, useMemo, useEffect } from "react";
+import { Fragment, useState, useTransition, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, MoreHorizontal, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X, Users, Calendar } from "lucide-react";
+import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, MoreHorizontal, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X, Users, Calendar, Square, CheckSquare, MinusSquare, Archive, RefreshCw, FolderOpen, Tag as TagIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
@@ -406,6 +406,14 @@ export function LinksDashboardClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [localFolders, setLocalFolders] = useState<FolderItem[]>(folders);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkFolderOpen, setBulkFolderOpen] = useState(false);
+  const [bulkTagOpen, setBulkTagOpen] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [bulkRunning, setBulkRunning] = useState(false);
+
   const { data: realtimeLinksData, isLoading: realtimeLinksLoading } = useQuery<{ links: LinkRow[] }>({
     queryKey: ["links", workspaceId],
     queryFn: async () => {
@@ -484,6 +492,30 @@ export function LinksDashboardClient({
 
     return filtered;
   }, [links, selectedFolderId, selectedTags, searchQuery]);
+
+  const allFilteredSelected = useMemo(
+    () => filteredLinks.length > 0 && filteredLinks.every((l) => selectedIds.has(l.id)),
+    [filteredLinks, selectedIds]
+  );
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (filteredLinks.every((l) => selectedIds.has(l.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredLinks.map((l) => l.id)));
+    }
+  }, [filteredLinks, selectedIds]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   const allTags = useMemo(() => {
     const tagMap = new Map<string, TagItem>();
@@ -578,6 +610,42 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
         setDeleteId(null);
       }
     });
+  }
+
+  async function runBulkAction(action: string, extra: Record<string, unknown> = {}) {
+    if (selectedIds.size === 0) return;
+    setBulkRunning(true);
+    try {
+      const res = await fetch("/api/links/bulk-operations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          ids: Array.from(selectedIds),
+          action,
+          ...extra,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Bulk operation failed", err);
+        return;
+      }
+      if (action === "delete") {
+        setLinks((prev) => prev.filter((l) => !selectedIds.has(l.id)));
+      } else {
+        const linksRes = await fetch(`/api/links?workspaceId=${workspaceId}`);
+        if (linksRes.ok) {
+          const data = await linksRes.json();
+          setLinks(data.links);
+        }
+      }
+      clearSelection();
+    } catch (e) {
+      console.error("Bulk operation error", e);
+    } finally {
+      setBulkRunning(false);
+    }
   }
 
   function toggleExpand(id: string) {
@@ -697,6 +765,84 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
         </div>
       )}
 
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          role="toolbar"
+          aria-label={`${selectedIds.size} links selected`}
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm dark:border-primary/30 dark:bg-primary/10"
+        >
+          <span className="text-sm font-semibold text-foreground whitespace-nowrap mr-1">
+            {selectedIds.size} selected
+          </span>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-xs text-muted-foreground hover:text-foreground underline mr-2 cursor-pointer"
+          >
+            Clear
+          </button>
+          <div className="h-5 w-px bg-border mx-1" />
+          {!isViewer && (
+            <>
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                disabled={bulkRunning}
+                aria-label="Delete selected links"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 dark:hover:bg-red-950/30 dark:hover:text-red-400 dark:hover:border-red-800"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkAction("toggleActive", { isActive: true })}
+                disabled={bulkRunning}
+                aria-label="Activate selected links"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all disabled:opacity-50 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400 dark:hover:border-emerald-800"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Activate
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkAction("toggleActive", { isActive: false })}
+                disabled={bulkRunning}
+                aria-label="Archive selected links"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-all disabled:opacity-50 dark:hover:bg-amber-950/30 dark:hover:text-amber-400 dark:hover:border-amber-800"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                Archive
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkFolderOpen(true)}
+                disabled={bulkRunning}
+                aria-label="Move selected links to folder"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200 transition-all disabled:opacity-50 dark:hover:bg-violet-950/30 dark:hover:text-violet-400 dark:hover:border-violet-800"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                Move
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkTagOpen(true)}
+                disabled={bulkRunning}
+                aria-label="Manage tags on selected links"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all disabled:opacity-50 dark:hover:bg-blue-950/30 dark:hover:text-blue-400 dark:hover:border-blue-800"
+              >
+                <TagIcon className="h-3.5 w-3.5" />
+                Tags
+              </button>
+            </>
+          )}
+          {bulkRunning && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-1" />}
+        </motion.div>
+      )}
+
       {filteredLinks.length === 0 ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 p-8 text-center dark:border-slate-700 dark:bg-slate-800/40">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 mb-4 dark:bg-slate-700">
@@ -712,7 +858,22 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="w-8 px-2 py-3 font-medium"></th>
+                <th className="w-10 px-1 py-3 font-medium">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    aria-label={allFilteredSelected ? "Deselect all" : "Select all"}
+                    className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    {allFilteredSelected ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : selectedIds.size > 0 ? (
+                      <MinusSquare className="h-4 w-4 text-slate-400" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-2 py-3 font-medium">Short URL</th>
                 <th className="w-14 px-2 py-3 text-center font-medium" title="Clicks"><BarChart2 className="h-3.5 w-3.5 mx-auto" /></th>
                 <th className="w-14 px-2 py-3 text-center font-medium hidden sm:table-cell" title="Unique visitors"><Users className="h-3.5 w-3.5 mx-auto" /></th>
@@ -740,17 +901,32 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
                         transition={{ type: "spring", stiffness: 320, damping: 28 }}
                         className={`border-b border-slate-200 transition-colors dark:border-slate-700 ${isExpanded ? "bg-slate-100 dark:bg-slate-800/50" : "hover:bg-slate-50 dark:hover:bg-slate-800/30"}`}
                       >
-                        {/* Expand */}
-                        <td className="px-2 py-3 w-8">
-                          <button
-                            type="button"
-                            onClick={() => toggleExpand(link.id)}
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
-                          >
-                            <ChevronDown
-                              className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-0" : "-rotate-90"}`}
-                            />
-                          </button>
+                        {/* Checkbox + Expand */}
+                        <td className="px-1 py-3 w-10">
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleSelect(link.id)}
+                              aria-label={selectedIds.has(link.id) ? "Deselect link" : "Select link"}
+                              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              {selectedIds.has(link.id) ? (
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(link.id)}
+                              aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-0" : "-rotate-90"}`}
+                              />
+                            </button>
+                          </div>
                         </td>
 
                         {/* Short URL */}
@@ -1011,6 +1187,172 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bulk Delete Confirmation */}
+      {bulkDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-label="Delete links confirmation">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground">Delete {selectedIds.size} links?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This action cannot be undone. All analytics data for these links will also be removed.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(false)}
+                disabled={bulkRunning}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { runBulkAction("delete"); setBulkDeleteOpen(false); }}
+                disabled={bulkRunning}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {bulkRunning && <Loader2 className="h-4 w-4 animate-spin" />}
+                Delete {selectedIds.size} links
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Move to Folder */}
+      {bulkFolderOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-label="Move links to folder">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground">Move {selectedIds.size} links</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Choose a folder to move the selected links into.</p>
+            <div className="mt-4 space-y-1 max-h-48 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => { runBulkAction("moveFolder", { folderId: null }); setBulkFolderOpen(false); }}
+                className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <span className="text-muted-foreground italic">No folder (remove from folder)</span>
+              </button>
+              {localFolders.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => { runBulkAction("moveFolder", { folderId: f.id }); setBulkFolderOpen(false); }}
+                  className="w-full flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-muted transition-colors"
+                  style={{ borderLeft: `3px solid ${f.color}` }}
+                >
+                  <Folder className="h-4 w-4 shrink-0" style={{ color: f.color }} />
+                  {f.name}
+                </button>
+              ))}
+              {localFolders.length === 0 && (
+                <p className="px-3 py-4 text-center text-sm text-muted-foreground">No folders yet. Create one from the filter bar.</p>
+              )}
+            </div>
+            <div className="mt-6 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setBulkFolderOpen(false)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Tag Management */}
+      {bulkTagOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-label="Manage tags">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground">Manage Tags</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add or remove tags from {selectedIds.size} selected links.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label htmlFor="bulk-tag-input" className="text-xs font-medium text-foreground mb-1 block">Enter tags (comma-separated)</label>
+                <input
+                  id="bulk-tag-input"
+                  value={bulkTagInput}
+                  onChange={(e) => setBulkTagInput(e.target.value)}
+                  placeholder="e.g. marketing, campaign, q1"
+                  autoFocus
+                  className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const tags = bulkTagInput.split(",").map((t) => t.trim()).filter(Boolean);
+                      if (tags.length > 0) runBulkAction("addTags", { tags });
+                      setBulkTagInput("");
+                      setBulkTagOpen(false);
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tags = bulkTagInput.split(",").map((t) => t.trim()).filter(Boolean);
+                    if (tags.length > 0) runBulkAction("addTags", { tags });
+                    setBulkTagInput("");
+                    setBulkTagOpen(false);
+                  }}
+                  disabled={bulkRunning || !bulkTagInput.trim()}
+                  className="inline-flex h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {bulkRunning && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Add Tags
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tags = bulkTagInput.split(",").map((t) => t.trim()).filter(Boolean);
+                    if (tags.length > 0) runBulkAction("removeTags", { tags });
+                    setBulkTagInput("");
+                    setBulkTagOpen(false);
+                  }}
+                  disabled={bulkRunning || !bulkTagInput.trim()}
+                  className="inline-flex h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-foreground shadow-sm hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {bulkRunning && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Remove Tags
+                </button>
+              </div>
+            </div>
+            <div className="mt-4">
+              <p className="text-xs text-muted-foreground mb-2">Existing tags:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {allTags.length > 0 ? allTags.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      runBulkAction("addTags", { tags: [t.name] });
+                      setBulkTagOpen(false);
+                    }}
+                    className="inline-flex cursor-pointer items-center rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                  >
+                    +{t.name}
+                  </button>
+                )) : (
+                  <span className="text-xs text-muted-foreground">No tags exist yet</span>
+                )}
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setBulkTagOpen(false)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
