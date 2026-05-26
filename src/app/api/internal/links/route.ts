@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { domains } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-/**
- * Internal endpoint called by the Cloudflare Worker to resolve a link.
- * Tries to match by domain text first, then falls back to links with no domain.
- *
- * GET /api/internal/links?domain=example.com&slug=abc123
- */
+const DEFAULT_DOMAINS = [
+  "pivoturl.com",
+  "www.pivoturl.com",
+  "localhost",
+  "localhost:3000",
+  "links.pivoturl.com",
+];
+
 export async function GET(req: Request) {
-  // ── Auth ────────────────────────────────────────────────────────────────────
   const secret = req.headers.get("x-worker-secret");
   if (!secret || secret !== process.env.WORKER_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -16,35 +19,47 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const domain = (searchParams.get("domain") ?? "").toLowerCase();
-  const slug   = searchParams.get("slug")   ?? "";
+  const slug = searchParams.get("slug") ?? "";
 
   if (!slug) {
     return NextResponse.json({ error: "Missing slug" }, { status: 400 });
   }
 
   try {
-    // First: try to find a link whose custom domain matches
-    let link = await db.query.links.findFirst({
-      where: (l, { eq, and, isNotNull }) =>
-        and(
-          eq(l.slug, slug),
-          isNotNull(l.domainId)
-        ),
-      with: {
-        domain: true,
-      },
+    let link: any = null;
+    let matchedDomainRecord: any = null;
+
+    //
+    // Step 1: Find the domain record first, if this is a custom domain
+    //
+    const domainRecord = await db.query.domains.findFirst({
+      where: eq(domains.domain, domain),
     });
 
-    // If found, verify the domain text matches
-    if (link && (link as any).domain?.domain?.toLowerCase() !== domain) {
-      link = undefined;
+    //
+    // Step 2: If we found a custom domain, look for link matching (domainId, slug)
+    //
+    if (domainRecord) {
+      matchedDomainRecord = domainRecord;
+      link = await db.query.links.findFirst({
+        where: (l, { eq, and }) => and(
+          eq(l.slug, slug),
+          eq(l.domainId, domainRecord.id)
+        ),
+        with: { domain: true },
+      });
     }
 
-    // Fallback: find link without custom domain (default pivoturl.com domain)
-    if (!link) {
+    //
+    // Step 3: If no custom domain link found, check if accessing via DEFAULT domain
+    //         If yes, look for link with domainId IS NULL
+    //
+    if (!link && DEFAULT_DOMAINS.includes(domain)) {
       link = await db.query.links.findFirst({
-        where: (l, { eq, and, isNull }) =>
-          and(eq(l.slug, slug), isNull(l.domainId)),
+        where: (l, { eq, and, isNull }) => and(
+          eq(l.slug, slug),
+          isNull(l.domainId)
+        ),
       }) as any;
     }
 
@@ -56,12 +71,11 @@ export async function GET(req: Request) {
     const shaped = {
       id: link.id,
       slug: link.slug,
-      domain: (link as any).domain?.domain ?? null,
+      domain: (link as any).domain?.domain ?? (matchedDomainRecord?.domain || null),
       destination: link.destination,
       isActive: link.isActive,
       expiresAt: link.expiresAt?.toISOString() ?? null,
       scheduledAt: link.scheduledAt?.toISOString() ?? null,
-      // schema uses clickLimit, worker calls it expiresAfterClicks
       expiresAfterClicks: link.clickLimit ?? null,
       totalClicks: link.totalClicks,
       password: link.password ?? null,
@@ -74,7 +88,6 @@ export async function GET(req: Request) {
       androidDestination: link.androidDestination ?? null,
       routingRules: link.routingRules ?? null,
       abTestEnabled: link.abTestEnabled,
-      // schema uses abTestVariants, worker calls it abVariants
       abVariants: link.abTestVariants ?? null,
       workspaceId: link.workspaceId,
     };

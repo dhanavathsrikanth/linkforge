@@ -43,6 +43,49 @@ export const deviceEnum = pgEnum("device_type", [
   "unknown",
 ]);
 
+export const cfHostnameStatusEnum = pgEnum("cf_hostname_status", [
+  "pending",
+  "active",
+  "active_redeploying",
+  "moved",
+  "pending_deletion",
+  "deleted",
+  "pending_blocked",
+  "pending_migration",
+  "pending_provisioned",
+  "test_pending",
+  "test_active",
+  "test_active_apex",
+  "test_blocked",
+  "test_failed",
+  "provisioned",
+  "blocked",
+]);
+
+export const cfSslStatusEnum = pgEnum("cf_ssl_status", [
+  "initializing",
+  "pending_validation",
+  "pending_issuance",
+  "pending_deployment",
+  "pending_deletion",
+  "pending_expiration",
+  "expired",
+  "active",
+  "initializing_timed_out",
+  "validation_timed_out",
+  "issuance_timed_out",
+  "deployment_timed_out",
+  "deletion_timed_out",
+  "pending_cleanup",
+  "staging_deployment",
+  "staging_active",
+  "deactivating",
+  "inactive",
+  "backup_issued",
+  "holding_deployment",
+  "deleted",
+]);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** timestamptz columns with server-side defaults */
@@ -199,6 +242,39 @@ export const domains = pgTable(
     verified: boolean("verified").notNull().default(false),
     verificationToken: text("verification_token"),
     isDefault: boolean("is_default").notNull().default(false),
+
+    cfHostnameId: text("cf_hostname_id").unique(),
+    cfHostnameStatus: cfHostnameStatusEnum("cf_hostname_status"),
+    cfSslStatus: cfSslStatusEnum("cf_ssl_status"),
+    cfSslMethod: text("cf_ssl_method").default("http"),
+    cfValidationRecords: jsonb("cf_validation_records").$type<
+      Array<{
+        cname?: string;
+        cname_target?: string;
+        emails?: string[];
+        http_body?: string;
+        http_url?: string;
+        status?: string;
+        txt_name?: string;
+        txt_value?: string;
+      }>
+    >(),
+    cfOwnershipVerification: jsonb("cf_ownership_verification").$type<{
+      name?: string;
+      type?: string;
+      value?: string;
+    }>(),
+    cfOwnershipVerificationHttp: jsonb("cf_ownership_verification_http").$type<{
+      http_body?: string;
+      http_url?: string;
+    }>(),
+    cfVerificationErrors: jsonb("cf_verification_errors").$type<string[]>(),
+    cfSslValidationErrors: jsonb("cf_ssl_validation_errors").$type<
+      Array<{ message?: string }>
+    >(),
+    cfError: text("cf_error"),
+    cfStatusUpdatedAt: timestamp("cf_status_updated_at", { withTimezone: true }),
+
     ...timestamps,
   },
   (t) => [index("domains_workspace_idx").on(t.workspaceId)]

@@ -5,6 +5,7 @@ import { domains, links } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
+import { cloudflareCustomHostnames } from "@/lib/cloudflare/custom-hostnames";
 
 export async function DELETE(
   req: Request,
@@ -51,6 +52,15 @@ export async function DELETE(
       .update(links)
       .set({ domainId: null })
       .where(eq(links.domainId, id));
+
+    if (domainRecord.cfHostnameId && cloudflareCustomHostnames.isConfigured()) {
+      try {
+        await cloudflareCustomHostnames.delete(domainRecord.cfHostnameId);
+        console.log(`[Cloudflare] Deleted hostname ${domainRecord.cfHostnameId} for domain ${domainRecord.domain}`);
+      } catch (cfErr) {
+        console.warn(`[Cloudflare] Failed to delete hostname ${domainRecord.cfHostnameId} (continuing anyway):`, cfErr);
+      }
+    }
 
     await db.delete(domains).where(eq(domains.id, id));
 

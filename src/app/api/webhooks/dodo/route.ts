@@ -14,6 +14,45 @@ import { mapProductToPlan, guessPlanFromName } from '@/lib/billing/planMap';
 import { getAppUrl } from '@/lib/utils';
 import { sendWebhookEvent } from '@/lib/svix/send';
 
+/** Extract workspaceId via chained fallbacks: metadata → subscription → customer → default */
+async function resolveWorkspaceId(raw: Record<string, any>): Promise<string | undefined> {
+  // 1. Metadata on the event data itself (Payment/Subscription.metadata)
+  const fromMetadata = raw.metadata?.workspaceId as string | undefined;
+  if (fromMetadata) return fromMetadata;
+
+  // 2. Subscription lookup — payment events carry subscription_id
+  const subId = raw.subscription_id || raw.subscription?.id;
+  if (subId) {
+    const sub = await db.query.subscriptions.findFirst({
+      where: eq(subscriptions.dodoSubscriptionId, subId),
+    });
+    if (sub?.workspaceId) return sub.workspaceId;
+  }
+
+  // 3. Customer lookup — Dodo nests customer_id inside customer object
+  const customerId = raw.customer?.customer_id || raw.customer_id || raw.customerId;
+  if (customerId) {
+    const ws = await db.query.workspaces.findFirst({
+      where: eq(workspaces.dodoCustomerId, customerId),
+    });
+    if (ws?.id) return ws.id;
+  }
+
+  return undefined;
+}
+
+/** Extract product_id from Payment or Subscription event data */
+function resolveProductId(raw: Record<string, any>): string | undefined {
+  // Subscription events have product_id at top level
+  if (raw.product_id) return raw.product_id;
+  // Payment events have product_cart array
+  if (raw.product_cart?.[0]?.product_id) return raw.product_cart[0].product_id;
+  // Fallback — some events nest it differently
+  if (raw.items?.[0]?.product_id) return raw.items[0].product_id;
+  if (raw.price?.product_id) return raw.price.product_id;
+  return undefined;
+}
+
 // Handle seconds vs milliseconds timestamps safely
 function parseTs(input: unknown): Date | undefined {
   if (input == null) return undefined;
@@ -108,19 +147,13 @@ async function processEvent(payload: any, eventType: string) {
     eventType === 'checkout.session.completed'
   ) {
     const raw = payload.data || {};
-    const customerId = raw.customer_id || raw.customerId;
-    let workspaceId: string | undefined = raw.metadata?.workspaceId as string | undefined;
-
-    if (!workspaceId && customerId) {
-      const ws = await db.query.workspaces.findFirst({
-        where: eq(workspaces.dodoCustomerId, customerId),
-      });
-      workspaceId = ws?.id;
-    }
+    const customerId = raw.customer?.customer_id || raw.customer_id || raw.customerId;
+    const workspaceId = await resolveWorkspaceId(raw);
+    const subscriptionId = raw.subscription_id || raw.subscription?.id;
 
     if (!workspaceId) {
       console.warn('[Dodo Webhook] Missing workspaceId in payment success-like event', {
-        type: eventType, id: payload?.id, customerId, metadata: raw?.metadata,
+        type: eventType, id: payload?.id, customerId, subscriptionId, metadata: raw?.metadata,
       });
       return;
     }
@@ -132,26 +165,23 @@ async function processEvent(payload: any, eventType: string) {
     if (!workspace) return;
 
     const fromPlan = workspace.plan || 'free';
-
-    const productId =
-      raw.product_id || raw.items?.[0]?.product_id ||
-      raw.subscription?.items?.[0]?.product_id || raw.price?.product_id;
+    const productId = resolveProductId(raw);
 
     const plan =
       (raw.metadata?.plan as PlanKey | undefined) ||
       mapProductToPlan(productId) ||
       planFromConfiguredPrices(productId) ||
-      guessPlanFromName(raw.product_name) ||
+      guessPlanFromName(raw.product_name || raw.name) ||
       (fromPlan as PlanKey);
 
     const billingCycle =
       (raw.metadata?.billingCycle as 'monthly' | 'annual' | undefined) ||
-      raw.interval || raw.items?.[0]?.interval || 'monthly';
+      raw.payment_frequency_interval ||
+      'monthly';
 
     const amountMinor = Number(raw.total_amount ?? raw.amount ?? 0);
     const amountDecimal = isFinite(amountMinor) ? (amountMinor / 100).toFixed(2) : '0.00';
     const currency = raw.currency || 'USD';
-    const subscriptionId = raw.subscription_id || raw.subscription?.id;
 
     await db.update(workspaces)
       .set({ plan, planUpdatedAt: new Date(), dodoCustomerId: customerId })
@@ -165,9 +195,9 @@ async function processEvent(payload: any, eventType: string) {
     });
 
     if (subscriptionId) {
-      const currentPeriodStart = parseTs(payload.data.current_period_start) ?? new Date();
+      const currentPeriodStart = parseTs(raw.previous_billing_date) ?? new Date();
       const currentPeriodEnd =
-        parseTs(payload.data.current_period_end) ??
+        parseTs(raw.next_billing_date) ??
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       const subData = {
@@ -205,25 +235,13 @@ async function processEvent(payload: any, eventType: string) {
     }
   }
   else if (eventType === 'subscription.cancelled') {
-    let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
-    const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
-
-    if (!workspaceId && subscriptionId) {
-      const sub = await db.query.subscriptions.findFirst({
-        where: eq(subscriptions.dodoSubscriptionId, subscriptionId),
-      });
-      workspaceId = sub?.workspaceId;
-    }
-    if (!workspaceId && payload.data.customer_id) {
-      const ws = await db.query.workspaces.findFirst({
-        where: eq(workspaces.dodoCustomerId, payload.data.customer_id),
-      });
-      workspaceId = ws?.id;
-    }
+    const raw = payload.data || {};
+    const workspaceId = await resolveWorkspaceId(raw);
+    const subscriptionId = raw.subscription_id || raw.subscription?.id;
 
     if (!workspaceId) {
       console.warn('[Dodo Webhook] Missing workspaceId in subscription.cancelled', {
-        id: payload?.id, subscriptionId, customerId: payload?.data?.customer_id, metadata: payload?.data?.metadata,
+        id: payload?.id, subscriptionId, customerId: raw.customer?.customer_id, metadata: raw.metadata,
       });
       return;
     }
@@ -266,25 +284,13 @@ async function processEvent(payload: any, eventType: string) {
     }
   }
   else if (eventType === 'subscription.updated') {
-    let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
-    const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
-
-    if (!workspaceId && subscriptionId) {
-      const sub = await db.query.subscriptions.findFirst({
-        where: eq(subscriptions.dodoSubscriptionId, subscriptionId),
-      });
-      workspaceId = sub?.workspaceId;
-    }
-    if (!workspaceId && payload.data.customer_id) {
-      const ws = await db.query.workspaces.findFirst({
-        where: eq(workspaces.dodoCustomerId, payload.data.customer_id),
-      });
-      workspaceId = ws?.id;
-    }
+    const raw = payload.data || {};
+    const workspaceId = await resolveWorkspaceId(raw);
+    const subscriptionId = raw.subscription_id || raw.subscription?.id;
 
     if (!workspaceId) {
       console.warn('[Dodo Webhook] Missing workspaceId in subscription.updated', {
-        id: payload?.id, subscriptionId, customerId: payload?.data?.customer_id, metadata: payload?.data?.metadata,
+        id: payload?.id, subscriptionId, customerId: raw.customer?.customer_id, metadata: raw.metadata,
       });
       return;
     }
@@ -292,15 +298,11 @@ async function processEvent(payload: any, eventType: string) {
     const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
     const fromPlan = workspace?.plan || 'free';
 
-    const raw = payload.data || {};
-    const productId =
-      raw.product_id || raw.items?.[0]?.product_id ||
-      raw.subscription?.items?.[0]?.product_id || raw.price?.product_id;
-
+    const productId = resolveProductId(raw);
     const newPlan =
       (raw.metadata?.plan as PlanKey | undefined) ||
       mapProductToPlan(productId) || planFromConfiguredPrices(productId) ||
-      guessPlanFromName(raw.product_name) || (fromPlan as PlanKey);
+      guessPlanFromName(raw.product_name || raw.name) || (fromPlan as PlanKey);
 
     const isHigherTier = newPlan !== fromPlan && newPlan !== 'free';
 
@@ -313,12 +315,13 @@ async function processEvent(payload: any, eventType: string) {
       idempotencyKey: `workspace.plan_changed-${workspaceId}-${payload.id}`,
     });
 
-    const currentPeriodStart = parseTs(payload.data.current_period_start) ?? new Date();
-    const currentPeriodEnd = parseTs(payload.data.current_period_end) ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const currentPeriodStart = parseTs(raw.previous_billing_date) ?? new Date();
+    const currentPeriodEnd = parseTs(raw.next_billing_date) ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     if (subscriptionId) {
       await db.update(subscriptions).set({
-        status: payload.data.status || 'active', billingCycle: payload.data.metadata?.billingCycle || 'monthly',
+        status: raw.status || 'active',
+        billingCycle: raw.payment_frequency_interval === 'year' ? 'annual' : 'monthly',
         currentPeriodStart, currentPeriodEnd, updatedAt: new Date()
       }).where(eq(subscriptions.dodoSubscriptionId, subscriptionId));
     }
@@ -330,19 +333,11 @@ async function processEvent(payload: any, eventType: string) {
     if (isHigherTier) await resetUsageForWorkspace(workspaceId);
   }
   else if (eventType === 'payment.failed') {
-    const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
-    let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
-
-    if (!workspaceId && subscriptionId) {
-      const sub = await db.query.subscriptions.findFirst({ where: eq(subscriptions.dodoSubscriptionId, subscriptionId) });
-      workspaceId = sub?.workspaceId;
-    }
-    if (!workspaceId && payload.data.customer_id) {
-      const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.dodoCustomerId, payload.data.customer_id) });
-      workspaceId = ws?.id;
-    }
-
+    const raw = payload.data || {};
+    const workspaceId = await resolveWorkspaceId(raw);
     if (!workspaceId) return;
+
+    const subscriptionId = raw.subscription_id || raw.subscription?.id;
 
     if (subscriptionId) {
       await db.update(subscriptions).set({ status: 'past_due', updatedAt: new Date() }).where(eq(subscriptions.dodoSubscriptionId, subscriptionId));
@@ -364,36 +359,52 @@ async function processEvent(payload: any, eventType: string) {
       }
     }
   }
-  else if (eventType === 'subscription.trialing') {
-    let workspaceId = payload.data.metadata?.workspaceId as string | undefined;
-    const newPlan = payload.data.metadata?.plan as PlanKey;
-    const subscriptionId = payload.data.subscription_id || payload.data.subscription?.id;
-
-    if (!workspaceId && subscriptionId) {
-      const sub = await db.query.subscriptions.findFirst({ where: eq(subscriptions.dodoSubscriptionId, subscriptionId) });
-      workspaceId = sub?.workspaceId;
-    }
-    if (!workspaceId && payload.data.customer_id) {
-      const ws = await db.query.workspaces.findFirst({ where: eq(workspaces.dodoCustomerId, payload.data.customer_id) });
-      workspaceId = ws?.id;
-    }
+  else if (eventType === 'subscription.active' || eventType === 'subscription.trialing') {
+    const raw = payload.data || {};
+    const workspaceId = await resolveWorkspaceId(raw);
+    const subscriptionId = raw.subscription_id || raw.subscription?.id;
 
     if (!workspaceId) {
-      console.warn('[Dodo Webhook] Missing workspaceId in subscription.trialing', {
-        id: payload?.id, subscriptionId, customerId: payload?.data?.customer_id, metadata: payload?.data?.metadata,
+      console.warn('[Dodo Webhook] Missing workspaceId in subscription.active/trialing', {
+        id: payload?.id, subscriptionId, customerId: raw.customer?.customer_id, metadata: raw.metadata,
       });
       return;
     }
 
-    const trialEndsAt = parseTs(payload.data.trial_end) ?? new Date();
+    const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
+    const fromPlan = workspace?.plan || 'free';
 
-    await db.update(workspaces).set({ plan: newPlan, trialEndsAt }).where(eq(workspaces.id, workspaceId));
+    const trialEndsAt = parseTs(raw.trial_end) ?? undefined;
+
+    const productId = resolveProductId(raw);
+    const plan =
+      (raw.metadata?.plan as PlanKey | undefined) ||
+      mapProductToPlan(productId) || planFromConfiguredPrices(productId) ||
+      guessPlanFromName(raw.product_name || raw.name) || (fromPlan as PlanKey);
+
+    await db.update(workspaces).set({ plan, trialEndsAt }).where(eq(workspaces.id, workspaceId));
 
     if (subscriptionId) {
-      await db.update(subscriptions).set({ status: 'trialing', updatedAt: new Date() }).where(eq(subscriptions.dodoSubscriptionId, subscriptionId));
+      const existingSub = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.dodoSubscriptionId, subscriptionId)
+      });
+      const subData = {
+        workspaceId, dodoSubscriptionId: subscriptionId,
+        dodoCustomerId: raw.customer?.customer_id || raw.customer_id,
+        plan, billingCycle: raw.payment_frequency_interval === 'year' ? 'annual' as const : 'monthly' as const,
+        status: 'trialing' as const, currentPeriodStart: parseTs(raw.previous_billing_date) ?? new Date(),
+        currentPeriodEnd: parseTs(raw.next_billing_date) ?? new Date(), cancelAtPeriodEnd: false, updatedAt: new Date()
+      };
+      if (existingSub) {
+        await db.update(subscriptions).set(subData).where(eq(subscriptions.dodoSubscriptionId, subscriptionId));
+      } else {
+        await db.insert(subscriptions).values({ ...subData, createdAt: new Date() });
+      }
     }
 
-    await db.insert(billingEvents).values({ workspaceId, eventType: 'subscription.trialing', dodoEventId: payload.id });
+    await db.insert(billingEvents).values({ workspaceId, eventType, fromPlan: fromPlan as PlanKey, toPlan: plan, dodoEventId: payload.id });
+
+    await resetUsageForWorkspace(workspaceId);
   }
   else {
     console.log(`[Dodo Webhook] Unhandled event type: ${eventType}`);

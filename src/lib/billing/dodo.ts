@@ -69,10 +69,12 @@ export async function createCheckoutSession(params: {
   const cancelUrl = `${getAppUrl()}/pricing`;
 
   // Call dodo to create a checkout session using the official method and snake_case parameters
+  // Pass existing customer_id so the resulting Payment/Subscription has the same customer
+  // that our workspace's dodoCustomerId points to.
   const session = await dodo.checkoutSessions.create({
     product_cart: [{ product_id: priceId, quantity: 1 }],
     customer: {
-      email: params.email,
+      customer_id: customerId,
     },
     return_url: successUrl,
     cancel_url: cancelUrl,

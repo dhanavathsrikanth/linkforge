@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { domains, links, workspaces } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { domains, workspaces, cfHostnameStatusEnum, cfSslStatusEnum } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { checkLimit } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
+import { cloudflareCustomHostnames } from "@/lib/cloudflare/custom-hostnames";
+
+type CfHostnameStatus = (typeof cfHostnameStatusEnum.enumValues)[number];
+type CfSslStatus = (typeof cfSslStatusEnum.enumValues)[number];
+
+const CNAME_TARGET = process.env.CLOUDFLARE_CNAME_TARGET || "links.pivoturl.com";
 
 export async function GET(req: Request) {
   const { userId } = await auth();
@@ -96,14 +102,64 @@ export async function POST(req: Request) {
       isDefault: false,
     }).returning();
 
+    let cfHostnameStatus: string | undefined;
+    let cfSslStatus: string | undefined;
+    let cfError: string | undefined;
 
+    if (cloudflareCustomHostnames.isConfigured()) {
+      try {
+        const cfHostname = await cloudflareCustomHostnames.create({
+          hostname: domain,
+          sslMethod: "http",
+          customMetadata: {
+            workspace_id: workspaceId,
+            domain_id: newDomain.id,
+          },
+        });
+
+        cfHostnameStatus = cfHostname.status;
+        cfSslStatus = cfHostname.ssl?.status;
+
+        await db.update(domains).set({
+          cfHostnameId: cfHostname.id,
+          cfHostnameStatus: cfHostname.status as CfHostnameStatus,
+          cfSslStatus: (cfHostname.ssl?.status ?? null) as CfSslStatus | null,
+          cfSslMethod: cfHostname.ssl?.method ?? null,
+          cfValidationRecords: cfHostname.ssl?.validation_records ?? null,
+          cfOwnershipVerification: cfHostname.ownership_verification ?? null,
+          cfOwnershipVerificationHttp: cfHostname.ownership_verification_http ?? null,
+          cfVerificationErrors: cfHostname.verification_errors ?? null,
+          cfSslValidationErrors: cfHostname.ssl?.validation_errors ?? null,
+          cfStatusUpdatedAt: new Date(),
+        }).where(eq(domains.id, newDomain.id));
+
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("[Cloudflare] Failed to create custom hostname:", err);
+        cfError = errorMessage;
+
+        try {
+          await db.update(domains).set({
+            cfError: errorMessage,
+            cfStatusUpdatedAt: new Date(),
+          }).where(eq(domains.id, newDomain.id));
+        } catch (e2) {
+          console.error("[DB] Failed to update CF error:", e2);
+        }
+      }
+    } else {
+      console.warn("[Cloudflare] API not configured, skipping hostname creation");
+    }
 
     return NextResponse.json({
       id: newDomain.id,
       domain: newDomain.domain,
       verificationToken: newDomain.verificationToken,
-      cnameTarget: "links.pivoturl.com",
+      cnameTarget: CNAME_TARGET,
       txtRecord: `_pivoturl-verify.${newDomain.domain}`,
+      cfHostnameStatus,
+      cfSslStatus,
+      cfError,
     }, { status: 201 });
 
   } catch (err) {

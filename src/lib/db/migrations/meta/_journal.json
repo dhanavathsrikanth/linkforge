@@ -71,6 +71,20 @@
       "when": 1779699547007,
       "tag": "0009_shocking_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779812086165,
+      "tag": "0010_wealthy_maestro",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779815630271,
+      "tag": "0011_green_morlun",
+      "breakpoints": true
     }
   ]
 }
