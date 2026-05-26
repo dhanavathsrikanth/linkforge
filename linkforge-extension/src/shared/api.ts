@@ -22,12 +22,6 @@ export interface CreateLinkResult {
   data: ShortLink;
 }
 
-function getApiUrl(): string {
-  return (typeof chrome !== "undefined" && chrome.storage?.sync
-    ? null
-    : null) ?? DEFAULT_API_URL;
-}
-
 export class ApiError extends Error {
   constructor(
     message: string,

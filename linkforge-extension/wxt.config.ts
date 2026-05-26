@@ -14,6 +14,7 @@ export default defineConfig({
       "contextMenus",
       "storage",
       "activeTab",
+      "notifications",
     ],
     host_permissions: [
       "*://*/*",
