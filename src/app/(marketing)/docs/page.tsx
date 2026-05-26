@@ -680,33 +680,106 @@ func main() {
             {/* ─── Webhooks ───────────────────────────────── */}
             <Section id="webhooks">
               <h2 className="text-2xl font-bold text-slate-900 mb-4">Webhooks</h2>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 mb-6">
-                <strong>Coming soon.</strong> Webhooks will let you receive real-time HTTP notifications when your links are clicked.
-              </div>
               <p className="text-slate-600 mb-4 leading-relaxed">
-                Configure webhook endpoints in your dashboard to receive POST requests on every click. Each webhook payload includes full click metadata:
+                Configure webhook endpoints in your dashboard to receive real-time HTTP POST notifications for link events, clicks, conversions, and more. PivotUrl uses <strong>Svix</strong> for reliable delivery with automatic retries and idempotency.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Envelope</h3>
+              <p className="text-slate-600 mb-3 leading-relaxed">
+                Every webhook payload follows the same envelope:
               </p>
               <CodeBlock code={`{
-  "event": "link.clicked",
-  "timestamp": "2026-05-20T12:00:00.000Z",
-  "data": {
-    "linkId": "uuid",
-    "slug": "my-slug",
-    "destination": "https://example.com",
-    "clicker": {
-      "ip": "203.0.113.42",
-      "country": "United States",
-      "city": "San Francisco",
-      "region": "California",
-      "device": "mobile",
-      "browser": "Chrome",
-      "os": "iOS",
-      "referrer": "https://twitter.com/...",
-      "userAgent": "Mozilla/5.0 ..."
-    }
-  }
+  "eventType": "link.clicked",       // The event type — always matches the Svix header
+  "workspaceId": "ws_uuid",          // The workspace this event belongs to
+  "data": { /* event-specific fields */ },
+  "actorId": "user_uuid",            // (optional) Who performed the action
+  "timestamp": "2026-05-20T12:00:00.000Z"
 }`} />
-              <p className="text-slate-600 text-sm mt-4">Webhook signatures are verified using HMAC-SHA256. Set your secret in the dashboard.</p>
+              <p className="text-slate-600 text-sm mb-4">
+                Verify payloads using the <Code>svix-id</Code>, <Code>svix-timestamp</Code>, and <Code>svix-signature</Code> headers.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">All Event Types</h3>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Event Type</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Frequency</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">link.created</td><td className="px-4 py-2 text-slate-600">Low</td><td className="px-4 py-2 text-slate-500">A new short link was created</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">link.updated</td><td className="px-4 py-2 text-slate-600">Low</td><td className="px-4 py-2 text-slate-500">A link was updated — <Code>changes</Code> shows old and new values</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">link.deleted</td><td className="px-4 py-2 text-slate-600">Low</td><td className="px-4 py-2 text-slate-500">A link was permanently deleted</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">link.clicked</td><td className="px-4 py-2 text-slate-600">High</td><td className="px-4 py-2 text-slate-500">A link received a click — full geo, device, and referrer context</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">conversion.tracked</td><td className="px-4 py-2 text-slate-600">Medium</td><td className="px-4 py-2 text-slate-500">A conversion was attributed to a link click — includes attribution model and revenue</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">workspace.member_added</td><td className="px-4 py-2 text-slate-600">Low</td><td className="px-4 py-2 text-slate-500">A new member joined the workspace</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">workspace.member_removed</td><td className="px-4 py-2 text-slate-600">Low</td><td className="px-4 py-2 text-slate-500">A member was removed from the workspace</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">workspace.plan_changed</td><td className="px-4 py-2 text-slate-600">Rare</td><td className="px-4 py-2 text-slate-500">The workspace plan was upgraded or downgraded</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">domain.verified</td><td className="px-4 py-2 text-slate-600">Rare</td><td className="px-4 py-2 text-slate-500">A custom domain passed DNS verification</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">domain.deleted</td><td className="px-4 py-2 text-slate-600">Rare</td><td className="px-4 py-2 text-slate-500">A custom domain was removed</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">qr.scanned</td><td className="px-4 py-2 text-slate-600">Medium</td><td className="px-4 py-2 text-slate-500">A QR code was scanned — fires alongside link.clicked</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">link_gallery.viewed</td><td className="px-4 py-2 text-slate-600">Medium</td><td className="px-4 py-2 text-slate-500">A bio page was viewed by a visitor</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Example — link.clicked</h3>
+              <CodeBlock code={`{
+  "eventType": "link.clicked",
+  "workspaceId": "ws_9a8b7c6d-5e4f-3a2b-1c0d-ef1234567890",
+  "data": {
+    "linkId": "3f4a1b2c-1234-5678-abcd-ef0123456789",
+    "slug": "summer-sale",
+    "domain": "go.acmecorp.com",
+    "country": "IN",
+    "city": "Mumbai",
+    "region": "Maharashtra",
+    "device": "iPhone",
+    "deviceType": "ios",
+    "browser": "Safari",
+    "browserVersion": "17.4.1",
+    "os": "iOS",
+    "osVersion": "17.4.1",
+    "referrer": "https://twitter.com/",
+    "referrerDomain": "twitter.com",
+    "referrerType": "social",
+    "isBot": false,
+    "isQrScan": false
+  },
+  "timestamp": "2026-05-20T12:00:00.000Z"
+}`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Example — conversion.tracked</h3>
+              <CodeBlock code={`{
+  "eventType": "conversion.tracked",
+  "workspaceId": "ws_9a8b7c6d-5e4f-3a2b-1c0d-ef1234567890",
+  "data": {
+    "linkId": "3f4a1b2c-1234-5678-abcd-ef0123456789",
+    "slug": "summer-sale",
+    "conversionId": "conv_7b8c9d0e-1234-5678-abcd-ef0123456789",
+    "event": "purchase",
+    "value": 149.99,
+    "currency": "USD",
+    "attributionModel": "last_touch",
+    "creditPercentage": 100,
+    "creditValue": 149.99,
+    "customerEmail": "buyer@example.com"
+  },
+  "timestamp": "2026-05-20T12:05:00.000Z"
+}`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Best Practices</h3>
+              <ul className="list-disc pl-6 space-y-2 text-sm text-slate-600 mb-4">
+                <li><strong>link.clicked</strong> is the only high-frequency event. Respond with <Code>200 OK</Code> immediately and process asynchronously.</li>
+                <li>All events carry <Code>workspaceId</Code>. Use a single endpoint and filter by workspace in your handler.</li>
+                <li>Use the <Code>svix-id</Code> header for idempotency — Svix guarantees at-least-once delivery.</li>
+              </ul>
+              <p className="text-slate-600 text-sm mt-4">
+                Manage your webhook endpoints in the dashboard under <Code>Settings &rarr; Webhooks</Code> or via the Svix App Portal.
+              </p>
             </Section>
 
             {/* ─── Errors ─────────────────────────────────── */}

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
+import { getDefaultDomain } from "@/lib/utils";
 import { sendWebhookEvent } from "@/lib/svix/send";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -281,7 +282,15 @@ export async function DELETE(
     sendWebhookEvent({
       eventType: "link.deleted",
       workspaceId,
-      data: { linkId: id, slug: existing.slug, destination: existing.destination },
+      data: {
+        linkId: id,
+        slug: existing.slug,
+        destination: existing.destination,
+        domain: getDefaultDomain(),
+        title: existing.title ?? null,
+        totalClicks: existing.totalClicks,
+        deletedBy: dbUser.id,
+      },
       actorId: dbUser.id,
       idempotencyKey: `link.deleted-${id}`,
     });

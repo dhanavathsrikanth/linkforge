@@ -177,7 +177,25 @@ export async function POST(req: Request) {
     sendWebhookEvent({
       eventType: "link.clicked",
       workspaceId,
-      data: { linkId, slug: body.slug, isUnique, device: deviceValue, country, referrer },
+      data: {
+        linkId,
+        slug: body.slug,
+        domain: domain?.domain || getDefaultDomain(),
+        country: country ?? null,
+        city: city ?? null,
+        region: region ?? null,
+        device: deviceValue,
+        deviceType: deviceValue,
+        browser: browser ?? null,
+        os: os ?? null,
+        referrer: referrer ?? "",
+        referrerDomain: referrerDomain ?? null,
+        abVariant: variant ?? null,
+        isBot: deviceValue === "bot",
+        isQrScan: isQrScan ?? false,
+        ipHash,
+        timestamp: new Date(timestamp).getTime(),
+      },
       idempotencyKey: `link.clicked-${linkId}-${body.timestamp}`,
     });
 

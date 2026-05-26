@@ -13,8 +13,25 @@ if (!apiKey) {
 
 const svix = new Svix(apiKey, { serverUrl });
 
+const DEPRECATED_EVENT_TYPES = [
+  "link.conversion", // renamed to conversion.tracked
+];
+
+async function archiveDeprecatedTypes() {
+  for (const name of DEPRECATED_EVENT_TYPES) {
+    try {
+      await svix.eventType.update(name, { archived: true, description: "Deprecated — use conversion.tracked instead" });
+      console.log(`  Archived: ${name}`);
+    } catch {
+      // Ignore — type may not exist
+    }
+  }
+}
+
 async function seedEventTypes() {
   console.log("Registering event types with Svix...");
+
+  await archiveDeprecatedTypes();
 
   for (const et of EVENT_TYPES) {
     const featureFlags = "featureFlags" in et ? [...et.featureFlags] : undefined;
