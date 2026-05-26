@@ -42,7 +42,7 @@ export function loadPlanMapFromEnv(): Record<string, PlanKey> {
     if (env.growth) map[env.growth] = "growth";
     if (env.agency) map[env.agency] = "agency";
     if (env.business) map[env.business] = "business";
-    if (env.enterprise) map[env.enterprise] = "business";
+    if (env.enterprise) map[env.enterprise] = "enterprise";
     return map;
 }
 
@@ -54,7 +54,7 @@ export function guessPlanFromName(name?: string | null): PlanKey | undefined {
     if (s.includes("growth") || s.includes("pro") || s.includes("premium")) return "growth";
     if (s.includes("agency")) return "agency";
     if (s.includes("business")) return "business";
-    if (s.includes("enterprise")) return "business";
+    if (s.includes("enterprise")) return "enterprise";
     if (s.includes("free")) return "free";
     return undefined;
 }

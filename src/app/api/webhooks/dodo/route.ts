@@ -53,6 +53,15 @@ function resolveProductId(raw: Record<string, any>): string | undefined {
   return undefined;
 }
 
+/** Normalize Dodo's TimeInterval ('Month'|'Year') to internal format ('monthly'|'annual') */
+function normalizeBillingCycle(interval: string | undefined | null): 'monthly' | 'annual' | undefined {
+  if (!interval) return undefined;
+  const s = String(interval).toLowerCase();
+  if (s === 'month' || s === 'monthly') return 'monthly';
+  if (s === 'year' || s === 'annual') return 'annual';
+  return undefined;
+}
+
 // Handle seconds vs milliseconds timestamps safely
 function parseTs(input: unknown): Date | undefined {
   if (input == null) return undefined;
@@ -65,20 +74,6 @@ function parseTs(input: unknown): Date | undefined {
   const ms = n < 1e12 ? n * 1000 : n;
   const d = new Date(ms);
   return isNaN(d.getTime()) ? undefined : d;
-}
-
-// Derive plan from configured PLANS.*.dodoPriceId values when product_id is present.
-// This avoids needing extra env for product->plan mapping and ensures we can resolve
-// the plan that was actually sold in checkout.
-function planFromConfiguredPrices(productId: string | undefined | null): PlanKey | undefined {
-  if (!productId) return undefined;
-  const pid = String(productId);
-  for (const [key, plan] of Object.entries(PLANS)) {
-    const ids = plan.dodoPriceId as any;
-    if (ids?.monthly && ids.monthly === pid) return key as PlanKey;
-    if (ids?.annual && ids.annual === pid) return key as PlanKey;
-  }
-  return undefined;
 }
 
 export async function POST(req: Request) {
@@ -170,13 +165,12 @@ async function processEvent(payload: any, eventType: string) {
     const plan =
       (raw.metadata?.plan as PlanKey | undefined) ||
       mapProductToPlan(productId) ||
-      planFromConfiguredPrices(productId) ||
       guessPlanFromName(raw.product_name || raw.name) ||
       (fromPlan as PlanKey);
 
     const billingCycle =
       (raw.metadata?.billingCycle as 'monthly' | 'annual' | undefined) ||
-      raw.payment_frequency_interval ||
+      normalizeBillingCycle(raw.payment_frequency_interval) ||
       'monthly';
 
     const amountMinor = Number(raw.total_amount ?? raw.amount ?? 0);
@@ -301,7 +295,7 @@ async function processEvent(payload: any, eventType: string) {
     const productId = resolveProductId(raw);
     const newPlan =
       (raw.metadata?.plan as PlanKey | undefined) ||
-      mapProductToPlan(productId) || planFromConfiguredPrices(productId) ||
+      mapProductToPlan(productId) ||
       guessPlanFromName(raw.product_name || raw.name) || (fromPlan as PlanKey);
 
     const isHigherTier = newPlan !== fromPlan && newPlan !== 'free';
@@ -321,7 +315,7 @@ async function processEvent(payload: any, eventType: string) {
     if (subscriptionId) {
       await db.update(subscriptions).set({
         status: raw.status || 'active',
-        billingCycle: raw.payment_frequency_interval === 'year' ? 'annual' : 'monthly',
+        billingCycle: normalizeBillingCycle(raw.payment_frequency_interval) ?? 'monthly',
         currentPeriodStart, currentPeriodEnd, updatedAt: new Date()
       }).where(eq(subscriptions.dodoSubscriptionId, subscriptionId));
     }
@@ -379,7 +373,7 @@ async function processEvent(payload: any, eventType: string) {
     const productId = resolveProductId(raw);
     const plan =
       (raw.metadata?.plan as PlanKey | undefined) ||
-      mapProductToPlan(productId) || planFromConfiguredPrices(productId) ||
+      mapProductToPlan(productId) ||
       guessPlanFromName(raw.product_name || raw.name) || (fromPlan as PlanKey);
 
     await db.update(workspaces).set({ plan, trialEndsAt }).where(eq(workspaces.id, workspaceId));
@@ -391,7 +385,7 @@ async function processEvent(payload: any, eventType: string) {
       const subData = {
         workspaceId, dodoSubscriptionId: subscriptionId,
         dodoCustomerId: raw.customer?.customer_id || raw.customer_id,
-        plan, billingCycle: raw.payment_frequency_interval === 'year' ? 'annual' as const : 'monthly' as const,
+        plan,         billingCycle: normalizeBillingCycle(raw.payment_frequency_interval) ?? 'monthly',
         status: 'trialing' as const, currentPeriodStart: parseTs(raw.previous_billing_date) ?? new Date(),
         currentPeriodEnd: parseTs(raw.next_billing_date) ?? new Date(), cancelAtPeriodEnd: false, updatedAt: new Date()
       };

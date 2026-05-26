@@ -203,7 +203,7 @@ export default async function BillingsPage(props: Props) {
                     <td className="px-4 py-3">{event.createdAt ? format(new Date(event.createdAt), 'MMM do, yyyy') : '-'}</td>
                     <td className="px-4 py-3 font-medium">PivotUrl {event.toPlan} Plan</td>
                     <td className="px-4 py-3">
-                      {event.amount && event.currency ? `${(Number(event.amount) / 100).toLocaleString('en-US', { style: 'currency', currency: event.currency })}` : '-'}
+                      {event.amount && event.currency ? `${Number(event.amount).toLocaleString('en-US', { style: 'currency', currency: event.currency })}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {event.eventType === 'payment.succeeded' ? (
