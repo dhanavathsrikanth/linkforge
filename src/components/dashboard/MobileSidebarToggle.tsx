@@ -19,13 +19,13 @@ import {
 const mainNav = [
   { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
   { name: "Links",       href: "/dashboard/links",            icon: Link2 },
-  { name: "Link in Bio", href: "/dashboard/link-in-bio",      icon: LayoutList,      badge: "COMING SOON" },
+  { name: "Link in Bio", href: "/dashboard/link-in-bio",      icon: LayoutList },
   { name: "QR Codes",    href: "/dashboard/qr",               icon: QrCode },
   { name: "Analytics",   href: "/dashboard/analytics",        icon: BarChart3 },
 ];
 
 const workspaceNav = [
-  { name: "Domains",     href: "/dashboard/domain",           icon: Globe,           badge: "COMING SOON" },
+  { name: "Domains",     href: "/dashboard/domain",           icon: Globe },
   { name: "Billing",     href: "/dashboard/billings",         icon: CreditCard },
   { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
 ];
@@ -68,11 +68,6 @@ export function MobileSidebarToggle() {
       )}
       <item.icon className={cn("h-4 w-4 shrink-0", isActive(item.href) ? "text-primary" : "text-muted-foreground")} />
       <span className="flex-1 leading-none">{item.name}</span>
-      {item.badge && (
-        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400">
-          {item.badge}
-        </span>
-      )}
     </Link>
   );
 
