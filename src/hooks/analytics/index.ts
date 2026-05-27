@@ -159,3 +159,90 @@ export function useAnalyticsTopLinks(
     enabled: !!workspaceId,
   });
 }
+
+interface PostingTimesData {
+  buckets: { hour: number; label: string; clicks: number; percentage: number }[];
+  peak: { hour: number; label: string; clicks: number };
+  runnerUp: { hour: number; label: string; clicks: number };
+  deadZone: { hour: number; label: string; clicks: number };
+  recommendation: string;
+}
+
+export function useAnalyticsPostingTimes(
+  workspaceId: string | undefined,
+  linkId: string | undefined,
+  range: DateRange,
+  from?: string,
+  to?: string
+) {
+  return useQuery<PostingTimesData>({
+    queryKey: ["analytics", "posting-times", workspaceId, linkId, range, from, to],
+    queryFn: async () => {
+      if (!workspaceId) throw new Error("No workspace");
+      const queryString = buildQueryString({ workspaceId, linkId, range, from, to });
+      const res = await fetch(`/api/v1/analytics/posting-times?${queryString}`);
+      if (!res.ok) throw new Error("Failed to fetch posting times");
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+interface AudienceProfileData {
+  topDevice: { label: string; percentage: number };
+  topBrowser: { label: string; percentage: number };
+  topOs: { label: string; percentage: number };
+  topCountry: { label: string; percentage: number };
+  topReferrer: { label: string; percentage: number };
+  mobileShare: number;
+  desktopShare: number;
+  platformSplit: { platform: string; percentage: number }[];
+  summary: string;
+}
+
+export function useAnalyticsAudience(
+  workspaceId: string | undefined,
+  linkId: string | undefined,
+  range: DateRange,
+  from?: string,
+  to?: string
+) {
+  return useQuery<AudienceProfileData>({
+    queryKey: ["analytics", "audience", workspaceId, linkId, range, from, to],
+    queryFn: async () => {
+      if (!workspaceId) throw new Error("No workspace");
+      const queryString = buildQueryString({ workspaceId, linkId, range, from, to });
+      const res = await fetch(`/api/v1/analytics/audience?${queryString}`);
+      if (!res.ok) throw new Error("Failed to fetch audience data");
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+interface Insight {
+  type: "opportunity" | "trend" | "warning" | "recommendation";
+  title: string;
+  description: string;
+  metric?: string;
+  icon: string;
+}
+
+export function useAnalyticsInsights(
+  workspaceId: string | undefined,
+  range: DateRange,
+  from?: string,
+  to?: string
+) {
+  return useQuery<{ insights: Insight[] }>({
+    queryKey: ["analytics", "insights", workspaceId, range, from, to],
+    queryFn: async () => {
+      if (!workspaceId) throw new Error("No workspace");
+      const queryString = buildQueryString({ workspaceId, range, from, to });
+      const res = await fetch(`/api/v1/analytics/insights?${queryString}`);
+      if (!res.ok) throw new Error("Failed to fetch insights");
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+}

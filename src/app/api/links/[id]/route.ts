@@ -32,6 +32,14 @@ const UpdateLinkSchema = z.object({
   ogImage: z.string().url().optional().nullable(),
   iosDestination: z.string().url().optional().nullable(),
   androidDestination: z.string().url().optional().nullable(),
+  uriScheme: z.string().max(500).optional().nullable(),
+  iosAppStoreId: z.string().max(100).optional().nullable(),
+  androidPlayStoreId: z.string().max(100).optional().nullable(),
+  iosBundleId: z.string().max(200).optional().nullable(),
+  androidPackageName: z.string().max(200).optional().nullable(),
+  sha256CertFingerprints: z.array(z.string()).optional(),
+  universalLinksEnabled: z.boolean().optional(),
+  appLinksEnabled: z.boolean().optional(),
   abTestEnabled: z.boolean().optional(),
   abTestVariants: z
     .array(
@@ -185,6 +193,14 @@ export async function PATCH(
     if (v.ogImage !== undefined) updateData.ogImage = emptyToNull(v.ogImage);
     if (v.iosDestination !== undefined) updateData.iosDestination = emptyToNull(v.iosDestination);
     if (v.androidDestination !== undefined) updateData.androidDestination = emptyToNull(v.androidDestination);
+    if (v.uriScheme !== undefined) updateData.uriScheme = emptyToNull(v.uriScheme);
+    if (v.iosAppStoreId !== undefined) updateData.iosAppStoreId = emptyToNull(v.iosAppStoreId);
+    if (v.androidPlayStoreId !== undefined) updateData.androidPlayStoreId = emptyToNull(v.androidPlayStoreId);
+    if (v.iosBundleId !== undefined) updateData.iosBundleId = emptyToNull(v.iosBundleId);
+    if (v.androidPackageName !== undefined) updateData.androidPackageName = emptyToNull(v.androidPackageName);
+    if (v.sha256CertFingerprints !== undefined) updateData.sha256CertFingerprints = v.sha256CertFingerprints;
+    if (v.universalLinksEnabled !== undefined) updateData.universalLinksEnabled = v.universalLinksEnabled;
+    if (v.appLinksEnabled !== undefined) updateData.appLinksEnabled = v.appLinksEnabled;
     if (v.abTestEnabled !== undefined) updateData.abTestEnabled = v.abTestEnabled;
     if (v.abTestVariants !== undefined) {
       updateData.abTestVariants = v.abTestVariants.map((av) => ({

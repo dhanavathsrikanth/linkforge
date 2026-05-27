@@ -31,6 +31,14 @@ const CreateLinkSchema = z.object({
   ogImage: z.string().url().optional(),
   iosDestination: z.string().url().optional(),
   androidDestination: z.string().url().optional(),
+  uriScheme: z.string().max(500).optional(),
+  iosAppStoreId: z.string().max(100).optional(),
+  androidPlayStoreId: z.string().max(100).optional(),
+  iosBundleId: z.string().max(200).optional(),
+  androidPackageName: z.string().max(200).optional(),
+  sha256CertFingerprints: z.array(z.string()).optional(),
+  universalLinksEnabled: z.boolean().optional(),
+  appLinksEnabled: z.boolean().optional(),
   abTestEnabled: z.boolean().optional(),
   abTestVariants: z
     .array(
@@ -193,6 +201,14 @@ export async function POST(request: Request) {
         ogImage: emptyToNull(v.ogImage),
         iosDestination: emptyToNull(v.iosDestination),
         androidDestination: emptyToNull(v.androidDestination),
+        uriScheme: emptyToNull(v.uriScheme),
+        iosAppStoreId: emptyToNull(v.iosAppStoreId),
+        androidPlayStoreId: emptyToNull(v.androidPlayStoreId),
+        iosBundleId: emptyToNull(v.iosBundleId),
+        androidPackageName: emptyToNull(v.androidPackageName),
+        sha256CertFingerprints: v.sha256CertFingerprints ?? [],
+        universalLinksEnabled: v.universalLinksEnabled ?? false,
+        appLinksEnabled: v.appLinksEnabled ?? false,
         abTestEnabled: v.abTestEnabled ?? false,
         abTestVariants: v.abTestVariants
           ? v.abTestVariants.map((av) => ({

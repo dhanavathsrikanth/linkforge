@@ -98,7 +98,8 @@ async function logClick(
   isUnique: boolean,
   destination: string,
   variant: string,
-  isQrScan: boolean
+  isQrScan: boolean,
+  isDeepLinkArg: boolean
 ): Promise<void> {
   try {
     const ua = req.headers.get("user-agent") || "";
@@ -134,6 +135,7 @@ async function logClick(
         referrerDomain,
         language: ctx.language,
         isQrScan,
+        isDeepLink: isDeepLinkArg,
       }),
     });
   } catch (err) {
@@ -150,6 +152,36 @@ export default {
     // Health check
     if (url.pathname === "/health") {
       return Response.json({ status: "ok", service: "PivotUrl-worker", ts: Date.now() });
+    }
+
+    // ── Well-known: apple-app-site-association ────────────────────────────────────
+    // Serves Universal Links configuration for iOS
+    if (url.pathname === "/.well-known/apple-app-site-association") {
+      const body = JSON.stringify({
+        applinks: {
+          apps: [],
+          details: [
+            {
+              appIDs: [], // populated per-domain from DB if available
+              components: [
+                { "/": "/s/*" },
+                { "/": "/*" },
+              ],
+            },
+          ],
+        },
+      });
+      return new Response(body, {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Well-known: assetlinks.json ───────────────────────────────────────────────
+    // Serves Android App Links configuration
+    if (url.pathname === "/.well-known/assetlinks.json") {
+      return new Response(JSON.stringify([]), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // ── Step 1: Parse domain + slug ──────────────────────────────────────────
@@ -295,10 +327,43 @@ export default {
 
     // ── Step 9: Deep link routing ─────────────────────────────────────────────
     const parsedOs = parseOs(ua);
+    let isDeepLink = false;
+
+    // 9a: OS-based destination override (app store links)
     if (parsedOs === "iOS" && link.iosDestination) {
       finalDestination = link.iosDestination;
     } else if (parsedOs === "Android" && link.androidDestination) {
       finalDestination = link.androidDestination;
+    }
+
+    // 9b: URI scheme deep link — if a URI scheme is configured, prepend it
+    //     so mobile OS can open the native app directly.
+    if (link.uriScheme) {
+      const schemeUrl = link.uriScheme
+        .replace(/{slug}/g, link.slug)
+        .replace(/{destination}/g, encodeURIComponent(link.destination));
+      // For iOS: try URI scheme first, fall back to App Store
+      if (parsedOs === "iOS" && link.iosAppStoreId) {
+        // Use intentional redirect that will attempt to open the app
+        finalDestination = schemeUrl;
+        isDeepLink = true;
+      } else if (parsedOs === "Android" && link.androidPlayStoreId) {
+        finalDestination = schemeUrl;
+        isDeepLink = true;
+      }
+    }
+
+    // 9c: App store fallback — if a URI scheme was used, append app store
+    //     URL as fallback parameter that some clients respect
+    if (isDeepLink) {
+      const fallbackUrl = parsedOs === "iOS" && link.iosAppStoreId
+        ? `https://apps.apple.com/app/${link.iosAppStoreId}`
+        : parsedOs === "Android" && link.androidPlayStoreId
+          ? `https://play.google.com/store/apps/details?id=${link.androidPlayStoreId}`
+          : null;
+      if (fallbackUrl) {
+        finalDestination = `${finalDestination}?fallback=${encodeURIComponent(fallbackUrl)}`;
+      }
     }
 
     // ── Step 10: Async click logging ──────────────────────────────────────────
@@ -328,7 +393,8 @@ export default {
             isUnique,
             finalDestination,
             variant,
-            isQrScan
+            isQrScan,
+            isDeepLink
           );
         })()
       );

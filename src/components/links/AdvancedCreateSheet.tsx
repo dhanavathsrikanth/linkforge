@@ -93,6 +93,16 @@ const initialState = {
   abTestEnabled: false,
   abTestVariants: [] as { id?: string; destination: string; weight: number; label?: string }[],
   routingRules: [] as { condition: { device?: string; country?: string; language?: string }; destination: string }[],
+  // Deep linking
+  deepLinkEnabled: false,
+  uriScheme: "",
+  iosAppStoreId: "",
+  androidPlayStoreId: "",
+  iosBundleId: "",
+  androidPackageName: "",
+  sha256CertFingerprints: [] as string[],
+  universalLinksEnabled: false,
+  appLinksEnabled: false,
 };
 
 function generateSlug() {
@@ -134,7 +144,8 @@ export function AdvancedCreateSheet({
           .then((r) => r.json())
           .then((res) => {
             const d = res.link ?? res.data ?? res;
-            setForm({
+            setForm((prev) => ({
+              ...prev,
               destination: d.destination ?? "",
               slug: d.slug ?? "",
               title: d.title ?? "",
@@ -150,6 +161,15 @@ export function AdvancedCreateSheet({
               ogImage: d.ogImage ?? "",
               iosDestination: d.iosDestination ?? "",
               androidDestination: d.androidDestination ?? "",
+              uriScheme: d.uriScheme ?? "",
+              iosAppStoreId: d.iosAppStoreId ?? "",
+              androidPlayStoreId: d.androidPlayStoreId ?? "",
+              iosBundleId: d.iosBundleId ?? "",
+              androidPackageName: d.androidPackageName ?? "",
+              sha256CertFingerprints: d.sha256CertFingerprints ?? [],
+              universalLinksEnabled: d.universalLinksEnabled ?? false,
+              appLinksEnabled: d.appLinksEnabled ?? false,
+              deepLinkEnabled: !!(d.uriScheme || d.iosAppStoreId || d.androidPlayStoreId),
               password: "",
               showPassword: false,
               expirationMode: d.expiresAt ? "date" : d.clickLimit ? "clicks" : "date",
@@ -160,7 +180,7 @@ export function AdvancedCreateSheet({
               abTestEnabled: d.abTestEnabled ?? false,
               abTestVariants: d.abTestVariants ?? [],
               routingRules: d.routingRules ?? [],
-            });
+            }));
           })
           .catch(() => {});
       } else {
@@ -276,6 +296,14 @@ export function AdvancedCreateSheet({
                 destination: r.destination,
               }))
             : undefined,
+        uriScheme: form.deepLinkEnabled ? (form.uriScheme || undefined) : undefined,
+        iosAppStoreId: form.deepLinkEnabled ? (form.iosAppStoreId || undefined) : undefined,
+        androidPlayStoreId: form.deepLinkEnabled ? (form.androidPlayStoreId || undefined) : undefined,
+        iosBundleId: form.deepLinkEnabled ? (form.iosBundleId || undefined) : undefined,
+        androidPackageName: form.deepLinkEnabled ? (form.androidPackageName || undefined) : undefined,
+        sha256CertFingerprints: form.deepLinkEnabled ? (form.sha256CertFingerprints.length > 0 ? form.sha256CertFingerprints : undefined) : undefined,
+        universalLinksEnabled: form.deepLinkEnabled ? form.universalLinksEnabled : undefined,
+        appLinksEnabled: form.deepLinkEnabled ? form.appLinksEnabled : undefined,
       };
 
       if (form.scheduleMode && form.scheduledAt) {
@@ -985,6 +1013,104 @@ export function AdvancedCreateSheet({
                           </Field>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Deep linking */}
+                    <div className="space-y-4 rounded-lg border border-border p-4">
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.deepLinkEnabled}
+                          onChange={(e) => update("deepLinkEnabled", e.target.checked)}
+                          className="accent-[hsl(var(--primary))]"
+                        />
+                        <span className="text-sm font-semibold">Deep linking</span>
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Opens your native app when the link is tapped on a mobile device.
+                      </p>
+
+                      {form.deepLinkEnabled && (
+                        <div className="space-y-4 pl-2 border-l-2 border-primary/30">
+                          <Field label="URI scheme" hint="Use {slug} or {destination} as placeholders">
+                            <input
+                              value={form.uriScheme}
+                              onChange={(e) => update("uriScheme", e.target.value)}
+                              placeholder="myapp://open/{slug}"
+                              className={inputCls}
+                            />
+                          </Field>
+
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <Field label="iOS App Store ID">
+                              <input
+                                value={form.iosAppStoreId}
+                                onChange={(e) => update("iosAppStoreId", e.target.value)}
+                                placeholder="id123456789"
+                                className={inputCls}
+                              />
+                            </Field>
+                            <Field label="Android Play Store ID">
+                              <input
+                                value={form.androidPlayStoreId}
+                                onChange={(e) => update("androidPlayStoreId", e.target.value)}
+                                placeholder="com.example.app"
+                                className={inputCls}
+                              />
+                            </Field>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <Field label="iOS Bundle ID (Universal Links)">
+                              <input
+                                value={form.iosBundleId}
+                                onChange={(e) => update("iosBundleId", e.target.value)}
+                                placeholder="com.example.app"
+                                className={inputCls}
+                              />
+                            </Field>
+                            <Field label="Android Package Name (App Links)">
+                              <input
+                                value={form.androidPackageName}
+                                onChange={(e) => update("androidPackageName", e.target.value)}
+                                placeholder="com.example.app"
+                                className={inputCls}
+                              />
+                            </Field>
+                          </div>
+
+                          <Field label="SHA-256 Cert Fingerprints (one per line)">
+                            <textarea
+                              value={form.sha256CertFingerprints.join("\n")}
+                              onChange={(e) => update("sha256CertFingerprints", e.target.value.split("\n").map(s => s.trim()).filter(Boolean))}
+                              rows={2}
+                              placeholder="AA:BB:CC:..."
+                              className={cn(inputCls, "h-auto resize-y")}
+                            />
+                          </Field>
+
+                          <div className="flex items-center gap-4">
+                            <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                checked={form.universalLinksEnabled}
+                                onChange={(e) => update("universalLinksEnabled", e.target.checked)}
+                                className="accent-[hsl(var(--primary))]"
+                              />
+                              Universal Links (iOS)
+                            </label>
+                            <label className="inline-flex items-center gap-2 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                checked={form.appLinksEnabled}
+                                onChange={(e) => update("appLinksEnabled", e.target.checked)}
+                                className="accent-[hsl(var(--primary))]"
+                              />
+                              App Links (Android)
+                            </label>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Device routing */}

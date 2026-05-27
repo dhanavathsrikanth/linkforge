@@ -372,6 +372,16 @@ export const links = pgTable(
     iosDestination: text("ios_destination"),
     androidDestination: text("android_destination"),
 
+    // Deep linking
+    uriScheme: text("uri_scheme"),
+    iosAppStoreId: text("ios_app_store_id"),
+    androidPlayStoreId: text("android_play_store_id"),
+    iosBundleId: text("ios_bundle_id"),
+    androidPackageName: text("android_package_name"),
+    sha256CertFingerprints: text("sha256_cert_fingerprints").array().default(sql`'{}'::text[]`),
+    universalLinksEnabled: boolean("universal_links_enabled").notNull().default(false),
+    appLinksEnabled: boolean("app_links_enabled").notNull().default(false),
+
     // Geo routing: { "US": "https://...", "GB": "https://..." }
     geoRouting: jsonb("geo_routing").$type<Record<string, string>>(),
 
@@ -449,6 +459,9 @@ export const clicks = pgTable(
 
     // QR scan tracking — true when ?source=qr is detected
     isQrScan: boolean("is_qr_scan").notNull().default(false),
+
+    // Deep link — true when a URI scheme / app link was resolved
+    isDeepLink: boolean("is_deep_link").notNull().default(false),
 
     // A/B
     abVariant: text("ab_variant"),

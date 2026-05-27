@@ -16,6 +16,7 @@ import {
   Key,
   Webhook,
   SearchCheck,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
@@ -31,6 +32,7 @@ const mainNav = [
   { name: "Link in Bio",     href: "/dashboard/link-in-bio",      icon: LayoutList },
   { name: "QR Codes",        href: "/dashboard/qr",               icon: QrCode },
   { name: "Analytics",       href: "/dashboard/analytics",        icon: BarChart3 },
+  { name: "Insights",        href: "/dashboard/analytics/insights", icon: Sparkles },
 ];
 
 const workspaceNav = [

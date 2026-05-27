@@ -23,6 +23,14 @@ export interface Link {
   abTestVariants: ABVariant[] | null;
   iosDestination: string | null;
   androidDestination: string | null;
+  uriScheme: string | null;
+  iosAppStoreId: string | null;
+  androidPlayStoreId: string | null;
+  iosBundleId: string | null;
+  androidPackageName: string | null;
+  sha256CertFingerprints: string[];
+  universalLinksEnabled: boolean;
+  appLinksEnabled: boolean;
   geoRouting: Record<string, string> | null;
   qrSettings: QRSettings | null;
   createdAt: string;
@@ -53,6 +61,14 @@ export interface CreateLinkOptions {
     ios?: string;
     android?: string;
     geo?: Record<string, string>;
+    uriScheme?: string;
+    iosAppStoreId?: string;
+    androidPlayStoreId?: string;
+    iosBundleId?: string;
+    androidPackageName?: string;
+    sha256CertFingerprints?: string[];
+    universalLinksEnabled?: boolean;
+    appLinksEnabled?: boolean;
   };
 }
 

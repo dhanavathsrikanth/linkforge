@@ -148,6 +148,66 @@ export async function GET(
       selectedAbVariant = (picked as any).name || picked.destination;
     }
 
+    // Resolve base destination: A/B test → smart routing → deep link → default
+    let baseDestination = link.destination;
+
+    if (selectedAbVariant) {
+      const picked = pickAbVariant(link.abTestVariants!);
+      baseDestination = picked.destination;
+    } else if (link.routingRules && link.routingRules.length > 0) {
+      const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "";
+      const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
+      for (const rule of link.routingRules) {
+        let match = true;
+        if (rule.condition.device && rule.condition.device !== parseDevice(ua)) match = false;
+        if (rule.condition.country && rule.condition.country.toUpperCase() !== country.toUpperCase()) match = false;
+        if (rule.condition.language && !language.toLowerCase().startsWith(rule.condition.language.toLowerCase())) match = false;
+        if (match) { baseDestination = rule.destination; break; }
+      }
+    }
+
+    const os = parseOs(ua);
+    let isDeepLink = false;
+    if (os === "iOS" && link.iosDestination) {
+      baseDestination = link.iosDestination;
+    } else if (os === "Android" && link.androidDestination) {
+      baseDestination = link.androidDestination;
+    }
+
+    // URI scheme deep link
+    if (link.uriScheme) {
+      const schemeUrl = link.uriScheme
+        .replace(/{slug}/g, link.slug)
+        .replace(/{destination}/g, encodeURIComponent(link.destination));
+      if (os === "iOS" && link.iosAppStoreId) {
+        baseDestination = schemeUrl;
+        isDeepLink = true;
+      } else if (os === "Android" && link.androidPlayStoreId) {
+        baseDestination = schemeUrl;
+        isDeepLink = true;
+      }
+    }
+
+    // App store fallback
+    if (isDeepLink) {
+      const fallbackUrl = os === "iOS" && link.iosAppStoreId
+        ? `https://apps.apple.com/app/${link.iosAppStoreId}`
+        : os === "Android" && link.androidPlayStoreId
+          ? `https://play.google.com/store/apps/details?id=${link.androidPlayStoreId}`
+          : null;
+      if (fallbackUrl) {
+        baseDestination = `${baseDestination}?fallback=${encodeURIComponent(fallbackUrl)}`;
+      }
+    }
+
+    const finalDestination = appendUtmParams(baseDestination, {
+      utmSource: link.utmSource,
+      utmMedium: link.utmMedium,
+      utmCampaign: link.utmCampaign,
+      utmTerm: link.utmTerm,
+      utmContent: link.utmContent,
+    });
+
     if (device !== "bot") {
       (async () => {
         try {
@@ -181,6 +241,7 @@ export async function GET(
               referrer,
               referrerDomain,
               isQrScan,
+              isDeepLink,
               abVariant: selectedAbVariant,
               createdAt: new Date(),
             }),
@@ -223,40 +284,7 @@ export async function GET(
       })();
     }
 
-    // Resolve base destination: A/B test → smart routing → deep link → default
-    let baseDestination = link.destination;
-
-    if (selectedAbVariant) {
-      const picked = pickAbVariant(link.abTestVariants!);
-      baseDestination = picked.destination;
-    } else if (link.routingRules && link.routingRules.length > 0) {
-      const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "";
-      const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
-      for (const rule of link.routingRules) {
-        let match = true;
-        if (rule.condition.device && rule.condition.device !== parseDevice(ua)) match = false;
-        if (rule.condition.country && rule.condition.country.toUpperCase() !== country.toUpperCase()) match = false;
-        if (rule.condition.language && !language.toLowerCase().startsWith(rule.condition.language.toLowerCase())) match = false;
-        if (match) { baseDestination = rule.destination; break; }
-      }
-    }
-
-    const os = parseOs(ua);
-    if (os === "iOS" && link.iosDestination) {
-      baseDestination = link.iosDestination;
-    } else if (os === "Android" && link.androidDestination) {
-      baseDestination = link.androidDestination;
-    }
-
-    const destination = appendUtmParams(baseDestination, {
-      utmSource: link.utmSource,
-      utmMedium: link.utmMedium,
-      utmCampaign: link.utmCampaign,
-      utmTerm: link.utmTerm,
-      utmContent: link.utmContent,
-    });
-
-    return NextResponse.redirect(destination, { status: 302 });
+    return NextResponse.redirect(finalDestination, { status: 302 });
   } catch {
     return new Response(null, { status: 404 });
   }

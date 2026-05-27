@@ -35,6 +35,14 @@ export type LinkData = {
   utmContent: string | null;
   iosDestination: string | null;
   androidDestination: string | null;
+  uriScheme: string | null;
+  iosAppStoreId: string | null;
+  androidPlayStoreId: string | null;
+  iosBundleId: string | null;
+  androidPackageName: string | null;
+  sha256CertFingerprints: string[] | null;
+  universalLinksEnabled: boolean;
+  appLinksEnabled: boolean;
   routingRules: RoutingRule[] | null;
   abTestEnabled: boolean;
   abVariants: AbVariant[] | null; // maps to abTestVariants in DB schema

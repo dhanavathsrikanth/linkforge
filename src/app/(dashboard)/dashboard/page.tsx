@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { KPICard } from "@/components/analytics/KPICard";
 import { ClicksChart } from "@/components/analytics/ClicksChart";
+import { InsightCard } from "@/components/analytics/InsightCard";
+import { AudienceProfile } from "@/components/analytics/AudienceProfile";
+import { PostingTimes } from "@/components/analytics/PostingTimes";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -83,6 +86,36 @@ export default function DashboardPage() {
     queryFn: async () => {
       const res = await fetch(`/api/v1/analytics/top-links?workspaceId=${wsId}&range=30d&limit=5`);
       if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!wsId,
+  });
+
+  const { data: postingTimes, isLoading: postingTimesLoading } = useQuery<any>({
+    queryKey: ["analytics", "posting-times", wsId, "30d"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/posting-times?workspaceId=${wsId}&range=30d`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!wsId,
+  });
+
+  const { data: audience, isLoading: audienceLoading } = useQuery<any>({
+    queryKey: ["analytics", "audience", wsId, "30d"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/audience?workspaceId=${wsId}&range=30d`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!wsId,
+  });
+
+  const { data: insights, isLoading: insightsLoading } = useQuery<any>({
+    queryKey: ["analytics", "insights", wsId, "30d"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/insights?workspaceId=${wsId}&range=30d`);
+      if (!res.ok) return null;
       return res.json();
     },
     enabled: !!wsId,
@@ -172,6 +205,37 @@ export default function DashboardPage() {
           <ClicksChart data={timeSeries || []} isLoading={timeSeriesLoading} />
         </CardContent>
       </Card>
+
+      {/* Smart Insights */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-violet-600" />
+            <h2 className="text-sm font-semibold text-slate-900">Smart Insights</h2>
+          </div>
+          <Link
+            href="/dashboard/analytics/insights"
+            className="text-xs font-medium text-violet-600 hover:text-violet-700 inline-flex items-center gap-1"
+          >
+            View all <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        {/* Actionable insight cards */}
+        {insights?.insights?.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {insights.insights.slice(0, 3).map((insight: any, i: number) => (
+              <InsightCard key={i} {...insight} />
+            ))}
+          </div>
+        )}
+
+        {/* Audience + Posting times */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <AudienceProfile data={audience} isLoading={audienceLoading} />
+          <PostingTimes data={postingTimes} isLoading={postingTimesLoading} />
+        </div>
+      </div>
 
       {/* Bottom Grid */}
       <div className="grid gap-4 lg:grid-cols-2">

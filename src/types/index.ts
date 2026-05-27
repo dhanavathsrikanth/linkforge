@@ -162,6 +162,14 @@ export interface CreateLinkForm {
   ogImage?: string;
   iosDestination?: string;
   androidDestination?: string;
+  uriScheme?: string;
+  iosAppStoreId?: string;
+  androidPlayStoreId?: string;
+  iosBundleId?: string;
+  androidPackageName?: string;
+  sha256CertFingerprints?: string[];
+  universalLinksEnabled?: boolean;
+  appLinksEnabled?: boolean;
   geoRouting?: GeoRouting;
   abTestEnabled?: boolean;
   abTestVariants?: AbTestVariant[];

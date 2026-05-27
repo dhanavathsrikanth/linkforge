@@ -24,6 +24,14 @@ export interface LinkData {
   ogImage: string | null;
   iosDestination: string | null;
   androidDestination: string | null;
+  uriScheme: string | null;
+  iosAppStoreId: string | null;
+  androidPlayStoreId: string | null;
+  iosBundleId: string | null;
+  androidPackageName: string | null;
+  sha256CertFingerprints: string[];
+  universalLinksEnabled: boolean;
+  appLinksEnabled: boolean;
   abTestEnabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -59,6 +67,14 @@ export interface CreateLinkInput {
   ogImage?: string;
   iosDestination?: string;
   androidDestination?: string;
+  uriScheme?: string;
+  iosAppStoreId?: string;
+  androidPlayStoreId?: string;
+  iosBundleId?: string;
+  androidPackageName?: string;
+  sha256CertFingerprints?: string[];
+  universalLinksEnabled?: boolean;
+  appLinksEnabled?: boolean;
   abTestEnabled?: boolean;
 }
 
@@ -81,6 +97,14 @@ export interface UpdateLinkInput {
   ogImage?: string;
   iosDestination?: string;
   androidDestination?: string;
+  uriScheme?: string;
+  iosAppStoreId?: string;
+  androidPlayStoreId?: string;
+  iosBundleId?: string;
+  androidPackageName?: string;
+  sha256CertFingerprints?: string[];
+  universalLinksEnabled?: boolean;
+  appLinksEnabled?: boolean;
   abTestEnabled?: boolean;
 }
 

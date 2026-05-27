@@ -17,7 +17,7 @@ import { TopCountries } from "@/components/analytics/TopCountries";
 import { DonutChart } from "@/components/analytics/DonutChart";
 import { TopReferrers } from "@/components/analytics/TopReferrers";
 import { TopLinksTable } from "@/components/analytics/TopLinksTable";
-import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick } from "lucide-react";
+import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AnalyticsClientProps {
@@ -97,6 +97,45 @@ export function AnalyticsClient({ workspaceId }: AnalyticsClientProps) {
           </div>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted group-hover:bg-primary/10 transition-colors shrink-0">
             <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </div>
+        </div>
+      </Link>
+
+      {/* Insights Hero Card */}
+      <Link
+        href="/dashboard/analytics/insights"
+        className="group block rounded-xl border border-border bg-gradient-to-r from-violet-500/5 to-fuchsia-500/[0.02] p-6 hover:border-violet-300/30 transition-all"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 group-hover:from-violet-500/20 group-hover:to-indigo-500/20 transition-colors">
+              <Sparkles className="h-6 w-6 text-violet-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground group-hover:text-violet-600 transition-colors">
+                Smart Insights
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                AI-powered recommendations on posting times, audience profiles, growth trends, and actionable opportunities — built from your click data.
+              </p>
+              <div className="flex items-center gap-4 mt-3">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  Best posting times
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  Audience intelligence
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  Growth alerts
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted group-hover:bg-violet-500/10 transition-colors shrink-0">
+            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-violet-600 transition-colors" />
           </div>
         </div>
       </Link>

@@ -28,6 +28,8 @@ type ClickPayload = {
   language?: string;
   /** True when the request came via a QR code scan (?source=qr) */
   isQrScan?: boolean;
+  /** True when the redirect used a URI scheme deep link */
+  isDeepLink?: boolean;
 };
 
 /**
@@ -66,6 +68,7 @@ export async function POST(req: Request) {
     referrer,
     referrerDomain,
     isQrScan,
+    isDeepLink,
   } = body;
 
   if (!linkId || !workspaceId) {
@@ -108,6 +111,7 @@ export async function POST(req: Request) {
         referrerDomain: referrerDomain ?? null,
         abVariant: variant ?? null,
         isQrScan: isQrScan ?? false,
+        isDeepLink: isDeepLink ?? false,
         createdAt: new Date(timestamp),
       }),
       ...(isUnique

@@ -38,6 +38,14 @@ const CreateLinkSchema = z.object({
     ios: z.string().url().optional(),
     android: z.string().url().optional(),
     geo: z.record(z.string(), z.string()).optional(),
+    uriScheme: z.string().max(500).optional(),
+    iosAppStoreId: z.string().max(100).optional(),
+    androidPlayStoreId: z.string().max(100).optional(),
+    iosBundleId: z.string().max(200).optional(),
+    androidPackageName: z.string().max(200).optional(),
+    sha256CertFingerprints: z.array(z.string()).optional(),
+    universalLinksEnabled: z.boolean().optional(),
+    appLinksEnabled: z.boolean().optional(),
   }).optional(),
 });
 
