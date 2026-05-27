@@ -6,10 +6,12 @@ import Link from "next/link";
 const BASE_URL = "https://pivoturl.vercel.app";
 
 const sections = [
+  { id: "whats-new", label: "What's New" },
   { id: "overview", label: "Overview" },
   { id: "authentication", label: "Authentication" },
   { id: "links", label: "Links API" },
   { id: "analytics", label: "Analytics API" },
+  { id: "smart-insights", label: "Smart Insights" },
   { id: "qr", label: "QR Code API" },
   { id: "workspace", label: "Workspace API" },
   { id: "keys", label: "API Keys" },
@@ -165,6 +167,115 @@ export default function DocsPage() {
                 Integrate link shortening, click analytics, and QR code generation into your applications using the PivotUrl REST API and first-party SDKs.
               </p>
             </div>
+
+            {/* ─── What's New ──────────────────────────────── */}
+            <Section id="whats-new">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">What's New</h2>
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 mb-6">
+                Latest updates from the <strong>May 2026</strong> release.
+              </div>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">Analytics &amp; Smart Insights</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                A brand-new insights engine that gives you actionable recommendations based on your link performance data. The analytics dashboard now includes AI-powered insights, audience demographics, and posting-time heatmaps to help you optimize your link strategy.
+              </p>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Smart Insights</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>AI-powered recommendations</strong> — the engine detects growth trends, top performers, device share changes, peak engagement hours, and country concentration; returns up to 5 actionable insight cards (opportunity, trend, warning, recommendation)</li>
+                <li><strong>Insight cards</strong> — color-coded cards with title, description, metric value, and contextual icon for quick scanning</li>
+                <li><strong>Dedicated insights page</strong> — new route under <Code>/dashboard/analytics/insights</Code> with date range filtering and side-by-side audience + posting-time views</li>
+              </ul>
+              <Endpoint method="GET" path="/api/v1/analytics/insights" description="Returns AI-generated insights comparing current vs prior period: growth, top links, device share, peak hour, country concentration." />
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Audience Profile</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Demographics breakdown</strong> — top device, browser, OS, country, and referrer displayed as labeled progress bars with percentage share</li>
+                <li><strong>Platform split</strong> — visual segmented bar showing Mobile / Desktop / Other distribution</li>
+                <li><strong>Natural-language summary</strong> — auto-generated sentence describing the audience composition</li>
+              </ul>
+              <Endpoint method="GET" path="/api/v1/analytics/audience" description="Returns audience profile: top devices, browsers, OS, countries, referrers, and platform split percentages." />
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Posting Times</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Hourly heatmap</strong> — 24-column compact grid showing click distribution across hours</li>
+                <li><strong>Peak hour detection</strong> — highlights the best posting time with a ring indicator and time-of-day icon (morning, afternoon, evening, night)</li>
+                <li><strong>Smart recommendation</strong> — suggests optimal time-of-day part for posting new links</li>
+              </ul>
+              <Endpoint method="GET" path="/api/v1/analytics/posting-times" description="Returns 24-hour click distribution, peak hour, runner-up, dead zones, and posting recommendation." />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Deep Linking</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Links can now open native mobile apps instead of the browser. Support for iOS Universal Links and Android App Links with automatic app association file serving.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Universal Links (iOS)</strong> — enable per-link with an iOS bundle ID; Apple App Site Association file served automatically at <Code>/.well-known/apple-app-site-association</Code></li>
+                <li><strong>App Links (Android)</strong> — enable per-link with Android package name; Digital Asset Links file served at <Code>/.well-known/assetlinks.json</Code></li>
+                <li><strong>Auto-generated association files</strong> — both endpoints query the database for links with deep linking enabled, deduplicate identifiers, and serve valid JSON on every request</li>
+                <li><strong>URI scheme fallback</strong> — configurable custom URI scheme per link for apps that register their own protocol handler</li>
+                <li><strong>App store redirect</strong> — when the app is not installed, links can redirect to the App Store or Google Play store page</li>
+                <li><strong>Internal association API</strong> — authenticated endpoint at <Code>/api/internal/app-association</Code> for workers and provisioning systems to fetch associations for a specific domain</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Domains Management</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                You can now connect your own domain to brand your short links. The domains management page has been fully redesigned with an inline table view, expandable detail panels, and real-time DNS verification status backed by the Cloudflare Custom Hostnames API.
+              </p>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">UI Redesign</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Table view</strong> — domains listed with status badges (Verified / Pending / Error) and relative creation time</li>
+                <li><strong>Expandable rows</strong> — click any domain to see full metadata, CNAME and TLS status, and DNS record details</li>
+                <li><strong>Inline add form</strong> — add a domain directly in the page without modals or slide-overs</li>
+                <li><strong>DNS setup instructions</strong> — copy-ready CNAME and TXT record values with one-click copy buttons</li>
+                <li><strong>Verify Now</strong> — checks DNS TXT ownership and Cloudflare hostname + SSL status in one call</li>
+                <li><strong>Re-validate SSL</strong> — triggers a new Cloudflare SSL certificate issuance when validation times out</li>
+                <li><strong>Three-dot menu</strong> — per-row actions for setup instructions, set as primary, and delete</li>
+                <li><strong>Status banner</strong> — contextual banner at the top for important domain-related announcements</li>
+              </ul>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">API Endpoints</h4>
+              <Endpoint method="POST" path="/api/domains/:id/verify" description="Check DNS TXT record and Cloudflare hostname + SSL status. Returns severity (success/warning/error) and canRevalidate flag for stuck/timed-out domains." />
+              <Endpoint method="POST" path="/api/domains/:id/revalidate" description="Re-trigger Cloudflare SSL certificate validation. Calls revalidate() then syncs the updated status from Cloudflare back to the database." />
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Cloudflare Custom Hostnames Integration</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Automatic provisioning</strong> — when a domain is added, a Cloudflare Custom Hostname is created with http-01 SSL validation</li>
+                <li><strong>Status sync</strong> — hostname status (active/pending/blocked) and SSL status (active/pending_validation/validation_timed_out) are stored in the database and updated on each verify check</li>
+                <li><strong>Revalidation</strong> — PATCH endpoint calls Cloudflare's revalidate API, then fetches the updated state immediately and persists it</li>
+                <li><strong>Graceful degradation</strong> — domain creation and management work even when Cloudflare credentials are not configured; errors are persisted and displayed in the UI</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Billing &amp; Webhooks</h3>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Dodo Payments Webhook Fixes</h4>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Fixed several data persistence bugs in the billing webhook pipeline that caused incorrect plan mapping and billing cycle values.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>billingCycle normalization</strong> — Dodo sends capitalized Month/Year; now correctly mapped to monthly/annual</li>
+                <li><strong>Plan resolution</strong> — removed broken planFromConfiguredPrices() that compared product_id against price IDs (always no match); now uses mapProductToPlan() + guessPlanFromName()</li>
+                <li><strong>Amount precision</strong> — fixed double-division bug where /100 was applied in both the webhook and the billing page</li>
+                <li><strong>Enterprise plan</strong> — corrected enterprise product ID mapping so enterprise customers get the enterprise plan instead of business</li>
+                <li><strong>Enterprise plan added to PLANS</strong> — added full enterprise plan definition with <Code>planMap.ts</Code> and <Code>plans.ts</Code>, fixing the Vercel build type error where <Code>"enterprise"</Code> was missing from <Code>PlanKey</Code></li>
+                <li><strong>Free plan domains</strong> — removed custom domain limit on the Free plan (unlimited domains)</li>
+              </ul>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Webhook Event Types Overhaul</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Comprehensive event taxonomy</strong> — overhauled webhook event types with clear prefixes and granular event names across billing, link, and workspace domains</li>
+                <li><strong>Event filtering</strong> — subscribers can now opt into specific event types rather than receiving all events</li>
+                <li><strong>Consistent payload shape</strong> — standardized event payloads with version field and uniform metadata envelope</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">UI / UX</h3>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Light mode</strong> — domains page converted to white backgrounds with black accent buttons and gray borders/text; no slate/indigo/dark palettes remaining on that page</li>
+                <li><strong>Sidebar cleanup</strong> — COMING SOON badges removed from Link in Bio and Domains nav items; both pages are live</li>
+                <li><strong>Nested button fix</strong> — resolved hydration error by converting table row from button to div with role="button" and keyboard handler</li>
+                <li><strong>Dropdown clipping fix</strong> — removed overflow-hidden from table container so dropdown menus render unclipped outside table bounds</li>
+              </ul>
+            </Section>
 
             {/* ─── Overview ─────────────────────────────────── */}
             <Section id="overview">
@@ -420,6 +531,113 @@ func main() {
       "uniqueClicks": 2100,
       "ctr": 68.3,
       "trend": [120, 150, 98, 200, 175, 160, 210]
+    }
+  ]
+}`} />
+            </Section>
+
+            {/* ─── Smart Insights ─────────────────────────── */}
+            <Section id="smart-insights">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Smart Insights</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Smart Insights is an AI-powered analytics layer that goes beyond raw click numbers. It surfaces actionable recommendations, audience profiles, and optimal posting times — automatically generated from your click data.
+              </p>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Available in the dashboard sidebar under <strong>Insights</strong>, and from the Analytics page hero card.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Best Posting Times</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Posting Times analyzes the 24-hour click distribution across all your links to identify when your audience is most active. It extracts the hour of day from every click timestamp and groups them into one-hour buckets.
+              </p>
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">What you get</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li>24-hour heatmap showing click volume per hour</li>
+                <li>Peak hour identification (your highest-traffic window)</li>
+                <li>Runner-up and dead zone detection</li>
+                <li>Natural language recommendation (e.g., "Your audience peaks at 8 PM — schedule links to go live in the evening")</li>
+              </ul>
+              <CodeBlock code={`GET /api/v1/analytics/posting-times?workspaceId=ws_xxx&range=30d
+
+{
+  "buckets": [
+    { "hour": 0,  "label": "12 AM", "clicks": 42,  "percentage": 1.2 },
+    { "hour": 8,  "label": "8 AM",  "clicks": 145, "percentage": 4.1 },
+    { "hour": 20, "label": "8 PM",  "clicks": 680, "percentage": 19.2 },
+    ...
+  ],
+  "peak":      { "hour": 20, "label": "8 PM",  "clicks": 680 },
+  "runnerUp":  { "hour": 9,  "label": "9 AM",  "clicks": 520 },
+  "deadZone":  { "hour": 3,  "label": "3 AM",  "clicks": 8 },
+  "recommendation": "Your audience is most active during Evening, with peak engagement at 8 PM. Evening accounts for 42% of all clicks..."
+}`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Audience Intelligence</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Audience Intelligence builds a real-time profile of who your visitors are — what devices they use, which browsers, operating systems, countries, and referrers drive your traffic. It surfaces the top value for each dimension with percentage share.
+              </p>
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">What you get</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li>Top device type (mobile / desktop / tablet) with percentage</li>
+                <li>Top browser and OS</li>
+                <li>Top country and referrer source</li>
+                <li>Mobile vs desktop platform split (visual bar + percentages)</li>
+                <li>Summarized audience profile sentence</li>
+              </ul>
+              <CodeBlock code={`GET /api/v1/analytics/audience?workspaceId=ws_xxx&range=30d
+
+{
+  "topDevice":   { "label": "mobile",  "percentage": 68 },
+  "topBrowser":  { "label": "Chrome",  "percentage": 52 },
+  "topOs":       { "label": "iOS",     "percentage": 34 },
+  "topCountry":  { "label": "United States", "percentage": 41 },
+  "topReferrer": { "label": "twitter.com",    "percentage": 28 },
+  "mobileShare": 68,
+  "desktopShare": 29,
+  "platformSplit": [
+    { "platform": "Mobile",  "percentage": 68 },
+    { "platform": "Desktop", "percentage": 29 },
+    { "platform": "Other",   "percentage": 3 }
+  ],
+  "summary": "Your audience is primarily Mobile (68% mobile, 29% desktop), using Chrome on iOS. Most traffic comes from United States, driven largely by twitter.com."
+}`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Actionable Insights</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The Insights engine automatically scans your workspace data across multiple dimensions and generates contextual, color-coded cards. Each card has a type — <strong>opportunity</strong>, <strong>trend</strong>, <strong>warning</strong>, or <strong>recommendation</strong> — with a human-readable title, description, and metric badge.
+              </p>
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Insight triggers</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Growth trend</strong> — detects traffic surges (&gt;20% up) or drops (&gt;20% down) vs previous period</li>
+                <li><strong>Star performer</strong> — flags links that drive more than double the clicks of the second-best link</li>
+                <li><strong>Mobile-first alert</strong> — recommends mobile optimization when mobile share exceeds 80%</li>
+                <li><strong>Best posting time</strong> — shows your peak hour with engagement advice</li>
+                <li><strong>Country concentration</strong> — alerts when a single country drives more than 50% of traffic</li>
+              </ul>
+              <CodeBlock code={`GET /api/v1/analytics/insights?workspaceId=ws_xxx&range=30d
+
+{
+  "insights": [
+    {
+      "type": "opportunity",
+      "title": "Best Posting Time",
+      "description": "Your audience peaks at 8 PM (680 clicks). Schedule your most important links to go live during evening for maximum engagement.",
+      "metric": "8 PM",
+      "icon": "clock"
+    },
+    {
+      "type": "trend",
+      "title": "Traffic Surge",
+      "description": "Your click volume is up 34% compared to the previous period. This is a significant growth spike.",
+      "metric": "+34%",
+      "icon": "trending-up"
+    },
+    {
+      "type": "recommendation",
+      "title": "Mobile-First Audience",
+      "description": "68% of your traffic is on mobile. Ensure your landing pages load quickly and are fully responsive.",
+      "metric": "68% mobile",
+      "icon": "smartphone"
     }
   ]
 }`} />
