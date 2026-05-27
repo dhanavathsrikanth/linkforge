@@ -9,6 +9,7 @@ interface OverviewResponse {
   uniqueClicks: number;
   clicksToday: number;
   clicksGrowth: number;
+  deepLinkClicks: number;
   topLink: {
     id: string;
     slug: string;
@@ -139,6 +140,13 @@ export async function GET(request: NextRequest) {
 
     const uniqueClicks = uniqueClicksResult[0]?.uniqueClicks || 0;
 
+    const deepLinkResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(clicks)
+      .where(and(buildWhere(workspaceId, linkId, start, end), eq(clicks.isDeepLink, true)));
+
+    const deepLinkClicks = deepLinkResult[0]?.count || 0;
+
     let topLink: OverviewResponse["topLink"] = null;
     if (!linkId) {
       const topLinkData = await db
@@ -215,6 +223,7 @@ export async function GET(request: NextRequest) {
       uniqueClicks,
       clicksToday,
       clicksGrowth,
+      deepLinkClicks,
       topLink,
       averageCTR,
       topCountry,

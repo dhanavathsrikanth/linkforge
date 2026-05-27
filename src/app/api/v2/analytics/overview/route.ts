@@ -105,6 +105,12 @@ export async function GET(request: Request) {
     .where(clickWhere);
   const uniqueClicks = uniqueResult?.unique || 0;
 
+  const [deepLinkResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(clicks)
+    .where(and(clickWhere, eq(clicks.isDeepLink, true)));
+  const deepLinkClicks = deepLinkResult?.count || 0;
+
   const [topLinkData] = await db
     .select({
       linkId: clicks.linkId,
@@ -152,6 +158,7 @@ export async function GET(request: Request) {
       uniqueClicks,
       clicksToday,
       clicksGrowth,
+      deepLinkClicks,
       topLink,
       topCountry,
       topDevice,

@@ -160,8 +160,8 @@ export default function DashboardPage() {
           isLoading={overviewLoading}
         />
         <KPICard
-          label="Clicks Today"
-          value={last7d?.clicksToday || 0}
+          label="Deep Link Clicks"
+          value={overview?.deepLinkClicks || 0}
           isLoading={overviewLoading}
         />
         <KPICard

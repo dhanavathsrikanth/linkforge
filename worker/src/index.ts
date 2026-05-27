@@ -155,31 +155,70 @@ export default {
     }
 
     // ── Well-known: apple-app-site-association ────────────────────────────────────
-    // Serves Universal Links configuration for iOS
+    // Serves Universal Links configuration for iOS — dynamically built from DB
     if (url.pathname === "/.well-known/apple-app-site-association") {
-      const body = JSON.stringify({
-        applinks: {
-          apps: [],
-          details: [
-            {
-              appIDs: [], // populated per-domain from DB if available
-              components: [
-                { "/": "/s/*" },
-                { "/": "/*" },
-              ],
-            },
-          ],
-        },
-      });
-      return new Response(body, {
+      const host = req.headers.get("host") || url.hostname;
+      const domain = host.split(":")[0];
+      const kvKey = `well-known:apple:${domain}`;
+      let appleConfig: unknown | null = await env.LINKS_KV.get(kvKey, "json");
+
+      if (!appleConfig) {
+        try {
+          const apiRes = await fetch(
+            `${env.API_URL}/api/internal/app-association?domain=${encodeURIComponent(domain)}`,
+            { headers: { "x-worker-secret": env.WORKER_SECRET } }
+          );
+          if (apiRes.ok) {
+            const assoc = await apiRes.json() as { apple: { appIDs: string[]; components: { "/": string; comment?: string }[] }[] };
+            appleConfig = {
+              applinks: {
+                apps: [],
+                details: assoc.apple.length > 0
+                  ? assoc.apple
+                  : [{ appIDs: [], components: [{ "/": "/s/*" }, { "/": "/*" }] }],
+              },
+            };
+            ctx.waitUntil(env.LINKS_KV.put(kvKey, JSON.stringify(appleConfig), { expirationTtl: 300 }));
+          }
+        } catch { /* fall through */ }
+      }
+
+      if (!appleConfig) {
+        appleConfig = { applinks: { apps: [], details: [{ appIDs: [], components: [{ "/": "/s/*" }, { "/": "/*" }] }] } };
+      }
+
+      return new Response(JSON.stringify(appleConfig), {
         headers: { "Content-Type": "application/json" },
       });
     }
 
     // ── Well-known: assetlinks.json ───────────────────────────────────────────────
-    // Serves Android App Links configuration
+    // Serves Android App Links configuration — dynamically built from DB
     if (url.pathname === "/.well-known/assetlinks.json") {
-      return new Response(JSON.stringify([]), {
+      const host = req.headers.get("host") || url.hostname;
+      const domain = host.split(":")[0];
+      const kvKey = `well-known:android:${domain}`;
+      let androidConfig: unknown | null = await env.LINKS_KV.get(kvKey, "json");
+
+      if (!androidConfig) {
+        try {
+          const apiRes = await fetch(
+            `${env.API_URL}/api/internal/app-association?domain=${encodeURIComponent(domain)}`,
+            { headers: { "x-worker-secret": env.WORKER_SECRET } }
+          );
+          if (apiRes.ok) {
+            const assoc = await apiRes.json() as { android: { relation: string[]; target: { namespace: string; package_name: string; sha256_cert_fingerprints: string[] } }[] };
+            androidConfig = assoc.android.length > 0 ? assoc.android : [];
+            ctx.waitUntil(env.LINKS_KV.put(kvKey, JSON.stringify(androidConfig), { expirationTtl: 300 }));
+          }
+        } catch { /* fall through */ }
+      }
+
+      if (!androidConfig) {
+        androidConfig = [];
+      }
+
+      return new Response(JSON.stringify(androidConfig), {
         headers: { "Content-Type": "application/json" },
       });
     }

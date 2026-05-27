@@ -7,6 +7,7 @@ interface OverviewData {
   uniqueClicks: number;
   clicksToday: number;
   clicksGrowth: number;
+  deepLinkClicks: number;
   topLink: {
     id: string;
     slug: string;

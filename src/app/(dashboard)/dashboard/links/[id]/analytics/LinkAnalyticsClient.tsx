@@ -217,8 +217,8 @@ export function LinkAnalyticsClient({ linkId, workspaceId }: LinkAnalyticsClient
           isLoading={overviewLoading}
         />
         <KPICard
-          label="Avg Clicks / Link"
-          value={overview?.averageCTR || 0}
+          label="Deep Link Clicks"
+          value={overview?.deepLinkClicks || 0}
           isLoading={overviewLoading}
         />
       </div>
