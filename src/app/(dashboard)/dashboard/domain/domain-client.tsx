@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Check, Loader2, AlertCircle, Trash2, X, RefreshCw, Copy } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Plus, Check, Loader2, AlertCircle, Trash2, X,
+  RefreshCw, Copy, Globe, Shield,
+  ArrowRight, CheckCircle2, XCircle,
+  Clock, AlertTriangle, MoreHorizontal,
+  ExternalLink, Calendar, Server, Flag,
+  ChevronDown, ChevronRight, Layers
+} from "lucide-react";
 import { useSafeFetch } from "@/hooks/useBillingError";
 
 interface Domain {
@@ -11,18 +18,113 @@ interface Domain {
   verificationToken: string;
   isDefault: boolean;
   linkCount: number;
+  createdAt: string;
+  cfHostnameId: string | null;
+  cfHostnameStatus: string | null;
+  cfSslStatus: string | null;
+  cfError: string | null;
+  cfVerificationErrors: string[] | null;
+  cfSslValidationErrors: Array<{ message?: string }> | null;
+  cfValidationRecords: Array<{
+    cname?: string;
+    cname_target?: string;
+    txt_name?: string;
+    txt_value?: string;
+    http_url?: string;
+    http_body?: string;
+  }> | null;
+}
+
+const CNAME_TARGET = "links.pivoturl.com";
+
+type StatusLevel = "success" | "pending" | "error" | "inactive";
+
+function classifyStatus(status: string | null): StatusLevel {
+  if (!status) return "inactive";
+  if (status === "active") return "success";
+  if (["validation_timed_out", "initializing_timed_out", "blocked", "test_blocked", "test_failed", "moved"].includes(status))
+    return "error";
+  if (["pending", "initializing", "pending_validation", "pending_issuance", "pending_deployment", "pending_provisioned", "test_pending"].includes(status))
+    return "pending";
+  return "inactive";
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+function RowMenu({ onDelete, onSetup, onSetPrimary, isVerified, isDefault }: {
+  onDelete: () => void;
+  onSetup?: () => void;
+  onSetPrimary?: () => void;
+  isVerified: boolean;
+  isDefault: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-44 rounded-lg border border-gray-200 bg-white shadow-xl shadow-black/10 py-1 z-50">
+          {!isVerified && onSetup && (
+            <button onClick={() => { setOpen(false); onSetup(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
+              <ExternalLink className="h-3.5 w-3.5" /> View Setup
+            </button>
+          )}
+          {isVerified && !isDefault && onSetPrimary && (
+            <button onClick={() => { setOpen(false); onSetPrimary(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
+              <Check className="h-3.5 w-3.5" /> Set as Primary
+            </button>
+          )}
+          <button onClick={() => { setOpen(false); onDelete(); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors">
+            <Trash2 className="h-3.5 w-3.5" /> Delete Domain
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const safeFetch = useSafeFetch();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newDomain, setNewDomain] = useState("");
-  const [step, setStep] = useState<1 | 2>(1);
+  const [adding, setAdding] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [revalidating, setRevalidating] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState("");
-  const [addedDomainData, setAddedDomainData] = useState<{
+  const [verifySeverity, setVerifySeverity] = useState<"success" | "warning" | "error" | null>(null);
+  const [canRevalidate, setCanRevalidate] = useState(false);
+  const [activeDomain, setActiveDomain] = useState<{
     id: string;
     domain: string;
     verificationToken: string;
@@ -52,319 +154,467 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   async function handleAddDomain(e: React.FormEvent) {
     e.preventDefault();
     if (!newDomain) return;
-
+    setAdding(true);
     try {
       const res = await safeFetch("/api/domains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId, domain: newDomain.trim() }),
       });
-      if (!res) return; // Intercepted by 402 handler
-
+      if (!res) return;
       const data = await res.json();
-
       if (res.ok) {
-        setAddedDomainData(data);
-        setStep(2);
-        fetchDomains(); // refresh list
+        setActiveDomain({
+          id: data.id,
+          domain: data.domain,
+          verificationToken: data.verificationToken,
+          cnameTarget: CNAME_TARGET,
+          txtRecord: `_pivoturl-verify.${data.domain}`,
+        });
+        setVerifyMessage("");
+        setVerifySeverity(null);
+        setCanRevalidate(false);
+        setNewDomain("");
+        setShowAddForm(false);
+        setExpandedId(data.id);
+        fetchDomains();
       } else {
-        alert(data.error?.message || data.error || "Failed to add domain");
+        setVerifySeverity("error");
+        setVerifyMessage(data.error?.message || data.error || "Failed to add domain");
       }
-    } catch (err) {
-      console.error(err);
-      alert("Something went wrong");
+    } catch {
+      setVerifySeverity("error");
+      setVerifyMessage("Something went wrong");
+    } finally {
+      setAdding(false);
     }
   }
 
   async function handleVerify(id: string) {
     setVerifying(true);
     setVerifyMessage("");
+    setVerifySeverity(null);
+    setCanRevalidate(false);
     try {
-      const res = await safeFetch(`/api/domains/${id}/verify`, {
-        method: "POST",
-      });
+      const res = await safeFetch(`/api/domains/${id}/verify`, { method: "POST" });
       if (!res) return;
-
       const data = await res.json();
-      
       if (data.verified) {
-        setVerifyMessage("Verified successfully!");
+        setVerifySeverity("success");
+        setVerifyMessage("Domain verified successfully! SSL is active and ready.");
         fetchDomains();
-        setTimeout(() => {
-          setIsSlideOverOpen(false);
-          setStep(1);
-          setNewDomain("");
-          setAddedDomainData(null);
-          setVerifyMessage("");
-        }, 2000);
       } else {
+        setVerifySeverity(data.severity || "warning");
         setVerifyMessage(data.message || "TXT record not found yet.");
+        setCanRevalidate(data.canRevalidate || false);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setVerifySeverity("error");
       setVerifyMessage("Error occurred during verification.");
     } finally {
       setVerifying(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this domain? All links using it will revert to the default domain.")) return;
-    
+  async function handleRevalidate(id: string) {
+    setRevalidating(true);
     try {
-      const res = await safeFetch(`/api/domains/${id}`, {
-        method: "DELETE",
-      });
+      const res = await safeFetch(`/api/domains/${id}/revalidate`, { method: "POST" });
       if (!res) return;
-
       const data = await res.json();
-      
       if (res.ok) {
+        setVerifySeverity("success");
+        setVerifyMessage(data.message || "Revalidation triggered.");
+        setCanRevalidate(false);
+      } else {
+        setVerifySeverity("error");
+        setVerifyMessage(data.error || "Revalidation failed.");
+      }
+    } catch {
+      setVerifySeverity("error");
+      setVerifyMessage("Error during revalidation.");
+    } finally {
+      setRevalidating(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this domain? Links using it will revert to the default domain.")) return;
+    try {
+      const res = await safeFetch(`/api/domains/${id}`, { method: "DELETE" });
+      if (!res) return;
+      if (res.ok) {
+        if (expandedId === id) setExpandedId(null);
+        if (activeDomain?.id === id) { setActiveDomain(null); setVerifyMessage(""); }
         fetchDomains();
       } else {
+        const data = await res.json();
         alert(data.error || "Failed to delete domain");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Something went wrong");
     }
   }
 
   async function handleSetPrimary(id: string) {
     try {
-      const res = await safeFetch(`/api/domains/${id}`, {
-        method: "PATCH",
-      });
+      const res = await safeFetch(`/api/domains/${id}`, { method: "PATCH" });
       if (!res) return;
-
-      if (res.ok) {
-        fetchDomains();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Failed to set domain as primary");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Something went wrong");
-    }
+      if (res.ok) fetchDomains();
+      else { const data = await res.json(); alert(data.error || "Failed to set domain as primary"); }
+    } catch { alert("Something went wrong"); }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    // Could add toast here
+  const toggleExpand = (id: string, d: Domain) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    setVerifyMessage("");
+    setVerifySeverity(null);
+    setCanRevalidate(false);
+    setActiveDomain({
+      id: d.id,
+      domain: d.domain,
+      verificationToken: d.verificationToken,
+      cnameTarget: CNAME_TARGET,
+      txtRecord: `_pivoturl-verify.${d.domain}`,
+    });
   };
 
+  const renderStatusBadge = (d: Domain) => {
+    if (d.verified) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 border border-emerald-200">
+          <CheckCircle2 className="h-3 w-3" />
+          Verified
+        </span>
+      );
+    }
+    if (d.cfError) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 border border-red-200">
+          <XCircle className="h-3 w-3" />
+          Error
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-600 border border-amber-200">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+        Pending
+      </span>
+    );
+  };
+
+  const dnsRecords = (d: Domain) => [
+    {
+      type: "CNAME",
+      name: "go",
+      content: CNAME_TARGET,
+      ttl: "Auto",
+      status: classifyStatus(d.cfHostnameStatus) === "success" ? "Verified" : classifyStatus(d.cfHostnameStatus) === "error" ? "Error" : "Pending",
+      level: classifyStatus(d.cfHostnameStatus),
+    },
+    {
+      type: "TXT",
+      name: `_pivoturl-verify.${d.domain}`,
+      content: d.verificationToken,
+      ttl: "Auto",
+      status: d.verified ? "Verified" : "Pending",
+      level: d.verified ? "success" as StatusLevel : "pending" as StatusLevel,
+    },
+  ];
+
+  const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Top Status Banner */}
+      <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
+        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="text-sm text-amber-800">
+          <span className="font-semibold">enabled unlimited rate limits</span> on free plan.
+        </div>
+      </div>
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Custom Domains</h1>
-          <p className="text-sm text-slate-400">Connect your own domain to brand your short links</p>
+          <h1 className="text-xl font-bold text-black">Custom Domains</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Connect your own domain to brand your links</p>
         </div>
         <button
-          onClick={() => {
-            setStep(1);
-            setNewDomain("");
-            setAddedDomainData(null);
-            setIsSlideOverOpen(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
+          onClick={() => { setShowAddForm(!showAddForm); setActiveDomain(null); setVerifyMessage(""); setNewDomain(""); }}
+          className="inline-flex items-center gap-2 rounded-lg bg-black hover:bg-gray-800 px-4 py-2 text-sm font-medium text-white transition-all shadow-lg shadow-black/10"
         >
           <Plus className="h-4 w-4" />
           Add Domain
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-        </div>
-      ) : domains.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/50 p-12 text-center">
-          <p className="text-slate-400">No custom domains added yet.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {domains.map((d) => (
-            <div key={d.id} className="rounded-xl border border-slate-800 bg-slate-900 p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-mono text-lg font-semibold text-white truncate">{d.domain}</h3>
-                  {d.verified ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-                      <Check className="h-3 w-3" />
-                      Verified
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400 border border-amber-500/20">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                      Pending DNS
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-slate-400">{d.linkCount} active link{d.linkCount !== 1 ? 's' : ''}</p>
-              </div>
-              
-              <div className="mt-6 flex items-center justify-between">
-                {d.verified ? (
-                  d.isDefault ? (
-                    <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1">
-                      <Check className="h-4 w-4" /> Primary
-                    </span>
-                  ) : (
-                    <button 
-                      onClick={() => handleSetPrimary(d.id)}
-                      className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors"
-                    >
-                      Set as Primary
-                    </button>
-                  )
-                ) : (
-                  <button 
-                    onClick={() => {
-                      setAddedDomainData({
-                        id: d.id,
-                        domain: d.domain,
-                        verificationToken: d.verificationToken,
-                        cnameTarget: "links.pivoturl.com",
-                        txtRecord: `_pivoturl-verify.${d.domain}`
-                      });
-                      setStep(2);
-                      setIsSlideOverOpen(true);
-                    }}
-                    className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors"
-                  >
-                    View Setup Instructions
-                  </button>
-                )}
-                
-                <button
-                  onClick={() => handleDelete(d.id)}
-                  className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-400/10"
-                  title="Delete domain"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+      {/* Inline Add Form */}
+      {showAddForm && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          <form onSubmit={handleAddDomain} className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Domain Name</label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={newDomain}
+                  onChange={(e) => setNewDomain(e.target.value.toLowerCase())}
+                  placeholder="go.acmecorp.com"
+                  className="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 py-2 text-sm text-black placeholder-gray-400 focus:border-black focus:ring-1 focus:ring-black/20 outline-none transition-all"
+                  required
+                />
               </div>
             </div>
-          ))}
+            <button
+              type="submit"
+              disabled={adding}
+              className="inline-flex items-center gap-2 rounded-lg bg-black hover:bg-gray-800 px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50 shrink-0"
+            >
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              Add
+            </button>
+            <button type="button" onClick={() => setShowAddForm(false)} className="p-2 text-gray-400 hover:text-black transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </form>
         </div>
       )}
 
-      {/* Slide-over Panel */}
-      {isSlideOverOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 p-6 flex flex-col h-full animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-bold text-white">Add Custom Domain</h2>
-              <button 
-                onClick={() => setIsSlideOverOpen(false)}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Table */}
+      <div className="rounded-lg border border-gray-200 bg-white">
+        {/* Table Header */}
+        <div className="grid grid-cols-[1fr_140px_110px_44px] gap-4 px-5 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div>Domain</div>
+          <div>Status</div>
+          <div>Created</div>
+          <div></div>
+        </div>
 
-            {step === 1 ? (
-              <form onSubmit={handleAddDomain} className="space-y-4 flex-1">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Domain Name</label>
-                  <input
-                    type="text"
-                    value={newDomain}
-                    onChange={(e) => setNewDomain(e.target.value.toLowerCase())}
-                    placeholder="go.acmecorp.com"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-white placeholder:text-slate-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-all"
-                    required
-                  />
-                  <p className="mt-2 text-xs text-slate-500">Do not include http:// or trailing slashes.</p>
-                </div>
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl bg-purple-600 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
-                  >
-                    Next Step
-                  </button>
-                </div>
-              </form>
-            ) : addedDomainData && (
-              <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-amber-400 mb-1">DNS Configuration Required</h4>
-                    <p className="text-sm text-slate-400">Add these records to your domain's DNS settings.</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-slate-300">1. CNAME Record</h4>
-                  <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
-                    <div className="grid grid-cols-3 text-xs font-semibold text-slate-500 border-b border-slate-800 bg-slate-900/50 px-4 py-2">
-                      <div>Type</div>
-                      <div>Name</div>
-                      <div>Value</div>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm text-slate-300 px-4 py-3 font-mono items-center">
-                      <div>CNAME</div>
-                      <div>go <span className="text-slate-600 text-xs">(or @)</span></div>
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">{addedDomainData.cnameTarget}</span>
-                        <button onClick={() => copyToClipboard(addedDomainData.cnameTarget)} className="text-slate-500 hover:text-white">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-slate-300">2. Verification TXT Record</h4>
-                  <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
-                    <div className="grid grid-cols-3 text-xs font-semibold text-slate-500 border-b border-slate-800 bg-slate-900/50 px-4 py-2">
-                      <div>Type</div>
-                      <div>Name</div>
-                      <div>Value</div>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm text-slate-300 px-4 py-3 font-mono items-center">
-                      <div>TXT</div>
-                      <div className="flex items-center justify-between pr-2">
-                        <span className="truncate" title={addedDomainData.txtRecord}>{addedDomainData.txtRecord}</span>
-                        <button onClick={() => copyToClipboard(addedDomainData.txtRecord)} className="text-slate-500 hover:text-white">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">{addedDomainData.verificationToken}</span>
-                        <button onClick={() => copyToClipboard(addedDomainData.verificationToken)} className="text-slate-500 hover:text-white">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-slate-800">
-                  <button
-                    onClick={() => handleVerify(addedDomainData.id)}
-                    disabled={verifying}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 py-2.5 text-sm font-medium text-white hover:bg-slate-700 transition-colors disabled:opacity-50"
-                  >
-                    {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Check Verification Status
-                  </button>
-                  {verifyMessage && (
-                    <p className={`mt-3 text-center text-sm ${verifyMessage.includes("success") ? "text-emerald-400" : "text-amber-400"}`}>
-                      {verifyMessage}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 rounded-b-lg">
+            <Loader2 className="h-5 w-5 animate-spin text-black" />
           </div>
-        </div>
-      )}
+        ) : domains.length === 0 ? (
+          <div className="py-14 text-center">
+            <Globe className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm font-medium text-gray-600 mb-1">No domains yet</p>
+            <p className="text-xs text-gray-400 mb-4">Add a domain to brand your short links.</p>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-black hover:bg-gray-800 px-4 py-2 text-sm font-medium text-white transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add Domain
+            </button>
+          </div>
+        ) : (
+          <div>
+            {domains.map((d, index) => {
+              const isExpanded = expandedId === d.id;
+              const isLast = index === domains.length - 1;
+              return (
+                <div key={d.id} className={`border-b border-gray-100 last:border-b-0 ${isLast ? 'rounded-b-lg' : ''}`}>
+                  {/* Row */}
+                  <div
+                    onClick={() => toggleExpand(d.id, d)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(d.id, d); }}}
+                    role="button"
+                    tabIndex={0}
+                    className="w-full grid grid-cols-[1fr_140px_110px_44px] gap-4 px-5 py-3.5 text-left cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`flex h-7 w-7 items-center justify-center rounded-md ${
+                        d.verified ? "bg-emerald-50" : "bg-gray-100"
+                      }`}>
+                        {d.verified ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Globe className="h-3.5 w-3.5 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-mono text-sm font-medium text-black truncate block">{d.domain}</span>
+                      </div>
+                      {d.isDefault && d.verified && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 text-gray-600 border border-gray-200 px-1.5 py-0.5 text-[10px] font-semibold shrink-0">
+                          <Check className="h-2.5 w-2.5" />
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      {renderStatusBadge(d)}
+                    </div>
+                    <div className="flex items-center text-xs text-gray-400">
+                      <Calendar className="h-3 w-3 mr-1.5 text-gray-300" />
+                      {timeAgo(d.createdAt)}
+                    </div>
+                    <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                      <RowMenu
+                        onDelete={() => handleDelete(d.id)}
+                        onSetup={() => toggleExpand(d.id, d)}
+                        onSetPrimary={() => handleSetPrimary(d.id)}
+                        isVerified={d.verified}
+                        isDefault={d.isDefault}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Expanded Detail */}
+                  {isExpanded && activeDomain && (
+                    <div className="border-t border-gray-200 bg-gray-50 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="px-5 py-5 space-y-5">
+                        {/* Domain Detail Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+                              <Globe className="h-5 w-5 text-gray-600" />
+                            </div>
+                            <div>
+                              <h2 className="text-base font-semibold text-black font-mono">{activeDomain.domain}</h2>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" /> Created {timeAgo(d.createdAt)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Server className="h-3 w-3" /> Cloudflare
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Flag className="h-3 w-3" /> {d.linkCount} link{d.linkCount !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Callout */}
+                        {verifyMessage && (
+                          <div className={`flex items-start gap-2.5 px-4 py-3 rounded-lg border text-sm ${
+                            verifySeverity === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+                            verifySeverity === "error" ? "bg-red-50 border-red-200 text-red-700" :
+                            "bg-amber-50 border-amber-200 text-amber-700"
+                          }`}>
+                            {verifySeverity === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> :
+                             verifySeverity === "error" ? <XCircle className="h-4 w-4 shrink-0 mt-0.5" /> :
+                             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />}
+                            <span>{verifyMessage}</span>
+                          </div>
+                        )}
+
+                        {/* Metadata Row */}
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="flex items-center gap-1.5 text-xs text-gray-600">
+                            Status: {renderStatusBadge(d)}
+                          </span>
+                          {d.cfHostnameId && (
+                            <>
+                              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                                CNAME: <span className={`font-medium ${classifyStatus(d.cfHostnameStatus) === "success" ? "text-emerald-600" : classifyStatus(d.cfHostnameStatus) === "error" ? "text-red-600" : "text-amber-600"}`}>
+                                  {d.cfHostnameStatus ? d.cfHostnameStatus.replace(/_/g, " ") : "—"}
+                                </span>
+                              </span>
+                              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                                SSL: <span className={`font-medium ${classifyStatus(d.cfSslStatus) === "success" ? "text-emerald-600" : classifyStatus(d.cfSslStatus) === "error" ? "text-red-600" : "text-amber-600"}`}>
+                                  {d.cfSslStatus ? d.cfSslStatus.replace(/_/g, " ") : "—"}
+                                </span>
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Verify / Revalidate Actions */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleVerify(activeDomain.id)}
+                            disabled={verifying}
+                            className="inline-flex items-center gap-2 rounded-lg bg-black hover:bg-gray-800 px-3.5 py-2 text-xs font-medium text-white transition-all disabled:opacity-50"
+                          >
+                            {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            {verifying ? "Checking..." : "Verify Now"}
+                          </button>
+                          {canRevalidate && (
+                            <button
+                              onClick={() => handleRevalidate(activeDomain.id)}
+                              disabled={revalidating}
+                              className="inline-flex items-center gap-2 rounded-lg bg-amber-50 hover:bg-amber-100 px-3.5 py-2 text-xs font-medium text-amber-700 border border-amber-200 transition-all disabled:opacity-50"
+                            >
+                              {revalidating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />}
+                              {revalidating ? "Re-validating..." : "Re-validate SSL"}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* DNS Records Table */}
+                        <div>
+                          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5" />
+                            DNS Records
+                          </h3>
+                          <div className="rounded-lg border border-gray-200 overflow-hidden">
+                            <div className="grid grid-cols-[70px_1fr_1fr_60px_90px] text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 border-b border-gray-200">
+                              {["Type", "Name", "Content", "TTL", "Status"].map((h) => (
+                                <div key={h} className="px-4 py-2.5">{h}</div>
+                              ))}
+                            </div>
+                            {dnsRecords(d).map((rec, i) => {
+                              const level = rec.level;
+                              return (
+                                <div key={i} className={`grid grid-cols-[70px_1fr_1fr_60px_90px] text-sm border-b border-gray-100 last:border-b-0 ${
+                                  level === "success" ? "bg-emerald-50/30" : level === "error" ? "bg-red-50/30" : ""
+                                }`}>
+                                  <div className={`px-4 py-3 font-mono text-xs font-semibold ${
+                                    rec.type === "CNAME" ? "text-gray-800" : "text-emerald-600"
+                                  }`}>{rec.type}</div>
+                                  <div className="px-4 py-3 font-mono text-xs text-gray-700 truncate flex items-center gap-2 group">
+                                    <span className="truncate">{rec.name}</span>
+                                    <button onClick={() => copyToClipboard(rec.name)} className="text-gray-300 hover:text-black shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Copy className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                  <div className="px-4 py-3 font-mono text-xs text-gray-500 truncate flex items-center gap-2 group">
+                                    <span className="truncate">{rec.content}</span>
+                                    <button onClick={() => copyToClipboard(rec.content)} className="text-gray-300 hover:text-black shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Copy className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                  <div className="px-4 py-3 text-xs text-gray-400">{rec.ttl}</div>
+                                  <div className="px-4 py-3 flex items-center">
+                                    {level === "success" ? (
+                                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                                        <CheckCircle2 className="h-3 w-3" /> Verified
+                                      </span>
+                                    ) : level === "error" ? (
+                                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+                                        <XCircle className="h-3 w-3" /> Error
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                        Pending
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

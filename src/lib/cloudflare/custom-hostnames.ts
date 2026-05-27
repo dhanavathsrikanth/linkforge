@@ -70,6 +70,14 @@ export interface CfCustomHostname {
   verification_errors?: string[];
 }
 
+export interface CfListResultInfo {
+  count: number;
+  page: number;
+  per_page: number;
+  total_count: number;
+  total_pages: number;
+}
+
 export interface CfCreateHostnameOptions {
   hostname: string;
   sslMethod?: "http" | "txt" | "email";
@@ -80,6 +88,7 @@ export interface CfCreateHostnameOptions {
 interface CfApiResponse<T> {
   success: boolean;
   result: T;
+  result_info?: CfListResultInfo;
   errors?: Array<{ code: number; message: string; documentation_url?: string }>;
   messages?: Array<{ code: number; message: string; documentation_url?: string }>;
 }
@@ -177,18 +186,34 @@ class CloudflareCustomHostnames {
   }
 
   async list(options?: {
+    id?: string;
     hostname?: string;
-    status?: CfHostnameStatus;
+    hostnameFilter?: string;
+    hostnameStatus?: CfHostnameStatus;
     sslStatus?: CfSslStatus;
+    certificateAuthority?: 'google' | 'lets_encrypt' | 'ssl_com';
+    customOriginServer?: string;
+    direction?: 'asc' | 'desc';
+    order?: 'ssl' | 'ssl_status';
     page?: number;
     perPage?: number;
-  }): Promise<{ result: CfCustomHostname[]; total: number }> {
+    ssl?: 0 | 1;
+    wildcard?: boolean;
+  }): Promise<{ result: CfCustomHostname[]; resultInfo: CfListResultInfo }> {
     const params = new URLSearchParams();
+    if (options?.id) params.set("id", options.id);
     if (options?.hostname) params.set("hostname", options.hostname);
-    if (options?.status) params.set("status", options.status);
-    if (options?.sslStatus) params.set("ssl.status", options.sslStatus);
+    if (options?.hostnameFilter) params.set("hostname[contain]", options.hostnameFilter);
+    if (options?.hostnameStatus) params.set("hostname_status", options.hostnameStatus);
+    if (options?.sslStatus) params.set("ssl_status", options.sslStatus);
+    if (options?.certificateAuthority) params.set("certificate_authority", options.certificateAuthority);
+    if (options?.customOriginServer) params.set("custom_origin_server", options.customOriginServer);
+    if (options?.direction) params.set("direction", options.direction);
+    if (options?.order) params.set("order", options.order);
     if (options?.page) params.set("page", options.page.toString());
     if (options?.perPage) params.set("per_page", options.perPage.toString());
+    if (options?.ssl !== undefined) params.set("ssl", options.ssl.toString());
+    if (options?.wildcard !== undefined) params.set("wildcard", options.wildcard.toString());
 
     const queryString = params.toString();
     const endpoint = queryString ? `/custom_hostnames?${queryString}` : "/custom_hostnames";
@@ -196,7 +221,10 @@ class CloudflareCustomHostnames {
     const data = await this.request<CfCustomHostname[]>(endpoint);
     return {
       result: data.result,
-      total: Array.isArray(data.result) ? data.result.length : 0,
+      resultInfo: data.result_info ?? {
+        count: 0, page: 1, per_page: 20,
+        total_count: 0, total_pages: 0,
+      },
     };
   }
 

@@ -207,10 +207,33 @@ export async function POST(
       }
     }
 
+    const revalidateStates = [
+      "validation_timed_out",
+      "initializing_timed_out",
+      "pending_validation",
+      "pending",
+    ];
+
+    const canRevalidate = cfConfigured && !!domainRecord.cfHostnameId && (
+      revalidateStates.includes(cfHostnameStatus ?? "") ||
+      revalidateStates.includes(cfSslStatus ?? "")
+    );
+
+    let severity: "success" | "warning" | "error" = "success";
+    if (!fullyVerified) {
+      if (cfError) {
+        severity = "error";
+      } else {
+        severity = "warning";
+      }
+    }
+
     return NextResponse.json({
       verified: fullyVerified,
+      severity,
       message: userMessage,
       actionable: actionableMessage,
+      canRevalidate,
       cfError,
       verificationErrors,
       sslValidationErrors,
