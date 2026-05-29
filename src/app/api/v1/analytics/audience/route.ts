@@ -22,7 +22,7 @@ function getDateRange(range: string, from?: string, to?: string): { start: Date;
   const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : 30;
   const start = new Date();
   start.setDate(start.getDate() - days);
-  return { start, end };
+  return { start, end: now };
 }
 
 export async function GET(request: NextRequest) {

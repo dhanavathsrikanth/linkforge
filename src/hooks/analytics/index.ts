@@ -229,6 +229,36 @@ interface Insight {
   icon: string;
 }
 
+interface BlockEventsData {
+  totalEvents: number;
+  uniqueVisitors: number;
+  byBlockType: { blockType: string; total: number }[];
+  byEventType: { eventType: string; total: number }[];
+  byBlock: { blockId: string; blockType: string; total: number }[];
+  timeSeries: { date: string; total: number }[];
+}
+
+export function useBlockEvents(
+  galleryId: string | undefined,
+  range: DateRange,
+  from?: string,
+  to?: string
+) {
+  return useQuery<BlockEventsData>({
+    queryKey: ["analytics", "block-events", galleryId, range, from, to],
+    queryFn: async () => {
+      if (!galleryId) return null;
+      const params = new URLSearchParams({ galleryId, range });
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const res = await fetch(`/api/v1/analytics/block-events?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch block events");
+      return res.json();
+    },
+    enabled: !!galleryId,
+  });
+}
+
 export function useAnalyticsInsights(
   workspaceId: string | undefined,
   range: DateRange,

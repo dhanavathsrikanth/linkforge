@@ -271,7 +271,7 @@ export default function DocsPage() {
               <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">UI / UX</h3>
               <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
                 <li><strong>Light mode</strong> — domains page converted to white backgrounds with black accent buttons and gray borders/text; no slate/indigo/dark palettes remaining on that page</li>
-                <li><strong>Sidebar cleanup</strong> — COMING SOON badges removed from Link in Bio and Domains nav items; both pages are live</li>
+                <li><strong>Sidebar cleanup</strong> — Link in Bio nav item removed; COMING SOON badges removed from Domains nav item</li>
                 <li><strong>Nested button fix</strong> — resolved hydration error by converting table row from button to div with role="button" and keyboard handler</li>
                 <li><strong>Dropdown clipping fix</strong> — removed overflow-hidden from table container so dropdown menus render unclipped outside table bounds</li>
               </ul>

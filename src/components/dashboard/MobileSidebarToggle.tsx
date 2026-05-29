@@ -12,14 +12,13 @@ import { WorkspaceSwitcher } from "@/components/dashboard/WorkspaceSwitcher";
 import { useEffect } from "react";
 import {
   Link2, LayoutDashboard, BarChart3, Settings, QrCode,
-  Globe, CreditCard, LayoutList, Zap,
+  Globe, CreditCard, Zap,
   Code2, Key, Sparkles,
 } from "lucide-react";
 
 const mainNav = [
   { name: "Overview",    href: "/dashboard",                  icon: LayoutDashboard },
   { name: "Links",       href: "/dashboard/links",            icon: Link2 },
-  { name: "Link in Bio", href: "/dashboard/link-in-bio",      icon: LayoutList },
   { name: "QR Codes",    href: "/dashboard/qr",               icon: QrCode },
   { name: "Analytics",   href: "/dashboard/analytics",        icon: BarChart3 },
   { name: "Insights",    href: "/dashboard/analytics/insights", icon: Sparkles },
@@ -42,6 +41,12 @@ export function MobileSidebarToggle() {
   const { user } = useUser();
   const { workspace } = useWorkspace();
   const plan = workspace?.plan || "free";
+
+  // Bio EDITOR has its own bottom tab bar — hide the dashboard FAB
+  // there so they don't overlap. Other bio pages (list, settings,
+  // analytics, integrations) keep the standard mobile FAB.
+  const isBioEditor = /^\/dashboard\/bio\/[^/]+\/edit(?:\/|$)/.test(pathname);
+  if (isBioEditor) return null;
 
   function isActive(href: string) {
     return href === "/dashboard"

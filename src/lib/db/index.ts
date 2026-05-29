@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
+import * as blocksSchema from "./blocks-schema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set");
@@ -8,7 +9,7 @@ if (!process.env.DATABASE_URL) {
 
 const sql = neon(process.env.DATABASE_URL);
 
-export const db = drizzle(sql, { schema });
+export const db = drizzle(sql, { schema: { ...schema, ...blocksSchema } });
 
 // Re-export all tables and enums for convenience
 export {
@@ -53,6 +54,22 @@ export {
   customerJourneys,
   attributionResults,
 } from "./schema";
+
+// Re-export blocks schema
+export {
+  blockTypeEnum,
+  linkGalleryAssets,
+  linkGalleryAssetsRelations,
+  linkGalleryBlocks,
+  linkGalleryIntegrations,
+  linkGalleryReactions,
+  linkGalleryBlockEvents,
+  linkGalleryBlocksRelations,
+  linkGalleryIntegrationsRelations,
+  linkGalleryReactionsRelations,
+  linkGalleryBlockEventsRelations,
+  bioThemes,
+} from "./blocks-schema";
 
 export type Subscription = typeof schema.subscriptions.$inferSelect;
 export type UsageOverride = typeof schema.usageOverrides.$inferSelect;

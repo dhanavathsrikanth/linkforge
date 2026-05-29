@@ -7,7 +7,7 @@ import { REFERRAL_POINTS } from "@/lib/waitlist";
 
 const ReferralSchema = z.object({
   referralCode: z.string().min(1),
-  feature: z.enum(["link-in-bio", "custom-domains"]),
+  feature: z.enum(["custom-domains"]),
 });
 
 export async function POST(req: Request) {

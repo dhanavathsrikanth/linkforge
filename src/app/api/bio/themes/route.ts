@@ -1,0 +1,88 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { db, bioThemes } from "@/lib/db";
+import { getOrCreateDbUser } from "@/lib/auth";
+import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
+import { z } from "zod";
+import { eq, and } from "drizzle-orm";
+import { THEME_FIELDS } from "@/lib/bio/theme";
+
+const HslColorSchema = z.object({
+  h: z.number(),
+  s: z.number(),
+  l: z.number(),
+  a: z.number().optional(),
+});
+
+const ThemeColorsSchema = z.object(
+  Object.fromEntries(THEME_FIELDS.map((f) => [f, HslColorSchema.optional()]))
+);
+
+const CreateThemeSchema = z.object({
+  name: z.string().min(1).max(100),
+  font: z.string().nullable().optional(),
+  backgroundImage: z.string().nullable().optional(),
+  colors: ThemeColorsSchema.optional(),
+});
+
+// GET /api/bio/themes — list themes for workspace (defaults + workspace themes)
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateDbUser();
+  if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
+  const ws = await resolveUserWorkspace(dbUser.id);
+
+  const [defaultThemes, workspaceThemes] = await Promise.all([
+    db.select().from(bioThemes).where(eq(bioThemes.isDefault, true)),
+    db
+      .select()
+      .from(bioThemes)
+      .where(and(eq(bioThemes.workspaceId, ws.id), eq(bioThemes.isDefault, false))),
+  ]);
+
+  return NextResponse.json({ themes: [...defaultThemes, ...workspaceThemes] });
+}
+
+// POST /api/bio/themes — create a theme
+export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateDbUser();
+  if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+
+  const ws = await resolveUserWorkspace(dbUser.id);
+  if (!canAdmin(ws.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const parsed = CreateThemeSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+      { status: 400 }
+    );
+  }
+
+  const { name, font, backgroundImage, colors } = parsed.data;
+
+  const [theme] = await db
+    .insert(bioThemes)
+    .values({
+      name,
+      workspaceId: ws.id,
+      createdById: dbUser.id,
+      font: font ?? null,
+      backgroundImage: backgroundImage ?? null,
+      ...Object.fromEntries(
+        THEME_FIELDS.map((f) => [f, (colors as any)?.[f] ?? null])
+      ),
+    })
+    .returning();
+
+  return NextResponse.json({ theme });
+}

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { links } from "@/lib/db/schema";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { aiComplete } from "@/lib/ai/client";
+import { submitUrlScan, getScanResult } from "@/lib/cloudflare/url-scanner";
 
 interface CheckResult {
   linkId: string;
@@ -11,6 +12,14 @@ interface CheckResult {
   status: "ok" | "broken" | "changed";
   statusCode?: number;
   summary?: string;
+  // Cloudflare URL Scanner security verdict
+  security?: {
+    scanId: string;
+    malicious: boolean;
+    categories: string[];
+    phishing: string[];
+    status: "pending" | "safe" | "malicious" | "error";
+  };
 }
 
 export async function POST(req: Request) {
@@ -127,6 +136,62 @@ export async function POST(req: Request) {
         status: "ok",
         statusCode,
       });
+    }
+
+    // ── Cloudflare URL Scanner: submit all checked URLs for security ──────
+    // Non-blocking — we submit scans and return their IDs. The client can
+    // poll /api/url-scanner/result/[scanId] for verdicts asynchronously.
+    // This avoids blocking the response for 30-60s while scans complete.
+    let cfScannerAvailable = true;
+    try {
+      // Quick check that env vars are configured
+      const accountId =
+        process.env.CLOUDFLARE_ACCOUNT_ID ||
+        process.env.CF_ACCOUNT_ID ||
+        process.env.CLOUDFLARE_R2_ACCOUNT_ID;
+      const token =
+        process.env.CLOUDFLARE_URL_SCANNER_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+      if (!accountId || !token) cfScannerAvailable = false;
+    } catch {
+      cfScannerAvailable = false;
+    }
+
+    if (cfScannerAvailable) {
+      // Submit all unique destinations for security scanning
+      const uniqueUrls = [...new Set(results.map((r) => r.destination))];
+      const scanSubmissions = await Promise.allSettled(
+        uniqueUrls.slice(0, 20).map(async (url) => {
+          try {
+            const submission = await submitUrlScan(url, {
+              visibility: "Unlisted",
+            });
+            return { url, uuid: submission.uuid };
+          } catch {
+            return { url, uuid: null };
+          }
+        })
+      );
+
+      // Map scan UUIDs back to results
+      const urlToScanId = new Map<string, string>();
+      for (const s of scanSubmissions) {
+        if (s.status === "fulfilled" && s.value.uuid) {
+          urlToScanId.set(s.value.url, s.value.uuid);
+        }
+      }
+
+      for (const result of results) {
+        const scanId = urlToScanId.get(result.destination);
+        if (scanId) {
+          result.security = {
+            scanId,
+            malicious: false,
+            categories: [],
+            phishing: [],
+            status: "pending",
+          };
+        }
+      }
     }
 
     return NextResponse.json({

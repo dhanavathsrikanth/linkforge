@@ -1,0 +1,2 @@
+packages/linkforge-sdk/src/client.test.ts(1,32): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+src/app/(marketing)/pricing/page.tsx(104,38): error TS2367: This comparison appears to be unintentional because the types '2 | 50 | 5 | -1 | 15 | 25' and '0' have no overlap.

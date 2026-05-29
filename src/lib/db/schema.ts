@@ -14,7 +14,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
-import type { GalleryLink, GalleryAppearance } from "@/types/gallery";
+import type { GalleryLink, GalleryAppearance, PublishedSnapshot } from "@/types/gallery";
 import type { Touchpoint } from "@/types/attribution";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -673,6 +673,16 @@ export const linkGallery = pgTable(
     slug: text("slug").notNull().unique(),
     isPublished: boolean("is_published").notNull().default(false),
 
+    // ── Draft / Publish snapshot ────────────────────────────────────────────
+    // The other columns on this row are the *draft* (what's shown in /edit
+    // and overwritten by autosave). `publishedSnapshot` is what /p/[slug]
+    // serves to the public — frozen at the moment the user clicks
+    // "Publish" or "Update content". `null` when never published.
+    publishedSnapshot: jsonb("published_snapshot")
+      .$type<PublishedSnapshot | null>()
+      .default(sql`null`),
+    publishedAt: timestamp("published_at", { withTimezone: true, mode: "date" }),
+
     // Profile
     displayName: text("display_name"),
     bio: text("bio"),
@@ -685,6 +695,13 @@ export const linkGallery = pgTable(
 
     // Appearance config stored as JSONB
     appearance: jsonb("appearance").$type<GalleryAppearance>(),
+
+    // Grid layout (react-grid-layout config arrays)
+    layout: jsonb("layout").$type<Record<string, unknown>[]>(),
+    mobileLayout: jsonb("mobile_layout").$type<Record<string, unknown>[]>(),
+
+    // Theme
+    themeId: uuid("theme_id"),
 
     // SEO
     seoTitle: text("seo_title"),

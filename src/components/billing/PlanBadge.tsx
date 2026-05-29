@@ -7,6 +7,7 @@ const colors: Record<PlanKey, string> = {
   growth: "bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/70",
   agency: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70",
   business: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/70",
+  enterprise: "bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/70",
 };
 
 export function PlanBadge({ plan, asLink = false }: { plan: string; asLink?: boolean }) {

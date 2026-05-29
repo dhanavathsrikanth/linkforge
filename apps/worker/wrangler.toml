@@ -1,11 +1,46 @@
-name = "linkforge-worker"
+name = "pivoturl-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
+# ─── KV Namespaces ────────────────────────────────────────────────────────────
+
+# Short link cache (existing)
 [[kv_namespaces]]
 binding = "LINKS_KV"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID"
+id = "YOUR_LINKS_KV_NAMESPACE_ID"
+preview_id = "YOUR_LINKS_KV_PREVIEW_ID"
+
+# Bio page HTML cache + domain→slug mapping + OG image cache
+[[kv_namespaces]]
+binding = "BIO_PAGES_KV"
+id = "YOUR_BIO_PAGES_KV_NAMESPACE_ID"
+preview_id = "YOUR_BIO_PAGES_KV_PREVIEW_ID"
+
+# Bio analytics event buffer + reaction rate limit counters
+[[kv_namespaces]]
+binding = "BIO_ANALYTICS_KV"
+id = "YOUR_BIO_ANALYTICS_KV_NAMESPACE_ID"
+preview_id = "YOUR_BIO_ANALYTICS_KV_PREVIEW_ID"
+
+# ─── Environment variables ────────────────────────────────────────────────────
 
 [vars]
-API_URL = "https://your-api-url.com"
+# Base URL of the Next.js app (no trailing slash)
+API_URL = "https://pivoturl.com"
+
+# ─── Secrets (set via: wrangler secret put WORKER_SECRET) ────────────────────
+# WORKER_SECRET — shared secret between worker and Next.js /api/internal/* routes
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
+# The worker handles ALL traffic on pivoturl.com:
+#   /p/*          → bio pages
+#   /api/bio/*    → bio API (reactions rate limiting)
+#   /*            → short link redirects
+#
+# Custom domains are handled automatically — any non-pivoturl.com host
+# is checked against BIO_PAGES_KV for a domain→slug mapping.
+
+routes = [
+  { pattern = "pivoturl.com/*", zone_name = "pivoturl.com" },
+  { pattern = "*.pivoturl.com/*", zone_name = "pivoturl.com" },
+]

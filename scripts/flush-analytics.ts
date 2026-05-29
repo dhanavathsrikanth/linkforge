@@ -1,3 +1,6 @@
+// Module isolation
+export {};
+
 /**
  * PivotUrl Analytics Flush Script
  * 

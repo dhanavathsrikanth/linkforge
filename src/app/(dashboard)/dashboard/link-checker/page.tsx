@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   SearchCheck,
@@ -20,10 +20,21 @@ import {
   X,
   ChevronDown,
   RefreshCw,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldQuestion,
 } from "lucide-react";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+interface SecurityInfo {
+  scanId: string;
+  malicious: boolean;
+  categories: string[];
+  phishing: string[];
+  status: "pending" | "safe" | "malicious" | "error";
+}
 
 interface CheckResult {
   linkId: string;
@@ -32,6 +43,7 @@ interface CheckResult {
   status: "ok" | "broken" | "changed";
   statusCode?: number;
   summary?: string;
+  security?: SecurityInfo;
 }
 
 interface CheckResponse {
@@ -47,6 +59,46 @@ type LinkRow = {
   destination: string;
   title: string | null;
 };
+
+// ─── Security badge ───────────────────────────────────────────────────────────
+
+function SecurityBadge({ security }: { security?: SecurityInfo }) {
+  if (!security) return null;
+
+  if (security.status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-400">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Scanning
+      </span>
+    );
+  }
+
+  if (security.status === "malicious") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
+        <ShieldAlert className="h-3 w-3" />
+        Malicious
+      </span>
+    );
+  }
+
+  if (security.status === "safe") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+        <ShieldCheck className="h-3 w-3" />
+        Safe
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold text-stone-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-400">
+      <ShieldQuestion className="h-3 w-3" />
+      Unknown
+    </span>
+  );
+}
 
 function StatusBadge({ status }: { status: CheckResult["status"] }) {
   const styles = {
@@ -135,6 +187,81 @@ export default function LinkCheckerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [scanMode, setScanMode] = useState<"all" | "selected" | null>(null);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ─── Poll pending Cloudflare security scans ─────────────────────────────
+  // After results come back with security.status === "pending", poll the
+  // result endpoint every 15s until all scans resolve.
+  useEffect(() => {
+    const allPending = [
+      ...allResults.filter((r) => r.security?.status === "pending"),
+      ...selectedResults.filter((r) => r.security?.status === "pending"),
+    ];
+    if (allPending.length === 0) {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (pollTimerRef.current) return; // already polling
+
+    pollTimerRef.current = setInterval(async () => {
+      const pending = [
+        ...allResults.filter((r) => r.security?.status === "pending"),
+        ...selectedResults.filter((r) => r.security?.status === "pending"),
+      ];
+      if (pending.length === 0) {
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+        return;
+      }
+
+      for (const result of pending) {
+        if (!result.security?.scanId) continue;
+        try {
+          const res = await fetch(
+            `/api/url-scanner/result/${result.security.scanId}`
+          );
+          if (res.status === 202) continue; // still in progress
+          if (!res.ok) {
+            updateSecurityStatus(result.linkId, { ...result.security, status: "error" });
+            continue;
+          }
+          const data = await res.json();
+          if (data.status === "Finished" || data.status === "Failed") {
+            const newStatus: SecurityInfo = {
+              scanId: result.security.scanId,
+              malicious: data.malicious ?? false,
+              categories: data.categories ?? [],
+              phishing: data.phishing ?? [],
+              status: data.malicious ? "malicious" : "safe",
+            };
+            updateSecurityStatus(result.linkId, newStatus);
+          }
+        } catch {
+          // Silently continue — will retry on next interval
+        }
+      }
+    }, 15_000);
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [allResults, selectedResults]);
+
+  function updateSecurityStatus(linkId: string, security: SecurityInfo) {
+    setAllResults((prev) =>
+      prev.map((r) => (r.linkId === linkId ? { ...r, security } : r))
+    );
+    setSelectedResults((prev) =>
+      prev.map((r) => (r.linkId === linkId ? { ...r, security } : r))
+    );
+  }
 
   const { data: workspaceLinks = [], isLoading: linksLoading } = useQuery<LinkRow[]>({
     queryKey: ["links", workspaceId],

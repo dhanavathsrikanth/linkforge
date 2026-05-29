@@ -12,7 +12,7 @@ import {
 
 const WaitlistSchema = z.object({
   email: z.string().email("Invalid email address"),
-  feature: z.enum(["link-in-bio", "custom-domains"]),
+  feature: z.enum(["custom-domains"]),
 });
 
 export async function POST(req: Request) {
