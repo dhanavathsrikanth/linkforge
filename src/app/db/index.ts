@@ -1,9 +1,10 @@
-import { loadEnvConfig } from "@next/env";
+import { config } from "dotenv";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { UserMessages } from "./schema";
 
-loadEnvConfig(process.cwd());
+config({ path: ".env.local" });
+config({ path: ".env" });
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be a Neon postgres connection string");
