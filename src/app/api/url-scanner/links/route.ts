@@ -42,14 +42,17 @@ export async function GET(req: Request) {
       .groupBy(links.safetyStatus);
 
     // ── List of links (filtered) ─────────────────────────────────────────
+    const SAFETY_STATUSES = ["unknown", "pending", "safe", "suspicious", "malicious", "error"] as const;
+    type SafetyStatus = typeof SAFETY_STATUSES[number];
+
     const conditions = [eq(links.workspaceId, ws.id)];
     if (statusFilter && statusFilter !== "all") {
       if (statusFilter === "flagged") {
         conditions.push(
           sql`${links.safetyStatus} IN ('malicious', 'suspicious') OR ${links.safetyBlockedByAdmin} = true`
         );
-      } else {
-        conditions.push(eq(links.safetyStatus, statusFilter));
+      } else if ((SAFETY_STATUSES as readonly string[]).includes(statusFilter)) {
+        conditions.push(eq(links.safetyStatus, statusFilter as SafetyStatus));
       }
     }
 
