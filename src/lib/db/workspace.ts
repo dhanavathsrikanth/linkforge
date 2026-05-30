@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { workspaces, workspaceMembers, users } from "@/lib/db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
+import type { Plan } from "@/lib/db";
 
 export type MemberRole = "owner" | "admin" | "editor" | "viewer";
 
@@ -8,7 +9,7 @@ export interface ResolvedWorkspace {
   id: string;
   name: string;
   slug: string;
-  plan: string;
+  plan: Plan;
   role: MemberRole;
   isPersonal: boolean;
 }
