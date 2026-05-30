@@ -53,3 +53,55 @@ export async function trackUserUpgraded(params: {
   serverPosthog.capture({ distinctId: "server", event: "user_upgraded", properties: params });
   await serverPosthog.shutdown();
 }
+
+// ─── Safety / URL Scanner events (Req 25) ────────────────────────────────────
+
+export async function trackSafetyScanCompleted(params: {
+  workspaceId: string;
+  linkId: string;
+  scanId: string;
+  trustScore: number;
+  trustBand: string;
+  malicious: boolean;
+  cacheHit: boolean;
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({
+    distinctId: params.workspaceId,
+    event: "safety_scan_completed",
+    properties: params,
+  });
+  await serverPosthog.shutdown();
+}
+
+export async function trackTrustApiCall(params: {
+  workspaceId: string;
+  apiKeyId: string;
+  cacheHit: boolean;
+  responseStatus: number;
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({
+    distinctId: params.workspaceId,
+    event: "trust_api_call",
+    properties: params,
+  });
+  await serverPosthog.shutdown();
+}
+
+export async function trackSafetyBandChange(params: {
+  workspaceId: string;
+  linkId: string;
+  scanId: string;
+  previousBand: string;
+  nextBand: string;
+  trustScore: number;
+}) {
+  if (!serverPosthog) return;
+  serverPosthog.capture({
+    distinctId: params.workspaceId,
+    event: "safety_band_changed",
+    properties: params,
+  });
+  await serverPosthog.shutdown();
+}

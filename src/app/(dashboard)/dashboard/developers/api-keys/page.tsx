@@ -26,9 +26,7 @@ export default function ApiKeysPage() {
   const [error, setError] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
 
-  useEffect(() => {
-    fetchKeys();
-  }, []);
+  useEffect(() => { fetchKeys(); }, []);
 
   async function fetchKeys() {
     try {
@@ -53,10 +51,7 @@ export default function ApiKeysPage() {
         body: JSON.stringify({ name: newName.trim(), keyType: newType }),
       });
       const json = await res.json();
-      if (!res.ok) {
-        setError(json.error?.message || "Failed to create key.");
-        return;
-      }
+      if (!res.ok) { setError(json.error?.message || "Failed to create key."); return; }
       setPlaintextKey(json.data.plaintextKey);
       setShowCreate(false);
       setNewName("");
@@ -87,24 +82,24 @@ export default function ApiKeysPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">API Keys</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-foreground">API Keys</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Create and manage API keys for programmatic access to PivotUrl.
           </p>
         </div>
         <button
           onClick={() => { setShowCreate(true); setPlaintextKey(null); }}
-          className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
         >
           <Plus className="h-4 w-4" />
           Create Key
@@ -113,36 +108,32 @@ export default function ApiKeysPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {/* Plaintext key display (shown once) */}
+      {/* Plaintext key — shown once */}
       {plaintextKey && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
           <div className="flex items-start gap-3">
             <Key className="mt-0.5 h-5 w-5 text-amber-600 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-amber-800">Key created successfully</p>
-              <p className="mt-1 text-xs text-amber-600">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Key created successfully</p>
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                 Copy this key now. You won&apos;t be able to see it again.
               </p>
               <div className="mt-2 flex items-center gap-2">
-                <code className="flex-1 rounded border border-amber-300 bg-amber-100/50 px-3 py-2 text-sm font-mono text-amber-900 break-all">
+                <code className="flex-1 rounded border border-amber-300 bg-amber-100/50 px-3 py-2 text-sm font-mono text-amber-900 break-all dark:text-amber-200">
                   {showKey ? plaintextKey : `${plaintextKey.slice(0, 16)}${"•".repeat(24)}`}
                 </code>
-                <button
-                  onClick={() => setShowKey(!showKey)}
-                  className="rounded-lg border border-amber-300 bg-white p-2 text-amber-700 hover:bg-amber-100 transition-colors"
-                >
+                <button onClick={() => setShowKey(!showKey)}
+                  className="rounded-lg border border-amber-300 bg-background p-2 text-amber-700 hover:bg-amber-100 transition-colors">
                   {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-                <button
-                  onClick={() => copyToClipboard(plaintextKey)}
-                  className="rounded-lg border border-amber-300 bg-white p-2 text-amber-700 hover:bg-amber-100 transition-colors"
-                >
+                <button onClick={() => copyToClipboard(plaintextKey)}
+                  className="rounded-lg border border-amber-300 bg-background p-2 text-amber-700 hover:bg-amber-100 transition-colors">
                   {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
@@ -153,42 +144,30 @@ export default function ApiKeysPage() {
 
       {/* Create form */}
       {showCreate && !plaintextKey && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">New API Key</h3>
+        <div className="rounded-lg border border-border bg-background p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-4">New API Key</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+              <label className="block text-sm font-medium text-foreground mb-1">Name</label>
+              <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g. Production CLI"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
-              />
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Key Type</label>
-              <select
-                value={newType}
-                onChange={(e) => setNewType(e.target.value as "secret" | "publishable")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
-              >
+              <label className="block text-sm font-medium text-foreground mb-1">Key Type</label>
+              <select value={newType} onChange={(e) => setNewType(e.target.value as "secret" | "publishable")}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="secret">Secret — Full read/write access</option>
                 <option value="publishable">Publishable — Read-only access</option>
               </select>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={handleCreate}
-                disabled={creating || !newName.trim()}
-                className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
-              >
+              <button onClick={handleCreate} disabled={creating || !newName.trim()}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity">
                 {creating ? "Creating..." : "Create"}
               </button>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-              >
+              <button onClick={() => setShowCreate(false)}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
                 Cancel
               </button>
             </div>
@@ -197,65 +176,55 @@ export default function ApiKeysPage() {
       )}
 
       {/* Keys table */}
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full">
+      <div className="w-full overflow-hidden rounded-lg border border-border bg-background">
+        <table className="w-full table-fixed">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/50">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Prefix</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Type</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Created</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Last Used</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-              <th className="px-4 py-3" />
+            <tr className="border-b border-border bg-muted/50">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[30%]">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[18%]">Prefix</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[14%]">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[14%]">Created</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[14%]">Last Used</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[8%]">Status</th>
+              <th className="px-4 py-3 w-[2%]" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {keys.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
                   No API keys yet. Create one to get started.
                 </td>
               </tr>
             ) : (
               keys.map((key) => (
-                <tr key={key.id} className="group hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-medium text-slate-900">{key.name}</td>
+                <tr key={key.id} className="group hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3 text-sm font-medium text-foreground truncate">{key.name}</td>
                   <td className="px-4 py-3">
-                    <code className="rounded bg-slate-100 px-2 py-1 text-xs font-mono text-slate-600">{key.keyPrefix}...</code>
+                    <code className="rounded bg-muted px-2 py-1 text-xs font-mono text-muted-foreground">{key.keyPrefix}...</code>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                       key.keyType === "secret"
-                        ? "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
-                        : "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                        ? "bg-purple-50 text-purple-700 ring-1 ring-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:ring-purple-800"
+                        : "bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:ring-blue-800"
                     }`}>
                       {key.keyType}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
-                    {new Date(key.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
-                    {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "—"}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(key.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1.5 ${
-                      key.active ? "text-green-700" : "text-slate-400"
-                    }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${
-                        key.active ? "bg-green-500" : "bg-slate-300"
-                      }`} />
+                    <span className={`inline-flex items-center gap-1.5 text-sm ${key.active ? "text-emerald-600" : "text-muted-foreground"}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${key.active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
                       {key.active ? "Active" : "Revoked"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     {key.active && (
-                      <button
-                        onClick={() => handleRevoke(key.id)}
-                        className="rounded-lg p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                        title="Revoke key"
-                      >
+                      <button onClick={() => handleRevoke(key.id)}
+                        className="rounded-lg p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all dark:hover:bg-red-950/30"
+                        title="Revoke key">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -268,20 +237,22 @@ export default function ApiKeysPage() {
       </div>
 
       {/* Quick reference */}
-      <div className="rounded-lg border border-slate-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-slate-900 mb-3">Quick Reference</h3>
-        <div className="space-y-3 text-sm text-slate-600">
-          <div>
-            <code className="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono text-slate-700">Authorization: Bearer lf_sk_...</code>
-            <span className="ml-2">Secret key — full read/write access</span>
+      <div className="w-full rounded-lg border border-border bg-background p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-3">Quick Reference</h3>
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">Authorization: Bearer lf_sk_...</code>
+            <span>Secret key — full read/write access</span>
           </div>
-          <div>
-            <code className="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono text-slate-700">Authorization: Bearer lf_pk_...</code>
-            <span className="ml-2">Publishable key — read-only access</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">Authorization: Bearer lf_pk_...</code>
+            <span>Publishable key — read-only access</span>
           </div>
-          <div>
-            <span className="font-medium text-slate-900">Base URL: </span>
-            <code className="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono text-slate-700">{typeof window !== "undefined" ? window.location.origin : ""}/api/v2</code>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground">Base URL:</span>
+            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">
+              {typeof window !== "undefined" ? window.location.origin : ""}/api/v2
+            </code>
           </div>
         </div>
       </div>

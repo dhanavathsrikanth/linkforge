@@ -500,7 +500,7 @@ export async function POST(req: Request) {
         await persistFailedEvent(type, data, msg);
       }
 
-      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard/settings/account`);
       revalidatePath(`/dashboard`);
 
       console.log("[clerk-webhook] member added to workspace", workspace.id, dbUser.id, role);
@@ -556,7 +556,7 @@ export async function POST(req: Request) {
         await persistFailedEvent(type, data, msg);
       }
 
-      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard/settings/account`);
       revalidatePath(`/dashboard`);
 
       console.log("[clerk-webhook] member removed from workspace", workspace.id, dbUser.id);
@@ -614,7 +614,7 @@ export async function POST(req: Request) {
         await persistFailedEvent(type, data, msg);
       }
 
-      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard/settings/account`);
       revalidatePath(`/dashboard`);
 
       console.log("[clerk-webhook] member role updated", workspace.id, dbUser.id, role);
@@ -661,7 +661,7 @@ export async function POST(req: Request) {
       }
 
       revalidatePath(`/dashboard`);
-      revalidatePath(`/dashboard/settings/members`);
+      revalidatePath(`/dashboard/settings/account`);
 
       console.log("[clerk-webhook] organization updated", orgId, orgName);
     }

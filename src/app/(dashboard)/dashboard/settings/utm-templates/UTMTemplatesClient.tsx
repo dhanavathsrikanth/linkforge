@@ -66,7 +66,7 @@ export function UTMTemplatesClient({ workspaceId, initialTemplates }: { workspac
   }
 
   return (
-    <div className="space-y-6 max-w-4xl py-6">
+    <div className="space-y-6 w-full">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-950">UTM Templates</h1>

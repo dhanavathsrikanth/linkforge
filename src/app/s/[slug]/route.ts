@@ -137,6 +137,25 @@ export async function GET(
       }
     }
 
+    // ── Safety gate ──────────────────────────────────────────────────────
+    // If the URL Scanner verdict is `malicious` (or the owner has manually
+    // blocked the link), divert visitors to an interstitial warning page
+    // instead of completing the redirect. The interstitial offers a
+    // "continue at your own risk" path that re-issues the request with a
+    // bypass cookie, so legitimate scanner false-positives can still be
+    // accessed. `pending` and `unknown` links pass through normally —
+    // we only block on a confirmed malicious verdict.
+    const acknowledged = (await cookies()).get(`safety_ack_${slug}`)?.value === "true";
+    if (
+      !acknowledged &&
+      (link.safetyStatus === "malicious" || link.safetyBlockedByAdmin)
+    ) {
+      return NextResponse.redirect(
+        new URL(`/s/${link.slug}/blocked`, req.url),
+        { status: 302 }
+      );
+    }
+
     const ua = req.headers.get("user-agent") || "";
     const device = parseDevice(ua);
     const referrer = req.headers.get("referer") || "";

@@ -53,6 +53,10 @@ export {
   webhookFailedEvents,
   customerJourneys,
   attributionResults,
+  scanReports,
+  assetRiskFlags,
+  scanScreenshots,
+  safetyPurgeRequests,
 } from "./schema";
 
 // Re-export blocks schema

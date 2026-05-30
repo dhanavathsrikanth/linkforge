@@ -98,7 +98,7 @@ export default async function BillingsPage(props: Props) {
   const isBusiness = workspace.plan === 'business';
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-10 pb-20 animate-in fade-in duration-500">
+    <div className="w-full space-y-10 pb-20 animate-in fade-in duration-500">
       <div>
         <h1 className="text-3xl font-bold tracking-tight mb-2">Billing & Plans</h1>
         <p className="text-muted-foreground">Manage your subscription, view billing history, and monitor your usage.</p>

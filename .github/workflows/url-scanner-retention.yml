@@ -1,0 +1,30 @@
+name: URL Scanner — Retention Sweep
+
+# Runs daily at 03:00 UTC to delete stale screenshots and scan reports.
+# Screenshots: deleted after 30 days (enterprise: 210 days) unless latest.
+# Reports:     deleted after 180 days (enterprise: 360 days) unless latest.
+# The latest finished scan_report per link is always retained.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # daily at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger retention sweep
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$INTERNAL_SECRET" ]; then
+            echo "Missing APP_URL or INTERNAL_SECRET secrets"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "x-internal-secret: $INTERNAL_SECRET" \
+            -H "Content-Type: application/json" \
+            "$APP_URL/api/internal/url-scanner/retention"
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}

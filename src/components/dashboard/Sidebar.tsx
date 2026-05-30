@@ -8,15 +8,12 @@ import {
   BarChart3,
   Settings,
   QrCode,
-  Globe,
-  CreditCard,
   Zap,
   Code2,
-  Key,
-  Webhook,
   SearchCheck,
   Sparkles,
   User,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
@@ -30,21 +27,18 @@ const mainNav = [
   { name: "Link in Bio",     href: "/dashboard/bio",                icon: User },
   { name: "Links",           href: "/dashboard/links",              icon: Link2 },
   { name: "Link Checker",    href: "/dashboard/link-checker",       icon: SearchCheck },
+  { name: "Link Safety",     href: "/dashboard/link-safety",        icon: ShieldCheck },
   { name: "QR Codes",        href: "/dashboard/qr",                 icon: QrCode },
   { name: "Analytics",       href: "/dashboard/analytics",          icon: BarChart3 },
   { name: "Insights",        href: "/dashboard/analytics/insights", icon: Sparkles },
 ];
 
 const workspaceNav = [
-  { name: "Domains",     href: "/dashboard/domain",           icon: Globe },
-  { name: "Billing",     href: "/dashboard/billings",         icon: CreditCard },
   { name: "Settings",    href: "/dashboard/settings",         icon: Settings },
 ];
 
 const developersNav = [
   { name: "API Docs",    href: "/docs",                       icon: Code2 },
-  { name: "API Keys",    href: "/dashboard/developers/api-keys", icon: Key },
-  { name: "Webhooks",    href: "/dashboard/settings/webhooks",   icon: Webhook },
 ];
 
 function NavItem({

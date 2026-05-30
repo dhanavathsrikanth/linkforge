@@ -6,6 +6,7 @@ import { BillingProvider } from "@/providers/BillingProvider";
 import { WorkspaceProvider, useWorkspace } from "@/providers/WorkspaceProvider";
 import { RealtimeProvider } from "@/providers/RealtimeProvider";
 import { MobileSidebarToggle } from "@/components/dashboard/MobileSidebarToggle";
+import { CommandPalette } from "@/components/CommandPalette";
 
 function RealtimeWrapper({ children }: { children: React.ReactNode }) {
   const { workspace } = useWorkspace();
@@ -35,6 +36,7 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    <CommandPalette />
     </RealtimeWrapper>
     </WorkspaceProvider>
     </BillingProvider>

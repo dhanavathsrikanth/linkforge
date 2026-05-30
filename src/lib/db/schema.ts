@@ -151,6 +151,8 @@ export const workspaces = pgTable(
     logo: text("logo"),
     customDomain: text("custom_domain").unique(),
     isDefault: boolean("is_default").notNull().default(false),
+    /** Per-workspace toggle for the public visitor preview page (Req 13.3). */
+    visitorPreviewEnabled: boolean("visitor_preview_enabled").notNull().default(true),
     dodoBillingCycleAnchor: timestamp('dodo_billing_cycle_anchor', { withTimezone: true }),
     dodoCustomerId: text('dodo_customer_id').unique(),
     planUpdatedAt: timestamp('plan_updated_at', { withTimezone: true }),
@@ -412,6 +414,51 @@ export const links = pgTable(
       .$type<QRSettings>()
       .default(DEFAULT_QR_SETTINGS),
 
+    // ─── Safety / URL Scanner ─────────────────────────────────────────────
+    // Cloudflare URL Scanner verdict for the destination. Updated:
+    //   - on link create (auto-scan, async)
+    //   - on manual rescan from /dashboard/link-safety
+    //   - on scheduled rescans (cron, future)
+    // `pending`     scan submitted, no verdict yet
+    // `safe`        Cloudflare returned overall.malicious = false
+    // `malicious`   overall.malicious = true → /s/[slug] blocks with interstitial
+    // `suspicious`  unused for now; reserved for heuristic-based flags
+    // `error`       scan failed (DNS, timeout, API error)
+    // `unknown`     never scanned (legacy rows / scanner disabled)
+    safetyStatus: text("safety_status", {
+      enum: ["unknown", "pending", "safe", "suspicious", "malicious", "error"],
+    })
+      .notNull()
+      .default("unknown"),
+    safetyScanId: text("safety_scan_id"),       // Cloudflare scan UUID
+    safetyScannedAt: timestamp("safety_scanned_at", { withTimezone: true, mode: "date" }),
+    safetyVerdict: jsonb("safety_verdict").$type<{
+      malicious: boolean;
+      categories?: string[];
+      phishing?: string[];
+      domain?: string;
+      country?: string;
+      asn?: string;
+      asnName?: string;
+      technologies?: { name: string; categories?: string[] }[];
+    }>(),
+    // When set, even a `safe` link is administratively blocked (used by
+    // owners to take a link offline without deleting it).
+    safetyBlockedByAdmin: boolean("safety_blocked_by_admin")
+      .notNull()
+      .default(false),
+    // Trust Score / Trust Band — see Trust_Score_Engine. The score is the
+    // numeric [0,100] value, the band is its label, and `weightVersion`
+    // tells us which scoring weight table the score was computed under
+    // so we know when to recompute on read.
+    safetyTrustScore: integer("safety_trust_score"),
+    safetyTrustBand: text("safety_trust_band", {
+      enum: ["unknown", "low", "medium", "high", "verified"],
+    })
+      .notNull()
+      .default("unknown"),
+    safetyWeightVersion: integer("safety_weight_version"),
+
     ...timestamps,
   },
   (t) => [
@@ -420,6 +467,253 @@ export const links = pgTable(
     index("links_slug_idx").on(t.slug),
     index("links_created_at_idx").on(t.createdAt),
     index("links_user_idx").on(t.userId),
+    // Speeds up the Link Safety dashboard which lists malicious / pending /
+    // suspicious links per workspace. Most rows will be `safe` so we keep
+    // the index narrow with a workspace partition.
+    index("links_safety_status_idx").on(t.workspaceId, t.safetyStatus),
+  ]
+);
+
+// ─── scan_reports ─────────────────────────────────────────────────────────────
+// Full historical Cloudflare URL Scanner reports. One row per scan per link.
+// The latest report drives the link's denormalized safety_* columns.
+
+export const scanReports = pgTable(
+  "scan_reports",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    linkId: uuid("link_id")
+      .notNull()
+      .references(() => links.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    scanId: text("scan_id").notNull(),
+    status: text("status", {
+      enum: ["pending", "finished", "failed", "error"],
+    }).notNull().default("pending"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true, mode: "date" }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+
+    // Verdict
+    malicious: boolean("malicious"),
+    phishingKit: text("phishing_kit"),
+
+    // Page primary response
+    pageUrl: text("page_url"),
+    pageIp: text("page_ip"),
+    pageAsn: text("page_asn"),
+    pageAsnName: text("page_asn_name"),
+    pageCountry: text("page_country"),
+    pageServer: text("page_server"),
+
+    // Hashes & rank
+    domStructHash: text("dom_struct_hash"),
+    screenshotHash: text("screenshot_hash"),
+    faviconHash: text("favicon_hash"),
+    radarRank: integer("radar_rank"),
+
+    // Trust score
+    trustScore: integer("trust_score"),
+    trustBand: text("trust_band", {
+      enum: ["unknown", "low", "medium", "high", "verified"],
+    }),
+    weightVersion: integer("weight_version"),
+
+    // Lists & meta
+    redirectChain: jsonb("redirect_chain").$type<
+      { url: string; status: number; ip?: string; country?: string }[]
+    >().default(sql`'[]'::jsonb`),
+    categories: jsonb("categories").$type<string[]>().default(sql`'[]'::jsonb`),
+    technologies: jsonb("technologies").$type<
+      { name: string; categories?: string[]; version?: string; confidence?: number }[]
+    >().default(sql`'[]'::jsonb`),
+    contactedIps: jsonb("contacted_ips").$type<string[]>().default(sql`'[]'::jsonb`),
+    contactedAsns: jsonb("contacted_asns").$type<{ asn: string; name?: string }[]>().default(sql`'[]'::jsonb`),
+    contactedDomains: jsonb("contacted_domains").$type<string[]>().default(sql`'[]'::jsonb`),
+    certificates: jsonb("certificates").$type<
+      { issuer: string; subject: string; validFrom: string; validTo: string }[]
+    >().default(sql`'[]'::jsonb`),
+    performance: jsonb("performance").$type<{
+      ttfbMs?: number;
+      fcpMs?: number;
+      loadMs?: number;
+    }>(),
+    cookiesSummary: jsonb("cookies_summary").$type<{
+      total: number;
+      thirdParty: number;
+      domains: string[];
+    }>(),
+    globalsSummary: jsonb("globals_summary").$type<{
+      total: number;
+      suspicious: string[];
+    }>(),
+    consoleSummary: jsonb("console_summary").$type<{
+      errors: number;
+      warnings: number;
+    }>(),
+
+    // Compact HAR summary — third-party domains, resource type counts,
+    // total requests, total transfer bytes, page load time.
+    // The full HAR is fetched on-demand via GET /api/url-scanner/har/[scanId].
+    harSummary: jsonb("har_summary").$type<{
+      thirdPartyDomains: string[];
+      resourceTypes: Record<string, number>;
+      totalRequests: number;
+      totalTransferBytes: number;
+      pageLoadMs: number | null;
+    }>(),
+
+    // DOM analysis — hidden iframes, obfuscated scripts, external form
+    // actions, crypto wallet patterns, etc. Derived from the rendered DOM
+    // fetched via GET /v2/dom/{scan_id}.
+    domAnalysis: jsonb("dom_analysis").$type<{
+      hiddenIframes: number;
+      passwordInputs: number;
+      obfuscatedScripts: number;
+      metaRedirects: number;
+      externalFormActions: string[];
+      cryptoAddressPatterns: number;
+      suspicious: boolean;
+    }>(),
+
+    // Raw payload for forward-compat / re-derivation
+    rawPayload: jsonb("raw_payload"),
+
+    // Bookkeeping
+    schemaVersion: integer("schema_version").notNull().default(1),
+    rescanReason: text("rescan_reason"),
+    validationError: text("validation_error"),
+    screenshotUnavailable: boolean("screenshot_unavailable").notNull().default(false),
+    similarToMalicious: jsonb("similar_to_malicious").$type<{
+      hash: string;
+      matches: string[];
+    } | null>(),
+
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("scan_reports_link_idx").on(t.linkId, t.fetchedAt),
+    index("scan_reports_workspace_idx").on(t.workspaceId, t.fetchedAt),
+    uniqueIndex("scan_reports_scan_id_uidx").on(t.scanId),
+  ]
+);
+
+// ─── asset_risk_flags ────────────────────────────────────────────────────────
+// Typed warnings emitted by the Asset_Risk_Analyzer for a given scan.
+
+export const assetRiskFlags = pgTable(
+  "asset_risk_flags",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    scanId: uuid("scan_id")
+      .notNull()
+      .references(() => scanReports.id, { onDelete: "cascade" }),
+    linkId: uuid("link_id")
+      .notNull()
+      .references(() => links.id, { onDelete: "cascade" }),
+    kind: text("kind", {
+      enum: [
+        "crypto_miner",
+        "fingerprinter",
+        "excessive_third_party_cookies",
+        "suspicious_global",
+        "console_error_burst",
+        "expired_certificate",
+        "long_redirect_chain",
+        "similar_to_malicious",
+      ],
+    }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("asset_risk_flags_scan_idx").on(t.scanId),
+    index("asset_risk_flags_link_idx").on(t.linkId),
+    index("asset_risk_flags_kind_idx").on(t.kind),
+  ]
+);
+
+// ─── scan_screenshots ────────────────────────────────────────────────────────
+// Cloudflare URL Scanner screenshot bytes, stored losslessly as raw `bytea`
+// (no base64 inflation, no re-encoding). One row per (scan_id, resolution).
+
+import { customType } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const scanScreenshots = pgTable(
+  "scan_screenshots",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    scanReportId: uuid("scan_report_id")
+      .notNull()
+      .references(() => scanReports.id, { onDelete: "cascade" }),
+    scanId: text("scan_id").notNull(),
+    linkId: uuid("link_id")
+      .notNull()
+      .references(() => links.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    resolution: text("resolution", {
+      enum: ["desktop", "mobile", "tablet"],
+    }).notNull().default("desktop"),
+    mimeType: text("mime_type").notNull().default("image/png"),
+    bytes: bytea("bytes").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    uniqueIndex("scan_screenshots_scan_resolution_uidx").on(t.scanId, t.resolution),
+    index("scan_screenshots_link_idx").on(t.linkId),
+    index("scan_screenshots_workspace_idx").on(t.workspaceId),
+    index("scan_screenshots_fetched_idx").on(t.fetchedAt),
+  ]
+);
+
+// ─── safety_purge_requests ────────────────────────────────────────────────────
+// Right-To-Be-Forgotten queue (Req 21). Workspace operators submit a purge
+// request for a deleted link; a daily cron executes the actual deletion once
+// `purge_after` has elapsed (within 7 days per Req 21.3).
+
+export const safetyPurgeRequests = pgTable(
+  "safety_purge_requests",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    /** The link id — stored as text because the link row may already be deleted. */
+    linkId: text("link_id").notNull(),
+    workspaceId: uuid("workspace_id").notNull(),
+    requestedBy: text("requested_by").notNull(),
+    purgeAfter: timestamp("purge_after", { withTimezone: true, mode: "date" }).notNull(),
+    purgedAt: timestamp("purged_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (t) => [
+    index("spr_workspace_idx").on(t.workspaceId),
+    index("spr_purge_after_idx").on(t.purgeAfter),
   ]
 );
 

@@ -2,38 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, CreditCard, Globe, Users, History, Webhook } from "lucide-react";
+import { CreditCard, Globe, Users, History, Webhook, Link2, Key, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
-  { name: "General", href: "/dashboard/settings", icon: Settings },
-  { name: "Members", href: "/dashboard/settings/members", icon: Users },
-  { name: "Billing", href: "/dashboard/billings", icon: CreditCard },
-  { name: "Domains", href: "/dashboard/domain", icon: Globe },
-  { name: "Audit Logs", href: "/dashboard/settings/audit-logs", icon: History },
-  { name: "Webhooks", href: "/dashboard/settings/webhooks", icon: Webhook },
+  { name: "Account",       href: "/dashboard/settings/account",       icon: UserCircle },
+  { name: "Members",       href: "/dashboard/settings/members",       icon: Users },
+  { name: "Billing",       href: "/dashboard/settings/billing",       icon: CreditCard },
+  { name: "Domains",       href: "/dashboard/settings/domains",       icon: Globe },
+  { name: "API Keys",      href: "/dashboard/settings/api-keys",      icon: Key },
+  { name: "UTM Templates", href: "/dashboard/settings/utm-templates", icon: Link2 },
+  { name: "Audit Logs",    href: "/dashboard/settings/audit-logs",    icon: History },
+  { name: "Webhooks",      href: "/dashboard/settings/webhooks",      icon: Webhook },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isIndex = pathname === "/dashboard/settings";
   const isWebhooks = pathname === "/dashboard/settings/webhooks";
 
-  if (isIndex) {
-    return <>{children}</>;
-  }
-
   return (
-    <div className="flex h-full gap-0">
+    // Negative margin cancels the outer <main> padding so settings fills edge-to-edge
+    <div className="-m-4 sm:-m-6 lg:-m-10 flex h-[calc(100vh-3.5rem)] gap-0 overflow-hidden">
+      {/* Desktop sidebar */}
       <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-border p-4">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-3">
           Settings
         </h2>
         <nav className="flex flex-col gap-1">
           {tabs.map((tab) => {
-            const active = tab.href === "/dashboard/settings"
-              ? pathname === tab.href
-              : pathname.startsWith(tab.href);
+            const active = pathname.startsWith(tab.href);
             return (
               <Link
                 key={tab.href}
@@ -53,12 +50,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </nav>
       </aside>
 
-      <div className="flex md:hidden w-full flex-col">
+      {/* Mobile tab bar */}
+      <div className="flex md:hidden w-full flex-col overflow-hidden">
         <div className="flex overflow-x-auto border-b border-border gap-1 p-2 shrink-0">
           {tabs.map((tab) => {
-            const active = tab.href === "/dashboard/settings"
-              ? pathname === tab.href
-              : pathname.startsWith(tab.href);
+            const active = pathname.startsWith(tab.href);
             return (
               <Link
                 key={tab.href}
@@ -76,12 +72,13 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             );
           })}
         </div>
-        <div className={cn("flex-1 overflow-y-auto", isWebhooks ? "p-4 pr-0" : "p-4")}>
+        <div className={cn("flex-1 overflow-y-auto", isWebhooks ? "p-0" : "p-4")}>
           {children}
         </div>
       </div>
 
-      <div className={cn("hidden md:flex flex-1 overflow-y-auto", isWebhooks ? "p-6 pr-0" : "p-6")}>
+      {/* Desktop content area */}
+      <div className={cn("hidden md:flex flex-1 overflow-y-auto", isWebhooks ? "p-0" : "p-6")}>
         {children}
       </div>
     </div>

@@ -15,6 +15,7 @@ import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
 import { rateLimitByUser } from "@/lib/rate-limiter";
 import { sendWebhookEvent } from "@/lib/svix/send";
+import { startSafetyScan } from "@/lib/cloudflare/link-safety";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -242,6 +243,15 @@ export async function POST(req: Request) {
 
     // Cache in Redis (fire-and-forget)
     redis.set(`link:${slug}`, v.destination, { ex: 60 * 60 * 24 * 30 }).catch(() => {});
+
+    // ── Cloudflare URL Scanner: auto-scan destination (fire-and-forget) ───
+    // Non-blocking. The scan submission writes `safety_status = 'pending'`
+    // and the scan UUID onto the link row. The /dashboard/link-safety page
+    // (and the /s/[slug] redirect) consult this status. Until a verdict is
+    // in, the link stays `pending` — it still works, but is flagged for
+    // review on the safety dashboard. Once the scan resolves, redirects
+    // for malicious destinations are blocked by an interstitial.
+    void startSafetyScan(link.id, v.destination);
 
     // Increment usage counter (fire-and-forget)
     checkLimit(v.workspaceId, 'linksPerMonth', true).catch(() => {});

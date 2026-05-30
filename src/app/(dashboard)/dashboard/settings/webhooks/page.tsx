@@ -3,28 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Separator } from "@/components/ui/separator";
-import {
-  Loader2,
-  ExternalLink,
-  Moon,
-  Sun,
-  Eye,
-  EyeOff,
-  LogOut,
-  RefreshCw,
-  Flag,
-} from "lucide-react";
-
-const AVAILABLE_FLAGS = ["admin"] as const;
-
-type PortalOptions = {
-  darkMode: "false" | "true" | "auto";
-  readOnly: boolean;
-  next: string;
-  featureFlags: string[];
-};
+import { Loader2, ExternalLink, LogOut, RefreshCw } from "lucide-react";
 
 export default function WebhooksSettingsPage() {
   const { workspace } = useWorkspace();
@@ -33,48 +12,21 @@ export default function WebhooksSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expiring, setExpiring] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
-  const [options, setOptions] = useState<PortalOptions>({
-    darkMode: "auto",
-    readOnly: false,
-    next: "",
-    featureFlags: [],
-  });
-
-  const toggleFlag = (flag: string) => {
-    setOptions((prev) => ({
-      ...prev,
-      featureFlags: prev.featureFlags.includes(flag)
-        ? prev.featureFlags.filter((f) => f !== flag)
-        : [...prev.featureFlags, flag],
-    }));
-  };
 
   const fetchPortalUrl = useCallback(async () => {
     if (!workspace?.id) return;
-
     setLoading(true);
     setError(null);
-
-    const body: Record<string, unknown> = { workspaceId: workspace.id, sessionId };
-    if (options.darkMode !== "false") body.darkMode = options.darkMode;
-    if (options.readOnly) {
-      body.capabilities = ["ViewBase"];
-    }
-    if (options.next) body.next = options.next;
-    if (options.featureFlags.length > 0) body.featureFlags = options.featureFlags;
-
     try {
       const res = await fetch("/api/svix/portal-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ workspaceId: workspace.id, sessionId, darkMode: "auto" }),
       });
-
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
         throw new Error(errBody.error || "Failed to load portal");
       }
-
       const data = await res.json();
       setPortalUrl(data.url);
     } catch (err) {
@@ -82,7 +34,7 @@ export default function WebhooksSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [workspace?.id, options]);
+  }, [workspace?.id, sessionId]);
 
   useEffect(() => {
     fetchPortalUrl();
@@ -116,119 +68,51 @@ export default function WebhooksSettingsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="mb-4 flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <div>
           <h2 className="text-lg font-semibold">Webhooks</h2>
           <p className="text-sm text-muted-foreground">
             Manage webhook endpoints and event subscriptions for {workspace.name}
           </p>
         </div>
-        {portalUrl && (
-          <a
-            href={portalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-          >
-            Open in new tab
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        )}
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Button
-          variant={options.darkMode === "true" ? "default" : "outline"}
-          size="sm"
-          onClick={() =>
-            setOptions((prev) => ({
-              ...prev,
-              darkMode: prev.darkMode === "true" ? "false" : "true",
-            }))
-          }
-        >
-          {options.darkMode === "true" ? (
-            <Moon className="h-3.5 w-3.5" />
-          ) : (
-            <Sun className="h-3.5 w-3.5" />
-          )}
-          {options.darkMode === "true" ? "Dark" : options.darkMode === "auto" ? "Auto" : "Light"}
-        </Button>
-
-        <Button
-          variant={options.readOnly ? "default" : "outline"}
-          size="sm"
-          onClick={() =>
-            setOptions((prev) => ({ ...prev, readOnly: !prev.readOnly }))
-          }
-        >
-          {options.readOnly ? (
-            <EyeOff className="h-3.5 w-3.5" />
-          ) : (
-            <Eye className="h-3.5 w-3.5" />
-          )}
-          {options.readOnly ? "Read-only" : "Full access"}
-        </Button>
-
         <div className="flex items-center gap-2">
-          <Input
-            placeholder="Page path (e.g. /endpoints/abc)"
-            value={options.next}
-            onChange={(e) =>
-              setOptions((prev) => ({ ...prev, next: e.target.value }))
-            }
-            className="w-64 h-8 text-xs"
-          />
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchPortalUrl}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Apply
-        </Button>
-
-        <Separator orientation="vertical" className="h-6" />
-
-        {AVAILABLE_FLAGS.map((flag) => (
           <Button
-            key={flag}
-            variant={options.featureFlags.includes(flag) ? "default" : "outline"}
+            variant="outline"
             size="sm"
-            onClick={() => toggleFlag(flag)}
+            onClick={handleExpireAll}
+            disabled={expiring}
           >
-            <Flag className="h-3.5 w-3.5" />
-            {flag}
+            {expiring ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <LogOut className="h-3.5 w-3.5" />
+            )}
+            Expire sessions
           </Button>
-        ))}
-
-        <Separator orientation="vertical" className="h-6" />
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExpireAll}
-          disabled={expiring}
-        >
-          {expiring ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <LogOut className="h-3.5 w-3.5" />
+          {portalUrl && (
+            <a
+              href={portalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open in new tab
+            </a>
           )}
-          Expire sessions
-        </Button>
+        </div>
       </div>
 
+      {/* Portal iframe */}
       {loading && (
-        <div className="flex items-center justify-center h-48">
+        <div className="flex items-center justify-center flex-1">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
       {error && !loading && (
-        <div className="flex flex-col items-center justify-center h-48 gap-4">
+        <div className="flex flex-col items-center justify-center flex-1 gap-4 px-6">
           <p className="text-sm text-muted-foreground">{error}</p>
           <Button variant="outline" size="sm" onClick={fetchPortalUrl}>
             <RefreshCw className="h-3.5 w-3.5" />

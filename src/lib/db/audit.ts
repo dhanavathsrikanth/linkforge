@@ -1,7 +1,26 @@
 import { db, auditLogs } from ".";
 
-type AuditAction = "create" | "update" | "delete" | "ab_test_update" | "ab_test_stop" | "ab_test_declare_winner";
-type EntityType = "link" | "domain" | "api_key" | "workspace_member";
+type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "ab_test_update"
+  | "ab_test_stop"
+  | "ab_test_declare_winner"
+  // Safety / abuse dashboard actions
+  | "safety.band_change"
+  | "safety.block"
+  | "safety.unblock"
+  | "safety.rescan_requested"
+  | "safety.rtbf_purge"
+  | "retention.sweep";
+type EntityType =
+  | "link"
+  | "domain"
+  | "api_key"
+  | "workspace_member"
+  | "scan_report"
+  | "workspace";
 
 export async function logAudit({
   workspaceId,

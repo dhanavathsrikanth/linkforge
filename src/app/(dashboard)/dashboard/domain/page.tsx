@@ -24,7 +24,7 @@ export default function DomainsPage() {
   }
 
   return (
-    <div className="py-8">
+    <div className="w-full">
       <DomainsClient workspaceId={workspace.id} />
     </div>
   );

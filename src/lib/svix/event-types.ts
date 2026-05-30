@@ -442,6 +442,48 @@ export const EVENT_TYPES = [
     ),
     archived: false,
   },
+  {
+    name: "link.flagged_malicious",
+    description: "Cloudflare URL Scanner flagged a link's destination as malicious — fired on band transition into 'low'",
+    schemas: schema(
+      {
+        linkId: "lk_...",
+        scanId: "095be615-a8ad-4c33-8e9c-c7612fbf6c9f",
+        trustScore: 12,
+        trustBand: "low",
+        malicious: true,
+      },
+      {
+        linkId: { type: "string", description: "UUID of the link" },
+        scanId: { type: "string", description: "Cloudflare URL Scanner scan UUID" },
+        trustScore: { type: "integer", minimum: 0, maximum: 100 },
+        trustBand: { type: "string", enum: ["unknown", "low", "medium", "high", "verified"] },
+        malicious: { type: "boolean" },
+      },
+      ["linkId", "scanId", "trustScore", "trustBand"],
+    ),
+    archived: false,
+  },
+  {
+    name: "link.flagged_safe",
+    description: "A previously-flagged link's destination is no longer malicious — fired on band transition out of 'low'",
+    schemas: schema(
+      {
+        linkId: "lk_...",
+        scanId: "095be615-a8ad-4c33-8e9c-c7612fbf6c9f",
+        trustScore: 78,
+        trustBand: "high",
+      },
+      {
+        linkId: { type: "string", description: "UUID of the link" },
+        scanId: { type: "string", description: "Cloudflare URL Scanner scan UUID" },
+        trustScore: { type: "integer", minimum: 0, maximum: 100 },
+        trustBand: { type: "string", enum: ["unknown", "low", "medium", "high", "verified"] },
+      },
+      ["linkId", "scanId", "trustScore", "trustBand"],
+    ),
+    archived: false,
+  },
 ] as const;
 
 export type PivotUrlEventType = (typeof EVENT_TYPES)[number]["name"];

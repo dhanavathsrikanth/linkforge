@@ -12,11 +12,13 @@ const sections = [
   { id: "links", label: "Links API" },
   { id: "analytics", label: "Analytics API" },
   { id: "smart-insights", label: "Smart Insights" },
+  { id: "link-checker", label: "Link Checker" },
   { id: "qr", label: "QR Code API" },
   { id: "workspace", label: "Workspace API" },
   { id: "keys", label: "API Keys" },
   { id: "sdk", label: "SDK & Clients" },
   { id: "webhooks", label: "Webhooks" },
+  { id: "settings", label: "Settings & Account" },
   { id: "errors", label: "Error Handling" },
   { id: "rate-limits", label: "Rate Limits" },
 ];
@@ -174,6 +176,63 @@ export default function DocsPage() {
               <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 mb-6">
                 Latest updates from the <strong>May 2026</strong> release.
               </div>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">Settings Consolidation</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                All workspace configuration is now unified under a single <strong>Settings</strong> page with a persistent sidebar. No more navigating away to separate pages for billing, domains, or API keys.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Account</strong> — Clerk UserProfile + OrganizationProfile with hash-based routing (never leaves the settings layout)</li>
+                <li><strong>Members</strong> — team management with Clerk organization sync</li>
+                <li><strong>Billing</strong> — plan overview, usage meters, upgrade options, billing history (moved from <Code>/dashboard/billings</Code>)</li>
+                <li><strong>Domains</strong> — custom domain management with Cloudflare integration (moved from <Code>/dashboard/domain</Code>)</li>
+                <li><strong>API Keys</strong> — create, revoke, and manage API keys (moved from <Code>/dashboard/developers/api-keys</Code>)</li>
+                <li><strong>UTM Templates</strong> — pre-configured UTM parameter templates</li>
+                <li><strong>Audit Logs</strong> — workspace activity history</li>
+                <li><strong>Webhooks</strong> — Svix portal for endpoint management</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Link Checker + Cloudflare Safety</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The Link Checker page now integrates Cloudflare URL Scanner data alongside HTTP health checks. Each scanned link shows its safety verdict, trust score, redirect chain, performance metrics, detected technologies, and domain categories — all pulled from existing scan data without extra API calls.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Safety badge</strong> — Safe / Suspicious / Malicious / Scanning with trust score inline</li>
+                <li><strong>Trust bar</strong> — color-coded 0–100 progress bar per link</li>
+                <li><strong>Expandable Cloudflare panel</strong> — server IP, country, Radar rank, TTFB/FCP/Load metrics, categories, technologies, redirect chain, phishing warnings</li>
+                <li><strong>Stats cards</strong> — 7-column grid showing Total, OK, Broken, Changed + CF Safe, Suspicious, Malicious counts</li>
+              </ul>
+              <Endpoint method="POST" path="/api/ai/check-links" description="Scan workspace links for HTTP status, content drift, and return Cloudflare safety data from the database." />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Command Palette</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The search bar in the dashboard header is now functional. Clicking it (or pressing <Code>Ctrl+K</Code> / <Code>⌘K</Code>) opens a command palette with quick actions and navigation shortcuts.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Quick Actions</strong> — Create new link, Create QR Code, Invite team member</li>
+                <li><strong>Navigation</strong> — Jump to Overview, Links, Analytics, Domains, Settings, API Keys</li>
+                <li><strong>Keyboard shortcut</strong> — <Code>⌘K</Code> on Mac, <Code>Ctrl+K</Code> on Windows/Linux</li>
+                <li><strong>Fuzzy search</strong> — type to filter actions and pages</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Account &amp; Organization Management</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The Account page under Settings now shows both your personal profile (Clerk UserProfile) and your organization profile (Clerk OrganizationProfile) on the same page. If you don't have an organization yet, you can create one inline without leaving the settings layout.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>UserProfile</strong> — edit name, email, password, 2FA, connected accounts, active sessions</li>
+                <li><strong>OrganizationProfile</strong> — org name, logo, members, invitations, roles, danger zone</li>
+                <li><strong>CreateOrganization</strong> — inline org creation form when no org exists</li>
+                <li><strong>Hash routing</strong> — all Clerk sub-pages use <Code>routing="hash"</Code> so the settings sidebar never disappears</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Sidebar Cleanup</h3>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Removed from sidebar</strong> — Domains, Billing, API Keys, Webhooks (all moved into Settings)</li>
+                <li><strong>Developers section</strong> — now only contains API Docs link</li>
+                <li><strong>Workspace section</strong> — simplified to just Settings</li>
+                <li><strong>Webhooks page</strong> — removed dev-only toolbar buttons (Dark/Light, Read-only, Page path, Feature flags); kept only Expire Sessions and Open in New Tab</li>
+              </ul>
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3">Analytics &amp; Smart Insights</h3>
               <p className="text-slate-600 mb-4 leading-relaxed">
@@ -643,6 +702,91 @@ func main() {
 }`} />
             </Section>
 
+            {/* ─── Link Checker ────────────────────────────── */}
+            <Section id="link-checker">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Link Checker</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The Link Checker scans your workspace links for HTTP health (broken URLs, content drift) and enriches results with Cloudflare URL Scanner safety data. All Cloudflare data is pulled from the database — no extra API calls are made during the check.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Check Links</h3>
+              <Endpoint method="POST" path="/api/ai/check-links" description="Scan workspace links for HTTP status, content drift (AI-powered), and return Cloudflare safety enrichment." />
+              <p className="text-slate-500 text-sm mb-3">Body (JSON):</p>
+              <CodeBlock code={`{
+  "workspaceId": "ws_uuid",        // Required
+  "linkIds": ["link-1", "link-2"]  // Optional — omit to scan all (max 50)
+}`} />
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Response</h4>
+              <CodeBlock code={`{
+  "checked": 12,
+  "broken": 2,
+  "changed": 1,
+  "results": [
+    {
+      "linkId": "uuid",
+      "slug": "my-link",
+      "destination": "https://example.com",
+      "status": "ok",           // "ok" | "broken" | "changed"
+      "statusCode": 200,
+      "cloudflare": {
+        "safetyStatus": "safe",   // "unknown" | "pending" | "safe" | "suspicious" | "malicious" | "error"
+        "safetyTrustScore": 92,
+        "safetyTrustBand": "high", // "unknown" | "low" | "medium" | "high" | "verified"
+        "safetyScannedAt": "2026-05-28T10:00:00.000Z",
+        "safetyVerdict": {
+          "malicious": false,
+          "categories": ["Technology", "SaaS"],
+          "domain": "example.com",
+          "country": "US",
+          "technologies": [{ "name": "Next.js", "categories": ["JavaScript frameworks"] }]
+        },
+        "redirectChain": [
+          { "url": "https://example.com", "status": 301 },
+          { "url": "https://www.example.com", "status": 200 }
+        ],
+        "performance": { "ttfbMs": 120, "fcpMs": 450, "loadMs": 1200 },
+        "pageIp": "104.21.32.1",
+        "pageCountry": "US",
+        "pageServer": "cloudflare",
+        "radarRank": 1523,
+        "contactedDomains": ["cdn.example.com", "analytics.example.com"]
+      }
+    }
+  ]
+}`} />
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Status Meanings</h4>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Status</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Meaning</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">ok</td><td className="px-4 py-2 text-slate-500">HTTP 2xx/3xx, content unchanged</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">broken</td><td className="px-4 py-2 text-slate-500">HTTP 4xx/5xx or connection timeout</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">changed</td><td className="px-4 py-2 text-slate-500">Page title changed significantly (AI-detected content drift)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Cloudflare Safety Fields</h4>
+              <p className="text-slate-600 mb-3 text-sm leading-relaxed">
+                The <Code>cloudflare</Code> object is populated from the latest finished Cloudflare URL Scanner report stored in the database. If a link has never been scanned, <Code>safetyStatus</Code> will be <Code>"unknown"</Code> and other fields will be <Code>null</Code>.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>safetyTrustScore</strong> — 0–100 composite score based on verdict, redirect chain, technologies, and asset risk flags</li>
+                <li><strong>safetyTrustBand</strong> — human-readable band: low (0–30), medium (31–60), high (61–85), verified (86–100)</li>
+                <li><strong>redirectChain</strong> — ordered list of HTTP redirects from submitted URL to final URL</li>
+                <li><strong>performance</strong> — TTFB, First Contentful Paint, and full page load time in milliseconds</li>
+                <li><strong>technologies</strong> — detected tech stack (frameworks, CMS, analytics, etc.)</li>
+                <li><strong>radarRank</strong> — Cloudflare Radar popularity rank (1 = most popular globally)</li>
+              </ul>
+            </Section>
+
             {/* ─── QR Code API ────────────────────────────── */}
             <Section id="qr">
               <h2 className="text-2xl font-bold text-slate-900 mb-4">QR Code API</h2>
@@ -712,7 +856,7 @@ document.querySelector("#qr").src = imgUrl;`} />
   }
 }`} />
               <Endpoint method="DELETE" path="/api/v2/keys/:id" description="Revoke (deactivate) an API key." />
-              <p className="text-slate-500 text-sm">Manage your keys in the dashboard: <a href="/dashboard/developers/api-keys" className="text-slate-900 underline">/dashboard/developers/api-keys</a></p>
+              <p className="text-slate-500 text-sm">Manage your keys in the dashboard: <a href="/dashboard/settings/api-keys" className="text-slate-900 underline">/dashboard/settings/api-keys</a></p>
             </Section>
 
             {/* ─── SDK & Clients ──────────────────────────── */}
@@ -998,6 +1142,57 @@ func main() {
               <p className="text-slate-600 text-sm mt-4">
                 Manage your webhook endpoints in the dashboard under <Code>Settings &rarr; Webhooks</Code> or via the Svix App Portal.
               </p>
+            </Section>
+
+            {/* ─── Settings & Account ─────────────────────── */}
+            <Section id="settings">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Settings &amp; Account</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                All workspace configuration lives under <Code>/dashboard/settings</Code> with a persistent sidebar. Clicking Settings in the main dashboard sidebar opens the settings panel — the sidebar stays visible while you navigate between sections.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Settings Sidebar Sections</h3>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Section</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Route</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">Account</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/account</td><td className="px-4 py-2 text-slate-500">Personal profile, security, connected accounts + Organization profile/creation</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">Members</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/members</td><td className="px-4 py-2 text-slate-500">Team members synced from Clerk, invite links, role management</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">Billing</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/billing</td><td className="px-4 py-2 text-slate-500">Current plan, usage meters, upgrade options, billing history</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">Domains</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/domains</td><td className="px-4 py-2 text-slate-500">Custom domain management with Cloudflare Custom Hostnames</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">API Keys</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/api-keys</td><td className="px-4 py-2 text-slate-500">Create/revoke secret and publishable API keys</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">UTM Templates</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/utm-templates</td><td className="px-4 py-2 text-slate-500">Pre-configured UTM parameter templates for link creation</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">Audit Logs</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/audit-logs</td><td className="px-4 py-2 text-slate-500">Workspace activity history (create/update/delete events)</td></tr>
+                    <tr><td className="px-4 py-2 font-medium text-slate-800">Webhooks</td><td className="px-4 py-2 font-mono text-xs text-slate-600">/dashboard/settings/webhooks</td><td className="px-4 py-2 text-slate-500">Svix webhook portal — manage endpoints, event subscriptions, delivery logs</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Account Page</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The Account page renders Clerk's <Code>UserProfile</Code> and <Code>OrganizationProfile</Code> components inline using <Code>routing="hash"</Code>. This means all Clerk sub-pages (edit profile, change password, manage sessions, invite members, etc.) navigate via URL hash changes — the settings sidebar never disappears.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>UserProfile</strong> — name, email, avatar, password, 2FA, connected accounts (Google, GitHub, etc.), active sessions</li>
+                <li><strong>OrganizationProfile</strong> — org name, logo, members list, pending invitations, role management, danger zone (delete org)</li>
+                <li><strong>CreateOrganization</strong> — shown inline when no organization exists; after creation, the org profile appears immediately</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Command Palette</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Press <Code>Ctrl+K</Code> (Windows/Linux) or <Code>⌘K</Code> (Mac) anywhere in the dashboard to open the command palette. You can also click the search bar in the header.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>Quick Actions</strong> — Create new link, Create QR Code, Invite team member</li>
+                <li><strong>Navigation</strong> — Jump to any dashboard page by typing its name</li>
+                <li><strong>Fuzzy matching</strong> — powered by cmdk for instant filtering</li>
+              </ul>
             </Section>
 
             {/* ─── Errors ─────────────────────────────────── */}

@@ -1,9 +1,33 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { links } from "@/lib/db/schema";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { links, scanReports } from "@/lib/db/schema";
+import { eq, and, isNull, inArray, desc } from "drizzle-orm";
 import { aiComplete } from "@/lib/ai/client";
-import { submitUrlScan, getScanResult } from "@/lib/cloudflare/url-scanner";
+
+interface CloudflareScanData {
+  safetyStatus: string | null;
+  safetyTrustScore: number | null;
+  safetyTrustBand: string | null;
+  safetyScannedAt: Date | null;
+  safetyVerdict: {
+    malicious: boolean;
+    categories?: string[];
+    phishing?: string[];
+    domain?: string;
+    country?: string;
+    asn?: string;
+    asnName?: string;
+    technologies?: { name: string; categories: string[] }[];
+  } | null;
+  // From scan_reports (latest finished)
+  redirectChain?: { url: string; status: number; ip?: string; country?: string }[] | null;
+  performance?: { ttfbMs?: number; fcpMs?: number; loadMs?: number } | null;
+  pageIp?: string | null;
+  pageCountry?: string | null;
+  pageServer?: string | null;
+  radarRank?: number | null;
+  contactedDomains?: string[] | null;
+}
 
 interface CheckResult {
   linkId: string;
@@ -12,14 +36,7 @@ interface CheckResult {
   status: "ok" | "broken" | "changed";
   statusCode?: number;
   summary?: string;
-  // Cloudflare URL Scanner security verdict
-  security?: {
-    scanId: string;
-    malicious: boolean;
-    categories: string[];
-    phishing: string[];
-    status: "pending" | "safe" | "malicious" | "error";
-  };
+  cloudflare?: CloudflareScanData;
 }
 
 export async function POST(req: Request) {
@@ -34,20 +51,73 @@ export async function POST(req: Request) {
       batch = await db.query.links.findMany({
         where: and(eq(links.workspaceId, workspaceId), inArray(links.id, linkIds)),
         limit: 50,
-        columns: { id: true, slug: true, destination: true, title: true },
+        columns: {
+          id: true, slug: true, destination: true, title: true,
+          safetyStatus: true, safetyTrustScore: true, safetyTrustBand: true,
+          safetyScannedAt: true, safetyVerdict: true, safetyScanId: true,
+        },
       });
     } else {
       batch = await db.query.links.findMany({
         where: eq(links.workspaceId, workspaceId),
         limit: 50,
-        columns: { id: true, slug: true, destination: true, title: true },
+        columns: {
+          id: true, slug: true, destination: true, title: true,
+          safetyStatus: true, safetyTrustScore: true, safetyTrustBand: true,
+          safetyScannedAt: true, safetyVerdict: true, safetyScanId: true,
+        },
       });
     }
+
+    // Fetch latest finished scan_reports for all links in one query
+    const linkIdList = batch.map((l) => l.id);
+    const latestReports =
+      linkIdList.length > 0
+        ? await db
+            .selectDistinctOn([scanReports.linkId], {
+              linkId: scanReports.linkId,
+              redirectChain: scanReports.redirectChain,
+              performance: scanReports.performance,
+              pageIp: scanReports.pageIp,
+              pageCountry: scanReports.pageCountry,
+              pageServer: scanReports.pageServer,
+              radarRank: scanReports.radarRank,
+              contactedDomains: scanReports.contactedDomains,
+              fetchedAt: scanReports.fetchedAt,
+            })
+            .from(scanReports)
+            .where(
+              and(
+                inArray(scanReports.linkId, linkIdList),
+                eq(scanReports.status, "finished")
+              )
+            )
+            .orderBy(scanReports.linkId, desc(scanReports.fetchedAt))
+        : [];
+
+    const reportByLinkId = new Map(latestReports.map((r) => [r.linkId, r]));
 
     const results: CheckResult[] = [];
 
     for (const link of batch) {
       let statusCode = 0;
+
+      // Build Cloudflare enrichment from DB (no extra API call needed)
+      const report = reportByLinkId.get(link.id);
+      const cloudflare: CloudflareScanData = {
+        safetyStatus: link.safetyStatus ?? null,
+        safetyTrustScore: link.safetyTrustScore ?? null,
+        safetyTrustBand: link.safetyTrustBand ?? null,
+        safetyScannedAt: link.safetyScannedAt ?? null,
+        safetyVerdict: (link.safetyVerdict as CloudflareScanData["safetyVerdict"]) ?? null,
+        redirectChain: (report?.redirectChain as CloudflareScanData["redirectChain"]) ?? null,
+        performance: (report?.performance as CloudflareScanData["performance"]) ?? null,
+        pageIp: report?.pageIp ?? null,
+        pageCountry: report?.pageCountry ?? null,
+        pageServer: report?.pageServer ?? null,
+        radarRank: report?.radarRank ?? null,
+        contactedDomains: (report?.contactedDomains as string[] | null) ?? null,
+      };
 
       try {
         const res = await fetch(link.destination, {
@@ -70,6 +140,7 @@ export async function POST(req: Request) {
             destination: link.destination,
             status: "broken",
             statusCode,
+            cloudflare,
           });
           continue;
         }
@@ -110,6 +181,7 @@ export async function POST(req: Request) {
                   destination: link.destination,
                   status: "changed",
                   summary: `Title changed from "${link.title}" to "${currentTitle}"`,
+                  cloudflare,
                 });
                 continue;
               }
@@ -125,6 +197,7 @@ export async function POST(req: Request) {
           destination: link.destination,
           status: "broken",
           statusCode: 0,
+          cloudflare,
         });
         continue;
       }
@@ -135,63 +208,8 @@ export async function POST(req: Request) {
         destination: link.destination,
         status: "ok",
         statusCode,
+        cloudflare,
       });
-    }
-
-    // ── Cloudflare URL Scanner: submit all checked URLs for security ──────
-    // Non-blocking — we submit scans and return their IDs. The client can
-    // poll /api/url-scanner/result/[scanId] for verdicts asynchronously.
-    // This avoids blocking the response for 30-60s while scans complete.
-    let cfScannerAvailable = true;
-    try {
-      // Quick check that env vars are configured
-      const accountId =
-        process.env.CLOUDFLARE_ACCOUNT_ID ||
-        process.env.CF_ACCOUNT_ID ||
-        process.env.CLOUDFLARE_R2_ACCOUNT_ID;
-      const token =
-        process.env.CLOUDFLARE_URL_SCANNER_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
-      if (!accountId || !token) cfScannerAvailable = false;
-    } catch {
-      cfScannerAvailable = false;
-    }
-
-    if (cfScannerAvailable) {
-      // Submit all unique destinations for security scanning
-      const uniqueUrls = [...new Set(results.map((r) => r.destination))];
-      const scanSubmissions = await Promise.allSettled(
-        uniqueUrls.slice(0, 20).map(async (url) => {
-          try {
-            const submission = await submitUrlScan(url, {
-              visibility: "Unlisted",
-            });
-            return { url, uuid: submission.uuid };
-          } catch {
-            return { url, uuid: null };
-          }
-        })
-      );
-
-      // Map scan UUIDs back to results
-      const urlToScanId = new Map<string, string>();
-      for (const s of scanSubmissions) {
-        if (s.status === "fulfilled" && s.value.uuid) {
-          urlToScanId.set(s.value.url, s.value.uuid);
-        }
-      }
-
-      for (const result of results) {
-        const scanId = urlToScanId.get(result.destination);
-        if (scanId) {
-          result.security = {
-            scanId,
-            malicious: false,
-            categories: [],
-            phishing: [],
-            status: "pending",
-          };
-        }
-      }
     }
 
     return NextResponse.json({
