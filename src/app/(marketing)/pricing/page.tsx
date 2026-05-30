@@ -94,16 +94,8 @@ export default function PricingPage() {
                     <span>{plan.limits.clicksTrackedPerMonth === -1 ? 'Unlimited' : (plan.limits.clicksTrackedPerMonth >= 1000000 ? (plan.limits.clicksTrackedPerMonth / 1000000).toFixed(1) + 'M' : plan.limits.clicksTrackedPerMonth.toLocaleString())} Clicks / mo</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className={`w-5 h-5 shrink-0 ${plan.limits.customDomains > 0 ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {plan.limits.customDomains > 0 ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      )}
-                    </svg>
-                    <span className={plan.limits.customDomains === 0 ? 'text-muted-foreground' : ''}>
-                      {plan.limits.customDomains} Custom Domains
-                    </span>
+                    <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <span>{plan.limits.customDomains === -1 ? 'Unlimited' : plan.limits.customDomains} Custom Domains</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <svg className={`w-5 h-5 shrink-0 ${plan.limits.teamMembers > 1 ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
