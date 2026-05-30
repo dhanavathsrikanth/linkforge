@@ -44,7 +44,7 @@ export default function AccountPage() {
           url="organization"
           labelIcon={<Building2 className="h-4 w-4" />}
         >
-          <OrganizationProfile routing="virtual" appearance={clerkAppearance} />
+          <OrganizationProfile appearance={clerkAppearance} />
         </UserProfile.Page>
 
         <UserProfile.Page
@@ -52,7 +52,7 @@ export default function AccountPage() {
           url="create-organization"
           labelIcon={<Plus className="h-4 w-4" />}
         >
-          <CreateOrganization routing="virtual" appearance={clerkAppearance} />
+          <CreateOrganization appearance={clerkAppearance} />
         </UserProfile.Page>
       </UserProfile>
     </div>
