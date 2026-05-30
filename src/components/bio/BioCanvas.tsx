@@ -546,8 +546,8 @@ export function BioCanvas({
                       width={canvasWidth - 24}
                       breakpoint={breakpointKey}
                       layouts={layoutsProp}
-                      breakpoints={breakpoints as unknown as Record<string, number>}
-                      cols={cols as unknown as Record<string, number>}
+                      breakpoints={breakpoints}
+                      cols={cols}
                       rowHeight={60}
                       margin={[10, 10]}
                       containerPadding={[0, 0]}
@@ -632,8 +632,8 @@ export function BioCanvas({
                   width={canvasWidth - 32}
                   breakpoint={breakpointKey}
                   layouts={layoutsProp}
-                  breakpoints={breakpoints as unknown as Record<string, number>}
-                  cols={cols as unknown as Record<string, number>}
+                  breakpoints={breakpoints}
+                  cols={cols}
                   rowHeight={60}
                   margin={[10, 10]}
                   containerPadding={[0, 0]}

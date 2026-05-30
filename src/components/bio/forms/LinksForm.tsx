@@ -374,7 +374,7 @@ function AddBar({ onAdd, disabled }: AddBarProps) {
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
 export function LinksForm({ config: raw, onSave, onCancel }: BlockFormProps) {
-  const init = (raw ?? {}) as LinksBlockConfig;
+  const init = (raw ?? {}) as unknown as LinksBlockConfig;
   const [title, setTitle] = useState(init.title ?? "My links");
   const [subtitle, setSubtitle] = useState(init.subtitle ?? "");
   const [items, setItems] = useState<LinksBlockItem[]>(

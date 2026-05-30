@@ -82,7 +82,7 @@ function LinkRow({ blockId, isEditable, item, isLast }: LinkRowProps) {
 }
 
 export function LinksBlock({ block, isEditable, onDelete }: Props) {
-  const config = block.config as LinksBlockConfig;
+  const config = block.config as unknown as LinksBlockConfig;
   const { title, subtitle, items = [] } = config;
 
   // Hide hidden items on the public page; in the editor we still

@@ -95,7 +95,7 @@ export async function startSafetyScan(
   let lockAcquired = false;
   try {
     const setRes = await redis.set(lockKey, "1", { nx: true, ex: 5 });
-    lockAcquired = setRes === "OK" || setRes === true;
+    lockAcquired = setRes === "OK";
   } catch {
     lockAcquired = false;
   }

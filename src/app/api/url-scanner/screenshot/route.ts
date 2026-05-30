@@ -46,7 +46,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return new Response(shot.bytes, {
+  return new Response(new Uint8Array(shot.bytes), {
     status: 200,
     headers: {
       "Content-Type": shot.mimeType,
