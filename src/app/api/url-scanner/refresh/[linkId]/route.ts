@@ -63,20 +63,18 @@ export async function POST(
       );
     }
 
+    // Fetch the persisted verdict + page metadata for the response.
+    const refreshed = await db.query.links.findFirst({
+      where: (l, { eq }) => eq(l.id, linkId),
+      columns: { safetyVerdict: true },
+    });
+
     return NextResponse.json({
       status: result.status,
       linkId,
-      verdict: result.verdict
-        ? {
-            malicious: result.verdict.verdicts.overall.malicious,
-            categories: result.verdict.categories,
-            phishing: result.verdict.verdicts.overall.phishing,
-            domain: result.verdict.page.domain,
-            country: result.verdict.page.country,
-            asn: result.verdict.page.asn,
-            asnName: result.verdict.page.asnName,
-          }
-        : null,
+      trustScore: result.trustScore,
+      trustBand: result.trustBand,
+      verdict: refreshed?.safetyVerdict ?? null,
     });
   } catch (err) {
     console.error("[POST /api/url-scanner/refresh/[linkId]]", err);
