@@ -230,3 +230,85 @@ export async function incrementUsage(
   }
   return current;
 }
+
+// ─── Domain usage breakdown (custom-domain-assignment Req 21) ─────────────────
+
+export type DomainUsage = {
+  plan: PlanKey;
+  limit: number;        // -1 = unlimited
+  used: number;         // counts ALL rows (Req 22.4)
+  active: number;
+  disabled: number;     // over-limit after downgrade (oldest rows beyond limit)
+  suspended: number;    // status != active
+  atLimit: boolean;
+};
+
+/**
+ * Returns the workspace's custom-domain consumption broken down into active /
+ * disabled / suspended. Reuses the same row source as checkLimit — no separate
+ * billing math. "Disabled" = rows beyond the plan limit after a downgrade
+ * (oldest-first stay active, the overflow is considered disabled).
+ */
+export async function getDomainUsage(workspaceId: string): Promise<DomainUsage> {
+  const workspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.id, workspaceId),
+  });
+  if (!workspace) throw new Error("Workspace not found");
+
+  const plan = workspace.plan as PlanKey;
+  const limits = await getEffectiveLimits(workspaceId);
+  const limit = limits.customDomains as number;
+
+  const rows = await db
+    .select({ id: domains.id, status: domains.status, createdAt: domains.createdAt })
+    .from(domains)
+    .where(eq(domains.workspaceId, workspaceId));
+
+  const used = rows.length;
+  const suspended = rows.filter((r) => r.status && r.status !== "active").length;
+
+  // Over-limit overflow → disabled. Oldest rows keep their slots.
+  let disabled = 0;
+  if (limit !== -1 && used > limit) {
+    disabled = used - limit;
+  }
+
+  const active = used - suspended - disabled;
+
+  return {
+    plan,
+    limit,
+    used,
+    active: Math.max(0, active),
+    disabled,
+    suspended,
+    atLimit: limit !== -1 && used >= limit,
+  };
+}
+
+/**
+ * Returns the domain ids that are "disabled" by being over the plan limit
+ * after a downgrade. Oldest, non-default domains keep their slots; the overflow
+ * (newest-first) is disabled. Consumed by the pricing-spec downgrade flow to
+ * flag/restrict serving without deleting rows (custom-domain-assignment Req 20/22.7).
+ */
+export async function getDisabledDomainIds(workspaceId: string): Promise<string[]> {
+  const limits = await getEffectiveLimits(workspaceId);
+  const limit = limits.customDomains as number;
+  if (limit === -1) return [];
+
+  const rows = await db
+    .select({ id: domains.id, isDefault: domains.isDefault, createdAt: domains.createdAt })
+    .from(domains)
+    .where(eq(domains.workspaceId, workspaceId));
+
+  if (rows.length <= limit) return [];
+
+  // Keep oldest + default domains; disable the newest overflow.
+  const ranked = [...rows].sort((a, b) => {
+    // default always retained → sort first
+    if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+    return a.createdAt.getTime() - b.createdAt.getTime(); // oldest first
+  });
+  return ranked.slice(limit).map((r) => r.id);
+}

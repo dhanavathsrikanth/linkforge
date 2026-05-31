@@ -10,12 +10,8 @@ import { eq } from "drizzle-orm";
 import { checkLimit } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 import { rateLimitByUser } from "@/lib/rate-limiter";
-// M5: Reserved slugs that would collide with app routes
-const RESERVED_SLUGS = new Set([
-  "admin", "api", "p", "dashboard", "login", "signup", "sign-in", "sign-up",
-  "blog", "pricing", "about", "contact", "help", "support", "terms", "privacy",
-  "404", "500", "me", "home", "www", "app",
-]);
+import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
+import { refreshDomainConfig } from "@/lib/domains/config-sync";
 
 // M5: Slug validation — lowercase, alphanumeric + hyphens, 3-30 chars, not reserved
 const SlugSchema = z
@@ -91,6 +87,8 @@ const PatchSchema = z.object({
   // M5: Slug uses validated schema
   slug: SlugSchema.optional(),
   customDomainId: z.string().uuid().optional().nullable(),
+  /** Set true to reassign a domain already bound to another bio. */
+  force: z.boolean().optional(),
   themeId: z.string().optional().nullable(),
   // P6: Client sends its local updatedAt for conflict detection
   updatedAt: z.string().datetime().optional(),
@@ -236,6 +234,7 @@ export async function PATCH(req: Request) {
       updatedAt: _clientTs,
       blocks: blocksData,
       id: _galleryIdSelector,
+      force: _force,
       ...rawDataToSave
     } = parsed.data;
 
@@ -244,6 +243,45 @@ export async function PATCH(req: Request) {
     const dataToSave: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rawDataToSave)) {
       if (v !== undefined) dataToSave[k] = v;
+    }
+
+    // ── Custom-domain binding validation (custom-domain-assignment Req 3) ─────
+    // Validate the target domain BEFORE persisting: verified, role allows bio,
+    // and one-bio-per-domain (409 DOMAIN_IN_USE unless force, which reassigns).
+    if (parsed.data.customDomainId !== undefined && parsed.data.customDomainId !== null
+        && parsed.data.customDomainId !== existing.customDomainId) {
+      const targetId = parsed.data.customDomainId;
+      const dom = await db.query.domains.findFirst({
+        where: (d, { eq }) => eq(d.id, targetId),
+      });
+      if (!dom || dom.workspaceId !== existing.workspaceId) {
+        return NextResponse.json({ error: { code: "DOMAIN_NOT_FOUND" } }, { status: 400 });
+      }
+      if (!dom.verified) {
+        return NextResponse.json({ error: { code: "DOMAIN_NOT_VERIFIED" } }, { status: 400 });
+      }
+      if (dom.role === "links") {
+        return NextResponse.json({ error: { code: "ROLE_DISALLOWS_BIO" } }, { status: 409 });
+      }
+      // One bio per domain.
+      const otherBio = await db.query.linkGallery.findFirst({
+        where: (g, { eq, and, ne }) =>
+          and(eq(g.customDomainId, targetId), ne(g.id, existing.id)),
+        columns: { id: true, slug: true },
+      });
+      if (otherBio) {
+        if (!parsed.data.force) {
+          return NextResponse.json(
+            { error: { code: "DOMAIN_IN_USE", currentBioId: otherBio.id, currentBioSlug: otherBio.slug, domain: dom.domain } },
+            { status: 409 }
+          );
+        }
+        // force → clear the previous bio's binding atomically before reassign.
+        await db
+          .update(linkGallery)
+          .set({ customDomainId: null, isRootPage: false, updatedAt: new Date() })
+          .where(eq(linkGallery.id, otherBio.id));
+      }
     }
 
     // Built-in theme IDs are non-UUID strings (e.g. "theme-default") and
@@ -317,13 +355,14 @@ export async function PATCH(req: Request) {
     const oldSlug = existing.slug !== updated.slug ? existing.slug : undefined;
     void purgeBioCache(updated.slug, oldSlug);
 
-    // Resolve custom domain string if customDomainId changed
+    // Resolve custom domain string if customDomainId changed, then sync KV
+    // synchronously (custom-domain-assignment Req 7) so we never report
+    // success while the edge mapping is stale.
     if (parsed.data.customDomainId !== undefined) {
       const newDomainId = parsed.data.customDomainId;
       const oldDomainId = existing.customDomainId;
 
       if (newDomainId !== oldDomainId) {
-        // Look up domain strings for both old and new IDs
         const [newDomainRow, oldDomainRow] = await Promise.all([
           newDomainId
             ? db.query.domains.findFirst({ where: (d, { eq }) => eq(d.id, newDomainId), columns: { domain: true } })
@@ -332,12 +371,26 @@ export async function PATCH(req: Request) {
             ? db.query.domains.findFirst({ where: (d, { eq }) => eq(d.id, oldDomainId), columns: { domain: true } })
             : Promise.resolve(null),
         ]);
-        void syncDomainMapping(
+
+        // Order: write-new → delete-old so visitors never hit a 404 mid-swap.
+        const ok = await syncDomainMappingSync(
           newDomainRow?.domain ?? null,
           updated.slug,
           updated.id,
           oldDomainRow?.domain ?? null,
         );
+
+        // Refresh the domain:{host} routing config for both hosts so the
+        // worker sees hasRootBio flip immediately.
+        if (newDomainRow?.domain) await refreshDomainConfig(newDomainRow.domain);
+        if (oldDomainRow?.domain) await refreshDomainConfig(oldDomainRow.domain);
+
+        if (!ok) {
+          return NextResponse.json(
+            { error: { code: "KV_SYNC_FAILED", retryAfterMs: 2000 }, gallery: updated },
+            { status: 502 }
+          );
+        }
       }
     }
 
@@ -399,44 +452,44 @@ async function purgeBioCache(slug: string, oldSlug?: string): Promise<void> {
 }
 
 /**
- * Write or remove a custom domain → slug mapping in Cloudflare KV.
- * Called when the user sets/clears customDomainId on their bio page.
+ * Write/replace a custom domain → slug mapping in the worker KV, synchronously,
+ * with a 2s timeout (custom-domain-assignment Req 7). Ordered write-new →
+ * delete-old so visitors never hit a 404 mid-transition. Returns true on
+ * success, false on timeout/failure (caller surfaces KV_SYNC_FAILED).
  */
-async function syncDomainMapping(
+async function syncDomainMappingSync(
   domain: string | null,
   slug: string,
   galleryId: string,
   oldDomain?: string | null,
-): Promise<void> {
+  timeoutMs = 2000,
+): Promise<boolean> {
   const workerUrl = process.env.CF_WORKER_URL;
   const workerSecret = process.env.WORKER_SECRET;
-  if (!workerUrl || !workerSecret) return;
+  if (!workerUrl || !workerSecret) return true; // no worker (dev) → no-op success
 
-  try {
-    // Remove old domain mapping if domain changed
-    if (oldDomain && oldDomain !== domain) {
-      await fetch(`${workerUrl}/internal/bio/domain-mapping`, {
+  const post = async (body: unknown): Promise<boolean> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${workerUrl}/internal/bio/domain-mapping`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-worker-secret": workerSecret,
-        },
-        body: JSON.stringify({ domain: oldDomain, remove: true }),
+        headers: { "Content-Type": "application/json", "x-worker-secret": workerSecret },
+        body: JSON.stringify(body),
+        signal: controller.signal,
       });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
     }
+  };
 
-    // Set new domain mapping
-    if (domain) {
-      await fetch(`${workerUrl}/internal/bio/domain-mapping`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-worker-secret": workerSecret,
-        },
-        body: JSON.stringify({ domain, slug, galleryId }),
-      });
-    }
-  } catch (err) {
-    console.warn("[syncDomainMapping] Failed (non-blocking):", err);
-  }
+  let ok = true;
+  // Write new first.
+  if (domain) ok = (await post({ domain, slug, galleryId })) && ok;
+  // Then remove the stale mapping.
+  if (oldDomain && oldDomain !== domain) ok = (await post({ domain: oldDomain, remove: true })) && ok;
+  return ok;
 }

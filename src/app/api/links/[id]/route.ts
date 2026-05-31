@@ -8,11 +8,14 @@ import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
 import { getDefaultDomain } from "@/lib/utils";
 import { sendWebhookEvent } from "@/lib/svix/send";
+import { isReservedSlug } from "@/lib/reserved-slugs";
+import { domains } from "@/lib/db/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
 const UpdateLinkSchema = z.object({
   destination: z.string().url().optional(),
+  domainId: z.string().uuid().optional().nullable(),
   title: z.string().max(200).optional().nullable(),
   description: z.string().max(500).optional().nullable(),
   password: z.string().max(64).optional().nullable(),
@@ -170,6 +173,47 @@ export async function PATCH(
     }
 
     const updateData: Record<string, unknown> = {};
+
+    // ── Domain reassignment (custom-domain-assignment Req 2) ──────────────────
+    // Re-validate the target domain and re-check per-domain slug uniqueness
+    // against the link's existing slug.
+    if (v.domainId !== undefined) {
+      const newDomainId = v.domainId;
+      if (newDomainId) {
+        const dom = await db.query.domains.findFirst({ where: eq(domains.id, newDomainId) });
+        if (!dom || dom.workspaceId !== v.workspaceId) {
+          return NextResponse.json({ error: { code: "DOMAIN_NOT_FOUND" } }, { status: 400 });
+        }
+        if (!dom.verified) {
+          return NextResponse.json({ error: { code: "DOMAIN_NOT_VERIFIED" } }, { status: 400 });
+        }
+        if (dom.role === "bio") {
+          return NextResponse.json({ error: { code: "ROLE_DISALLOWS_LINKS" } }, { status: 409 });
+        }
+        if (isReservedSlug(existing.slug)) {
+          return NextResponse.json({
+            error: { code: "SLUG_RESERVED", message: "This link's slug is reserved on the target domain." },
+          }, { status: 409 });
+        }
+      }
+      if (newDomainId !== existing.domainId) {
+        const clash = await db.query.links.findFirst({
+          where: (l, { eq, and, isNull, ne }) =>
+            and(
+              eq(l.slug, existing.slug),
+              newDomainId ? eq(l.domainId, newDomainId) : isNull(l.domainId),
+              ne(l.id, existing.id)
+            ),
+        });
+        if (clash) {
+          return NextResponse.json(
+            { error: { code: newDomainId ? "SLUG_TAKEN_ON_DOMAIN" : "SLUG_TAKEN", message: "Slug already taken on the target domain" } },
+            { status: 409 }
+          );
+        }
+      }
+      updateData.domainId = newDomainId;
+    }
 
     if (v.destination !== undefined) updateData.destination = v.destination;
     if (v.title !== undefined) updateData.title = emptyToNull(v.title);

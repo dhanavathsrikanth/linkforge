@@ -1,5 +1,57 @@
-import type { Env, Link, RequestContext, ClickData } from './types';
+import type { Env, Link, RequestContext, ClickData, DomainConfig } from './types';
 import { handleBioRequest, handleBioPurge, handleBioDomainMapping } from './bio';
+import { resolveRoute } from './domain-routing';
+
+// ─── Suspended-domain page ────────────────────────────────────────────────────
+
+function suspendedPage(httpStatus: 503 | 410): Response {
+  const billing = httpStatus === 503;
+  const body = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">` +
+    `<meta name="viewport" content="width=device-width, initial-scale=1.0">` +
+    `<title>Domain temporarily unavailable</title></head>` +
+    `<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;` +
+    `background:#09090b;color:#fff;display:flex;align-items:center;justify-content:center;` +
+    `min-height:100vh;margin:0;text-align:center"><div><h1 style="margin:0 0 .5rem">` +
+    `Temporarily unavailable</h1><p style="color:#a1a1aa">` +
+    (billing
+      ? 'This domain is paused. The workspace owner needs to update their billing.'
+      : 'This domain has been disabled.') +
+    `</p></div></body></html>`;
+  return new Response(body, {
+    status: httpStatus,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
+
+/**
+ * Read the routing config for a custom host from KV (`domain:{host}`), warming
+ * from the Next.js origin on a cache miss. Returns null when the host has no
+ * config at all (during rollout) so callers can fall back to legacy behavior.
+ */
+async function getDomainConfig(host: string, env: Env): Promise<DomainConfig | null> {
+  const key = `domain:${host}`;
+  const cached = await env.BIO_PAGES_KV.get(key);
+  if (cached) {
+    try { return JSON.parse(cached) as DomainConfig; } catch { /* fall through */ }
+  }
+  // Cache miss → warm from origin (Next.js owns the DB).
+  try {
+    const res = await fetch(
+      `${env.API_URL}/api/internal/domain-resolve?host=${encodeURIComponent(host)}`,
+      { headers: { 'x-worker-secret': env.WORKER_SECRET } }
+    );
+    if (res.ok) {
+      const cfg = (await res.json()) as DomainConfig | null;
+      if (cfg) {
+        await env.BIO_PAGES_KV.put(key, JSON.stringify(cfg), { expirationTtl: 60 });
+        return cfg;
+      }
+    }
+  } catch {
+    /* network/origin error — treat as no-config, legacy fallback */
+  }
+  return null;
+}
 
 // ─── 404 page ─────────────────────────────────────────────────────────────────
 
@@ -178,6 +230,68 @@ export default {
 
     if (pathname === '/internal/bio/domain-mapping' && request.method === 'POST') {
       return handleBioDomainMapping(request, env);
+    }
+
+    // Control-plane write of `domain:{host}` routing config (Next.js → worker).
+    if (pathname === '/internal/domain-config' && request.method === 'POST') {
+      const secret = request.headers.get('x-worker-secret');
+      if (!secret || secret !== env.WORKER_SECRET) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+      try {
+        const body = (await request.json()) as
+          | { host: string; config: DomainConfig }
+          | { host: string; remove: true };
+        const key = `domain:${body.host}`;
+        if ('remove' in body && body.remove) {
+          await env.BIO_PAGES_KV.delete(key);
+        } else if ('config' in body) {
+          await env.BIO_PAGES_KV.put(key, JSON.stringify(body.config));
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response('Bad Request', { status: 400 });
+      }
+    }
+
+    // ── Custom-domain routing (custom-domain-assignment spec, Req 5) ───────────
+    // Deterministic resolver runs first for non-pivoturl hosts. Falls back to
+    // legacy bio/link dispatch when the host has no `domain:{host}` config yet.
+    {
+      const isPivotUrl = host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
+      if (!isPivotUrl) {
+        const cfg = await getDomainConfig(host, env);
+        if (cfg) {
+          const route = resolveRoute(cfg, pathname);
+          switch (route.kind) {
+            case 'suspended':
+              return suspendedPage(route.httpStatus);
+            case 'system-passthrough':
+              return fetch(request); // let origin serve favicon/robots/.well-known/…
+            case 'root-redirect':
+              return Response.redirect(route.url, 302);
+            case 'root-bio': {
+              const bioResponse = await handleBioRequest(request, env, ctx);
+              if (bioResponse) return bioResponse;
+              return new Response(NOT_FOUND_PAGE, {
+                status: 404,
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              });
+            }
+            case 'link':
+              // fall through to the short-link redirect logic below
+              break;
+            case 'not-found':
+              return new Response(NOT_FOUND_PAGE, {
+                status: 404,
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              });
+          }
+        }
+        // cfg === null → legacy fallback below
+      }
     }
 
     // ── Bio page routing ──────────────────────────────────────────────────────

@@ -19,3 +19,28 @@ export function billingLimitError(limitKey: string, current: number, limit: numb
     }
   }, { status: 402 });
 }
+
+/**
+ * Returns a 402 FEATURE_NOT_AVAILABLE response for a gated boolean capability,
+ * naming the cheapest plan that enables it. Returns null when the capability is
+ * available (caller proceeds). custom-domain-assignment Req 23/24.
+ */
+export function featureGateError(
+  featureKey: LimitKey,
+  currentPlan: string,
+) {
+  const upgradeTo = Object.entries(PLANS).find(
+    ([, plan]) => plan.limits[featureKey] === true
+  )?.[0];
+
+  return Response.json({
+    success: false,
+    error: {
+      code: 'FEATURE_NOT_AVAILABLE',
+      message: `This feature isn't available on your ${currentPlan} plan.`,
+      feature: featureKey,
+      currentPlan,
+      upgradeTo,
+    }
+  }, { status: 402 });
+}

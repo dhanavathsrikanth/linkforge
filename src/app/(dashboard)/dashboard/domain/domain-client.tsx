@@ -19,6 +19,10 @@ interface Domain {
   isDefault: boolean;
   linkCount: number;
   createdAt: string;
+  role?: "links" | "bio" | "both";
+  isApex?: boolean;
+  status?: "active" | "suspended_billing" | "suspended_abuse";
+  rootRedirectUrl?: string | null;
   cfHostnameId: string | null;
   cfHostnameStatus: string | null;
   cfSslStatus: string | null;
@@ -115,6 +119,10 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const safeFetch = useSafeFetch();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [usage, setUsage] = useState<{
+    plan: string; limit: number; used: number;
+    active: number; disabled: number; suspended: number; atLimit: boolean;
+  } | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newDomain, setNewDomain] = useState("");
   const [adding, setAdding] = useState(false);
@@ -149,6 +157,11 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     } finally {
       setIsLoading(false);
     }
+    // Refresh usage breakdown alongside the list (non-blocking).
+    try {
+      const ures = await fetch(`/api/domains/usage?workspaceId=${workspaceId}`);
+      if (ures.ok) setUsage(await ures.json());
+    } catch { /* ignore */ }
   }
 
   async function handleAddDomain(e: React.FormEvent) {
@@ -265,6 +278,28 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     } catch { alert("Something went wrong"); }
   }
 
+  async function handleSetRole(id: string, role: "links" | "bio" | "both") {
+    try {
+      const res = await safeFetch(`/api/domains/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "setRole", role }),
+      });
+      if (!res) return;
+      if (res.ok) {
+        fetchDomains();
+      } else {
+        const data = await res.json();
+        const code = data?.error?.code;
+        if (code === "ROLE_HAS_BINDINGS") {
+          alert("Remove the bio page or short links on this domain before changing its role.");
+        } else {
+          alert(data?.error?.message || data?.error || "Failed to change role");
+        }
+      }
+    } catch { alert("Something went wrong"); }
+  }
+
   const toggleExpand = (id: string, d: Domain) => {
     if (expandedId === id) {
       setExpandedId(null);
@@ -331,13 +366,33 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Top Status Banner */}
-      <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
-        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-        <div className="text-sm text-amber-800">
-          <span className="font-semibold">enabled unlimited rate limits</span> on free plan.
+      {/* Plan / domain usage panel (custom-domain-assignment Req 21) */}
+      {usage && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-lg border border-gray-200 bg-white">
+          <div className="flex items-center gap-4 text-sm">
+            <span className="font-semibold text-black capitalize">{usage.plan} plan</span>
+            <span className="text-gray-600">
+              {usage.limit === -1
+                ? `${usage.used} domains used`
+                : `${usage.used} / ${usage.limit} domains used`}
+            </span>
+            {usage.disabled > 0 && (
+              <span className="text-amber-600">{usage.disabled} disabled after downgrade</span>
+            )}
+            {usage.suspended > 0 && (
+              <span className="text-red-600">{usage.suspended} suspended</span>
+            )}
+          </div>
+          {usage.atLimit && (
+            <a
+              href="/dashboard/billings"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800"
+            >
+              Upgrade for more domains
+            </a>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -549,6 +604,68 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
                               {revalidating ? "Re-validating..." : "Re-validate SSL"}
                             </button>
                           )}
+                        </div>
+
+                        {/* Routing & assignment (custom-domain-assignment) */}
+                        <div>
+                          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5" />
+                            Routing &amp; Assignment
+                          </h3>
+                          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
+                            {/* Role */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-medium text-black">Domain mode</div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {d.role === "bio"
+                                    ? "Serves a bio page at the root (/)."
+                                    : d.role === "both"
+                                    ? "Serves a root bio and short links at /{slug}."
+                                    : "Serves short links at /{slug}."}
+                                </div>
+                              </div>
+                              <select
+                                value={d.role ?? "links"}
+                                disabled={!d.verified}
+                                onChange={(e) => handleSetRole(d.id, e.target.value as "links" | "bio" | "both")}
+                                className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <option value="links">Links only</option>
+                                <option value="bio">Bio only</option>
+                                <option value="both">Both</option>
+                              </select>
+                            </div>
+
+                            {/* Short links summary */}
+                            <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+                              <div className="text-sm text-gray-700">
+                                {d.linkCount} short link{d.linkCount !== 1 ? "s" : ""} on this domain
+                              </div>
+                              <a
+                                href={`/dashboard/links?domainId=${d.id}`}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-black hover:underline"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Open in Links
+                              </a>
+                            </div>
+
+                            {/* Apex DNS hint */}
+                            {d.isApex && (
+                              <div className="border-t border-gray-100 pt-3 text-xs text-gray-500">
+                                This is an apex domain. Use your DNS provider&apos;s CNAME
+                                flattening / ALIAS record (not a plain CNAME) pointing to{" "}
+                                <span className="font-mono text-gray-700">{CNAME_TARGET}</span>.
+                              </div>
+                            )}
+
+                            {!d.verified && (
+                              <div className="border-t border-gray-100 pt-3 text-xs text-amber-600">
+                                Verify this domain before it can serve bio pages or links.
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* DNS Records Table */}

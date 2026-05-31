@@ -2,25 +2,24 @@ name = "pivoturl-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# ─── KV Namespaces ────────────────────────────────────────────────────────────
-
-# Short link cache (existing)
-[[kv_namespaces]]
-binding = "LINKS_KV"
-id = "YOUR_LINKS_KV_NAMESPACE_ID"
-preview_id = "YOUR_LINKS_KV_PREVIEW_ID"
-
-# Bio page HTML cache + domain→slug mapping + OG image cache
-[[kv_namespaces]]
-binding = "BIO_PAGES_KV"
-id = "YOUR_BIO_PAGES_KV_NAMESPACE_ID"
-preview_id = "YOUR_BIO_PAGES_KV_PREVIEW_ID"
-
-# Bio analytics event buffer + reaction rate limit counters
-[[kv_namespaces]]
-binding = "BIO_ANALYTICS_KV"
-id = "YOUR_BIO_ANALYTICS_KV_NAMESPACE_ID"
-preview_id = "YOUR_BIO_ANALYTICS_KV_PREVIEW_ID"
+# ─── Routes ───────────────────────────────────────────────────────────────────
+# IMPORTANT: `routes` must be a TOP-LEVEL key, declared BEFORE any [table]
+# header (like [vars] or [[kv_namespaces]]). If it appears after [vars], TOML
+# parses it as a variable named "routes" instead of worker routes.
+#
+#   pivoturl.com/*    → bio pages, short links, bio API (DNS-only → Vercel,
+#                       so in practice these bypass CF; kept for completeness)
+#   *.pivoturl.com/*  → subdomains
+#   */*               → Cloudflare for SaaS: catches ALL traffic entering the
+#                       zone, including customer custom hostnames (acme.com)
+#                       that CNAME to our fallback origin. The worker is the
+#                       fallback origin. Ref: Cloudflare for SaaS →
+#                       "Workers as your fallback origin".
+routes = [
+  { pattern = "pivoturl.com/*", zone_name = "pivoturl.com" },
+  { pattern = "*.pivoturl.com/*", zone_name = "pivoturl.com" },
+  { pattern = "*/*", zone_name = "pivoturl.com" },
+]
 
 # ─── Environment variables ────────────────────────────────────────────────────
 
@@ -31,16 +30,22 @@ API_URL = "https://pivoturl.com"
 # ─── Secrets (set via: wrangler secret put WORKER_SECRET) ────────────────────
 # WORKER_SECRET — shared secret between worker and Next.js /api/internal/* routes
 
-# ─── Routes ───────────────────────────────────────────────────────────────────
-# The worker handles ALL traffic on pivoturl.com:
-#   /p/*          → bio pages
-#   /api/bio/*    → bio API (reactions rate limiting)
-#   /*            → short link redirects
-#
-# Custom domains are handled automatically — any non-pivoturl.com host
-# is checked against BIO_PAGES_KV for a domain→slug mapping.
+# ─── KV Namespaces ────────────────────────────────────────────────────────────
 
-routes = [
-  { pattern = "pivoturl.com/*", zone_name = "pivoturl.com" },
-  { pattern = "*.pivoturl.com/*", zone_name = "pivoturl.com" },
-]
+# Short link cache (existing)
+[[kv_namespaces]]
+binding = "LINKS_KV"
+id = "d42094ab250442ec82ba7cdea8afc573"
+preview_id = "d42094ab250442ec82ba7cdea8afc573"
+
+# Bio page HTML cache + domain→slug mapping + OG image cache
+[[kv_namespaces]]
+binding = "BIO_PAGES_KV"
+id = "69e9003d8ba848739fee11abebf96795"
+preview_id = "69e9003d8ba848739fee11abebf96795"
+
+# Bio analytics event buffer + reaction rate limit counters
+[[kv_namespaces]]
+binding = "BIO_ANALYTICS_KV"
+id = "d6eff93107bd446fb2dfd66ad5e6a9cc"
+preview_id = "d6eff93107bd446fb2dfd66ad5e6a9cc"

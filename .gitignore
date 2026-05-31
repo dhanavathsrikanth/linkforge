@@ -57,3 +57,12 @@ next-env.d.ts
 /.agents/skills/**/build/
 /.agents/skills/**/.vercel/
 /.agents/skills/**/out/
+
+# Sentry Config File
+.env.sentry-build-plugin
+
+# Worker build artifacts
+apps/worker/dist/
+
+# Local deployment notes (contains infra IDs / setup steps — keep out of repo)
+DEPLOYMENT.md

@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import { checkLimit } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 import { cloudflareCustomHostnames } from "@/lib/cloudflare/custom-hostnames";
+import { isApexDomain } from "@/lib/domains/apex";
 
 type CfHostnameStatus = (typeof cfHostnameStatusEnum.enumValues)[number];
 type CfSslStatus = (typeof cfSslStatusEnum.enumValues)[number];
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
       verificationToken,
       verified: false,
       isDefault: false,
+      isApex: isApexDomain(domain),
     }).returning();
 
     let cfHostnameStatus: string | undefined;
@@ -157,6 +159,7 @@ export async function POST(req: Request) {
       verificationToken: newDomain.verificationToken,
       cnameTarget: CNAME_TARGET,
       txtRecord: `_pivoturl-verify.${newDomain.domain}`,
+      isApex: newDomain.isApex,
       cfHostnameStatus,
       cfSslStatus,
       cfError,

@@ -6,7 +6,7 @@ export const PLANS = {
       maxOrganizations: 0,
       linksPerMonth: 500,
       clicksTrackedPerMonth: 5000,
-      customDomains: -1,
+      customDomains: 0,
       teamMembers: 1,
       apiCallsPerHour: 100,
       bioPages: 1,
@@ -15,6 +15,8 @@ export const PLANS = {
       abTestingEnabled: false,
       whiteLabelEnabled: false,
       bulkCreateEnabled: false,
+      defaultDomainEnabled: false,
+      mixedDomainRoleEnabled: false,
     },
   },
   starter: {
@@ -36,6 +38,8 @@ export const PLANS = {
       abTestingEnabled: false,
       whiteLabelEnabled: false,
       bulkCreateEnabled: false,
+      defaultDomainEnabled: true,
+      mixedDomainRoleEnabled: true,
     },
   },
   growth: {
@@ -57,6 +61,8 @@ export const PLANS = {
       abTestingEnabled: true,
       whiteLabelEnabled: false,
       bulkCreateEnabled: true,
+      defaultDomainEnabled: true,
+      mixedDomainRoleEnabled: true,
     },
   },
   agency: {
@@ -99,6 +105,8 @@ export const PLANS = {
       abTestingEnabled: true,
       whiteLabelEnabled: true,
       bulkCreateEnabled: true,
+      defaultDomainEnabled: true,
+      mixedDomainRoleEnabled: true,
     },
   },
   enterprise: {
@@ -120,6 +128,8 @@ export const PLANS = {
       abTestingEnabled: true,
       whiteLabelEnabled: true,
       bulkCreateEnabled: true,
+      defaultDomainEnabled: true,
+      mixedDomainRoleEnabled: true,
     },
   },
 } as const;

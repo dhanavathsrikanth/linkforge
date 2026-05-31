@@ -86,6 +86,18 @@ export const cfSslStatusEnum = pgEnum("cf_ssl_status", [
   "deleted",
 ]);
 
+// ─── Custom-domain assignment (custom-domain-assignment spec) ──────────────────
+
+/** What a verified custom domain is allowed to serve. Explicit admin intent. */
+export const domainRoleEnum = pgEnum("domain_role", ["links", "bio", "both"]);
+
+/** Operational gate, orthogonal to verification. */
+export const domainStatusEnum = pgEnum("domain_status", [
+  "active",
+  "suspended_billing",
+  "suspended_abuse",
+]);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** timestamptz columns with server-side defaults */
@@ -276,6 +288,18 @@ export const domains = pgTable(
     >(),
     cfError: text("cf_error"),
     cfStatusUpdatedAt: timestamp("cf_status_updated_at", { withTimezone: true }),
+
+    // ── Custom-domain assignment (custom-domain-assignment spec) ──────────────
+    /** Explicit admin intent for what this domain serves. */
+    role: domainRoleEnum("role").notNull().default("links"),
+    /** Apex (one label before the public suffix) → needs CNAME-flattening/ALIAS guidance. */
+    isApex: boolean("is_apex").notNull().default(false),
+    /** For role=links domains: where the bare "/" path 302s when no bio is bound. */
+    rootRedirectUrl: text("root_redirect_url"),
+    /** Operational gate, orthogonal to verification. */
+    status: domainStatusEnum("status").notNull().default("active"),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspendedReason: text("suspended_reason"),
 
     ...timestamps,
   },
@@ -966,6 +990,10 @@ export const linkGallery = pgTable(
     // Page identity
     slug: text("slug").notNull().unique(),
     isPublished: boolean("is_published").notNull().default(false),
+    // Custom-domain assignment: when bound to a custom domain and marked root,
+    // this bio is served at the domain root ("/"). Reserved for future
+    // path-scoped multi-bio; unused by v1 routing beyond the root case.
+    isRootPage: boolean("is_root_page").notNull().default(false),
 
     // ── Draft / Publish snapshot ────────────────────────────────────────────
     // The other columns on this row are the *draft* (what's shown in /edit
@@ -1014,6 +1042,10 @@ export const linkGallery = pgTable(
     uniqueIndex("link_gallery_slug_idx").on(t.slug),
     index("link_gallery_user_idx").on(t.userId),
     index("link_gallery_workspace_idx").on(t.workspaceId),
+    // At most one bio bound per custom domain (v1: that bio is the root).
+    uniqueIndex("link_gallery_custom_domain_uidx")
+      .on(t.customDomainId)
+      .where(sql`custom_domain_id IS NOT NULL`),
   ]
 );
 

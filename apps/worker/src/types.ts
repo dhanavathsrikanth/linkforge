@@ -102,3 +102,27 @@ export interface BioDomainMapping {
   /** Gallery ID — passed to analytics */
   galleryId: string;
 }
+
+// ─── Custom-domain routing config (custom-domain-assignment spec) ─────────────
+
+export type DomainRole = 'links' | 'bio' | 'both';
+export type DomainStatus = 'active' | 'suspended_billing' | 'suspended_abuse';
+
+/**
+ * Routing config for a custom host, stored at KV key `domain:{host}` and
+ * written by the Next.js control plane on bind/role/status changes.
+ */
+export interface DomainConfig {
+  role: DomainRole;
+  status: DomainStatus;
+  workspaceId: string;
+  /** True when a bio is bound to this domain's root ("/"). */
+  hasRootBio: boolean;
+  /** Gallery id of the root bio, when hasRootBio is true. */
+  rootBioId?: string;
+  /** Slug of the root bio (used by the bio HTML cache flow). */
+  rootBioSlug?: string;
+  /** For role=links domains: where the bare "/" 302s when no bio is bound. */
+  rootRedirectUrl?: string;
+}
+

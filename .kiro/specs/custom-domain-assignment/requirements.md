@@ -2,264 +2,397 @@
 
 ## Introduction
 
-LinkForge already lets workspaces register custom domains in `/dashboard/domain` and provisions Cloudflare Custom Hostnames + SSL automatically. Today, only **bio pages** can be bound to a verified domain (via `linkGallery.customDomainId`), and the binding only goes one way — the picker lives in the bio settings, not the domain page. **Short links** can be created against a domain (`links.domainId`) but there is no UI surface for picking which workspace domain a link uses, no concept of a "default" domain for short links, and no inverse view showing which bios/links are using a given domain.
+LinkForge (product name PivotURL) already registers custom domains in `/dashboard/domain` and provisions Cloudflare Custom Hostnames + SSL automatically. The infrastructure is partly built but **not wired end-to-end**:
 
-This spec defines how a workspace can assign a verified custom domain so that:
+- **Short links** have a `links.domainId` FK and a `(domainId, slug)` unique index, and the worker's internal resolver (`/api/internal/links`) already resolves `host → domains row → link by (domainId, slug)`. BUT the link create/update API (`/api/links`) has **no `domainId` field** and checks slug uniqueness **globally** (`eq(l.slug, slug)`), so no custom-domain short link can ever be created through the product. The feature is dead-ended.
+- **Bio pages** have a `linkGallery.customDomainId` FK and an in-bio domain picker, and the worker resolves custom-domain bios via KV `bio:domain:{host}`. BUT `linkGallery.slug` is **globally unique** (`link_gallery_slug_idx`), the KV sync on bind is fire-and-forget (UI can show "active" while KV is empty), and domain deletion never purges the KV mapping.
+- **Billing** still ships the legacy 6-tier `plans.ts` with **Free `customDomains: -1` (unlimited)** — a live revenue leak. (Closing this is owned by the `pricing-and-monetization-strategy` spec; this spec assumes that fix lands and references it, but does not re-implement it.)
 
-1. **Bio pages** are served at path-scoped URLs like `acme.co/{username}`, with optional root binding so `acme.co/` serves a designated "root" bio.
-2. **Short links** redirect at `acme.co/{slug}` through the same pipeline as `pivoturl.com/s/{slug}`.
-3. **Both can coexist on the same domain** — a single domain can host multiple bios (each at `/{username}`) and short links (each at `/{slug}`) simultaneously, with deterministic conflict resolution between the two namespaces.
+This spec defines a **v1-scoped** custom-domain assignment system that ships the revenue-generating capability with a small, additive migration, deliberately avoiding the multi-bio-per-domain machinery that none of Dub.co, Bitly, Short.io, or Rebrandly actually lead with.
 
-Each domain row carries an explicit `domain_mode` (`links_only`, `bio_only`, `both`) that governs which lookups the Cloudflare worker performs on inbound requests. The worker uses a fixed priority order (root bio → bio username → short-link slug → 404) so behavior is predictable when both spaces overlap.
+### v1 scope (this spec)
 
-The custom domain → bio mapping is currently glued together by Cloudflare KV (`bio:domain:{host}` → `{ slug, galleryId }`) and rebuilt on every `PATCH /api/gallery`. Short-link routing on a custom hostname does not currently work end-to-end because the worker never resolves `host → workspaceId → links.domainId` (it falls back to using the host as a domain string, but `domain-client.tsx` never lets a user pick that domain when creating a link).
+1. **A domain is a first-class object owned by a workspace, carrying a `role`** (`links` | `bio` | `both`).
+2. **Short links can be assigned to a verified domain** — `acme.co/promo` redirects through the same pipeline as `pivoturl.com/s/promo`. (Fixes the dead-ended API.)
+3. **At most one bio per domain, served at the domain root** (`acme.co/`). This replaces the current one-way picker with a managed, mutually-exclusive binding.
+4. **A workspace default domain** auto-applies silently to new short links.
+5. **Deterministic edge routing** with a single typed resolver: root-bio → short-link slug → 404.
+6. **Safe, transactional domain deletion** that cleans the edge.
+7. **Apex-vs-subdomain DNS guidance** so apex domains get correct setup instructions.
+
+### Explicitly deferred to "Future" (NOT in v1)
+
+- **Multiple bios per one domain at path-scoped usernames** (`acme.co/john`, `acme.co/mary`). Requires dropping the global bio slug index and introducing a username-vs-slug shared namespace. Captured in the "Future scope" section; do not implement now.
+- New `link:{host}:{slug}` KV namespace. v1 reuses the existing `LINKS_KV` `{host}:{slug}` cache.
+- Cross-workspace domain transfer.
 
 ## Glossary
 
-- **Domain row** — a record in the `domains` table, owned by a workspace, with Cloudflare Custom Hostname + SSL state.
-- **Verified domain** — `domains.verified = true` AND `cfHostnameStatus = active` AND `cfSslStatus = active`. Only verified domains may be assigned.
-- **Domain mode** — `domains.domain_mode` ∈ {`links_only`, `bio_only`, `both`}. Determines which lookups the worker runs.
-- **Default domain** — `domains.is_default = true`. New short links created without an explicit domain choice fall back to this. One per workspace.
-- **Bio username** — `linkGallery.slug` when scoped to a custom domain. Each bio's URL on a custom domain is `https://{domain}/{username}`.
-- **Root bio** — a bio with `linkGallery.is_root_page = true`. Served at `https://{domain}/` (empty path). At most one root bio per domain.
-- **Bio binding** — `linkGallery.custom_domain_id` referencing a verified domain row, plus the bio's `slug` (used as the path segment) and optional `is_root_page` flag.
+- **Domain row** — a record in the existing `domains` table, owned by a workspace, with Cloudflare Custom Hostname + SSL state.
+- **Domain role** — `domains.role` ∈ {`links`, `bio`, `both`}. Determines what the domain serves and which lookups the worker runs.
+- **Verified domain** — `domains.verified = true` AND `cfHostnameStatus = active` AND `cfSslStatus = active` (when Cloudflare is configured). Only verified domains may be assigned or set as default.
+- **Default domain** — `domains.is_default = true`. New short links created without an explicit domain choice fall back to this. One per workspace. (Reuses the existing `isDefault` column and `PATCH /api/domains/[id]` "set primary" path.)
+- **Root bio** — the single bio bound to a domain, served at `https://{domain}/`. Tracked via `linkGallery.custom_domain_id` (the bio at root) — v1 allows at most one bio per domain.
 - **Link binding** — `links.domain_id` referencing a verified domain row. Serves the short link at `https://{domain}/{slug}`.
-- **Reserved slug** — when a domain is in `both` mode, every bio username on that domain is reserved against short-link creation on the same domain (and vice versa).
-- **KV namespaces** — distinct key prefixes in `BIO_PAGES_KV`: `bio:{domain}:{username}`, `bio:{domain}:__root__`, `link:{domain}:{slug}`.
-- **CNAME target** — the apex pointer (`links.pivoturl.com`) that customer DNS must `CNAME` to.
+- **Apex domain** — a registrable domain with no subdomain label (`acme.co`). Cannot use a plain CNAME at the apex; needs CNAME-flattening / ALIAS at the DNS provider. Tracked via `domains.is_apex`.
+- **Root redirect** — `domains.root_redirect_url`, used for `role = links` domains to 302 the bare `/` path somewhere instead of 404.
+- **KV keys** — `domain:{host}` (routing config), `bio:domain:{host}` (existing bio mapping, retained), `LINKS_KV.{host}:{slug}` (existing short-link cache, retained), `bio:html:{galleryId}` / `bio:og:{galleryId}` (existing, unchanged).
+- **CNAME target** — `links.pivoturl.com` (env `CLOUDFLARE_CNAME_TARGET`), what customer DNS points at.
 
 ## Requirements
 
-### 1. Domain mode and capability model
+### Requirement 1: Domain role on the existing domains table (explicit intent)
 
-**User story:** As a workspace admin, I want each domain to have an explicit mode that says whether it serves bios, short links, or both, so the system knows which lookups to perform and the UI knows which assignment surfaces to show.
+**User Story:** As a workspace admin, I want to explicitly declare whether a domain serves short links, a bio page, or both, so its routing behavior is a stable, chosen setting and never changes as a side effect of an unrelated binding.
 
-#### Acceptance criteria
+#### Acceptance Criteria
 
-1.1. THE `domains` table SHALL gain a `domain_mode` column of type enum (`pgEnum("domain_mode")`) with values `links_only`, `bio_only`, `both`, NOT NULL, default `links_only`.
+1. THE `domains` table SHALL gain a `role` column of type `pgEnum("domain_role")` with values `links`, `bio`, `both`, NOT NULL, default `links`. No parallel `custom_domains` table SHALL be created.
+2. WHEN a domain is added THEN `role` SHALL default to `links` (the most common case) AND SHALL be changeable by an admin to `bio` or `both` from the domain dashboard. `role` SHALL be an explicitly chosen intent, NOT derived from current bindings.
+3. WHEN a user attempts to bind a bio to a domain whose `role = links` THEN the API SHALL reject with HTTP 409 `{ error: "ROLE_DISALLOWS_BIO" }`, AND the UI SHALL offer a one-click "Allow bio pages on this domain" action that sets `role = both` before retrying.
+4. WHEN a user attempts to assign a short link to a domain whose `role = bio` THEN the API SHALL reject with HTTP 409 `{ error: "ROLE_DISALLOWS_LINKS" }`, AND the UI SHALL offer the equivalent one-click switch to `both`.
+5. WHEN an admin lowers a role (e.g. `both` → `bio`, or `both` → `links`) while bindings of the now-disallowed type still exist THEN the API SHALL reject with HTTP 409 listing the conflicting bindings (`{ error: "ROLE_HAS_BINDINGS", links?: [...], bio?: {...} }`); the user SHALL remove those bindings first.
+6. WHEN `role` changes THEN the API SHALL update the `domain:{host}` KV key (Requirement 8) in the same transaction so the worker observes the new role without a database lookup.
 
-1.2. WHEN a verified domain has zero bio bindings AND at least one short link bound, THE system SHALL set `domain_mode = links_only`.
+### Requirement 2: Wire domainId into the link APIs (fix the dead-ended feature)
 
-1.3. WHEN a verified domain has at least one bio binding AND zero short links bound, THE system SHALL set `domain_mode = bio_only`.
+**User Story:** As a workspace member, I want to choose which verified domain a short link uses when I create or edit it, so `acme.co/promo` actually works.
 
-1.4. WHEN a verified domain has at least one bio binding AND at least one short link bound, THE system SHALL set `domain_mode = both`.
+#### Acceptance Criteria
 
-1.5. THE `domain_mode` column SHALL be maintained by the application layer in the same transaction as any bind/unbind mutation, NOT by a database trigger. After every bind or unbind, the API SHALL recompute the mode and persist it.
+1. THE `CreateLinkSchema` in `POST /api/links` SHALL accept an optional `domainId` (uuid). THE `UpdateLinkSchema` in `PATCH /api/links/[id]` SHALL accept an optional `domainId` (uuid or null).
+2. WHEN a link is created with a `domainId` THEN the API SHALL verify the domain belongs to the same workspace AND is verified, rejecting with HTTP 400 `{ error: "DOMAIN_NOT_VERIFIED" }` otherwise.
+3. WHEN a link is created without a `domainId` AND the workspace has a default domain THEN the API SHALL set `domainId` to the default domain's id (Requirement 4.2). WHEN there is no default THEN `domainId` SHALL remain NULL (served from `pivoturl.com/s/{slug}`).
+4. THE slug-uniqueness check in link create/update SHALL be scoped to the domain: it SHALL check `and(eq(slug), eq(domainId))` for custom domains and `and(eq(slug), isNull(domainId))` for the default namespace. It SHALL NOT use the current global `eq(l.slug, slug)` check.
+5. WHEN a created or updated link's `(domainId, slug)` pair already exists THEN the API SHALL reject with HTTP 409 `{ error: "SLUG_TAKEN_ON_DOMAIN" }`.
+6. WHEN a link's `domainId` is created, changed, or cleared THEN the API SHALL write/refresh/delete the `LINKS_KV.{host}:{slug}` cache entry accordingly (or rely on its 60s TTL for refresh). THE assignment SHALL be validated against the domain's `role` per Requirement 1.4 (a `role = bio` domain rejects link assignment).
 
-1.6. WHEN `domain_mode` changes, THE API SHALL update KV (req 8) so the worker observes the new mode without DB lookups for routing.
+### Requirement 3: One bio per domain at root
 
-### 2. Domain assignment surface in the domains dashboard
+**User Story:** As a workspace admin, I want to bind one bio page to a custom domain so `acme.co/` shows that page, with a clear rule that a domain hosts at most one bio.
 
-**User story:** As a workspace admin, I want to see and change which bio pages and short links are using each verified domain directly from `/dashboard/domain`, so I don't have to dig through every bio's settings to manage assignments.
+#### Acceptance Criteria
 
-#### Acceptance criteria
+1. THE database SHALL enforce at most one bio per domain via a partial unique index on `linkGallery (custom_domain_id) WHERE custom_domain_id IS NOT NULL`.
+2. THE global `link_gallery_slug_idx` on `linkGallery.slug` SHALL be retained unchanged in v1 (bio slugs stay globally unique; this is acceptable because a domain-bound bio is served at root, not at `/{slug}`).
+3. WHEN `PATCH /api/gallery` receives a `customDomainId` that is already bound to a different bio in the same workspace AND no `force: true` flag THEN the API SHALL respond with HTTP 409 `{ error: "DOMAIN_IN_USE", currentBioId, currentBioSlug, domain }`.
+4. WHEN the same request includes `force: true` THEN the API SHALL atomically clear the previous bio's `custom_domain_id` and set the new one, updating KV for both in the same request.
+5. WHEN a bio is bound to a domain THEN the binding SHALL be validated against the domain's `role` per Requirement 1.3 (a `role = links` domain rejects bio binding). WHEN a bio is bound or unbound THEN the API SHALL update KV (Requirement 8) in the same request.
 
-2.1. WHEN a user expands a verified domain row on `/dashboard/domain`, THEN the panel SHALL display three sections: "Mode", "Bio pages on this domain", and "Short links on this domain".
+### Requirement 4: Default domain for new short links
 
-2.2. THE "Mode" section SHALL display the current `domain_mode` value as a read-only badge AND SHALL explain in human terms what is currently served (e.g. "Serves bio pages at /{username} and short links at /{slug}").
+**User Story:** As a workspace admin, I want to mark one verified domain as the default so every new short link automatically uses it without my choosing each time.
 
-2.3. THE "Bio pages on this domain" section SHALL list every bio page in the workspace with its current binding state (bound to this domain at `/{username}`, bound to a different domain, or unbound) AND SHALL allow the user to bind, unbind, mark-as-root, and unmark-as-root each bio inline.
+#### Acceptance Criteria
 
-2.4. THE "Short links on this domain" section SHALL display the link count, an "Open in Links" link that filters `/dashboard/links` by `domainId={id}`, and a "Set as default for new links" toggle.
+1. THE existing `PATCH /api/domains/[id]` "set primary" path SHALL be reused to set `is_default`; it SHALL continue to clear `is_default` on all other workspace domains and set it on the chosen one in a single transaction, AND SHALL continue to reject non-verified domains.
+2. WHEN a workspace has a default domain AND a short link is created without `domainId` THEN the API SHALL silently assign the default domain's id. There SHALL be NO confirmation prompt.
+3. WHEN the link creation modal is in "advanced options" mode THEN the user SHALL be able to override the default and either pick another verified domain or explicitly choose the global `pivoturl.com` namespace (`domainId = null`).
+4. WHEN a default domain is deleted OR loses verified status THEN the workspace SHALL revert to no default; existing links keep their `domainId` until explicitly changed.
 
-2.5. WHEN the domain has `cfHostnameStatus !== "active"` OR `cfSslStatus !== "active"`, THEN the bio and link assignment sections SHALL be disabled with a tooltip explaining "Domain must be verified before it can serve traffic", AND the existing DNS records / verify UI SHALL remain visible.
+### Requirement 5: Deterministic worker routing on custom hostnames
 
-2.6. WHILE a domain has at least one bio binding OR at least one link binding OR `is_default = true`, THE delete confirmation prompt on `/dashboard/domain` SHALL list the affected entities and require the user to type the domain to confirm (handled in detail by req 11).
+**User Story:** As a visitor and as an admin, I want a single, predictable order in which the edge resolves a request on a custom hostname.
 
-### 3. Bio page slot semantics on a domain
+#### Acceptance Criteria
 
-**User story:** As a workspace admin, I want multiple bio pages on a single custom domain — one per username — with optionally one of them designated as the root, so I can host an entire team or a brand's pages on `acme.co/{member}` and put the company page at `acme.co/`.
+1. WHEN the Cloudflare worker receives a request on a host other than `pivoturl.com` (or its subdomains) THEN it SHALL resolve using the following precedence, partitioned by path so the order is unambiguous:
 
-#### Acceptance criteria
+   **System paths (checked first, before any branch below):** WHEN the path is `favicon.ico`, `robots.txt`, `sitemap.xml`, `manifest.json`, or starts with `.well-known/` THEN the worker SHALL pass through per Requirement 5.6 and SHALL NOT treat it as a bio or link.
 
-3.1. THE `linkGallery` table SHALL gain an `is_root_page` boolean column NOT NULL default `false`.
+   **Empty path (`/`):**
+   1. **Root bio** — IF the domain has a bound bio (role `bio` or `both`) THEN serve that bio page.
+   2. **Root redirect** — ELSE IF `root_redirect_url` is set THEN 302 to it.
+   3. **404** — ELSE return the branded 404 page.
 
-3.2. THE database SHALL enforce uniqueness of `(custom_domain_id, slug) WHERE custom_domain_id IS NOT NULL` via a partial unique index, applied via Drizzle migration. This makes a bio's path segment unique per domain while still allowing the same `slug` text to appear on different domains and on the `pivoturl.com/p/{slug}` global namespace (where `custom_domain_id IS NULL`).
+   **Non-empty path (`/{segment}/...`):**
+   1. **Bio username** — (future multi-bio only; no-op in v1) — reserved for path-scoped bios.
+   2. **Short-link slug** — IF the domain role is `links` or `both` AND the first path segment matches an active link on this domain (via `LINKS_KV.{host}:{slug}`, falling back to `/api/internal/links` on cache miss) THEN perform the redirect.
+   3. **404** — ELSE return the branded 404 page.
+2. THE worker SHALL read the domain role and status from a single `domain:{host}` KV key (Requirement 8) and SHALL NOT call Postgres for a routing decision on the hot path.
+3. WHEN the `domain:{host}` key is missing on cache miss THEN the worker MAY fall back to its existing per-resolver origin calls (`/api/internal/links`, bio mapping) AND SHALL warm KV from the response with a 60-second TTL.
+4. WHEN the path has more than one segment (e.g. `/promo/extra`) THEN the short-link slug SHALL be exactly `path.split("/")[1]`; trailing segments SHALL be ignored for slug resolution.
+5. THE routing precedence in 5.1 SHALL be encoded as a single pure function in `apps/worker/src/domain-routing.ts` returning a typed `RouteResult = { kind: "system-passthrough" | "root-bio" | "root-redirect" | "link" | "not-found", … }`, so ordering can be unit-tested in isolation.
+6. **System path passthrough.** BEFORE evaluating the bio/link branches, WHEN the request path is `favicon.ico`, `robots.txt`, `sitemap.xml`, `manifest.json`, or begins with `.well-known/` THEN the worker SHALL pass the request through to origin (or serve the platform default asset) and SHALL NOT render a bio page or resolve a short link for it. This guard SHALL apply regardless of domain role, including `role = bio` domains (where the current bio handler otherwise serves bio HTML for every path).
 
-3.3. THE database SHALL enforce at most one root bio per domain via a partial unique index on `(custom_domain_id) WHERE is_root_page = true AND custom_domain_id IS NOT NULL`.
+### Requirement 6: Short-link routing parity through custom hostnames
 
-3.4. WHEN `PATCH /api/gallery` receives a `customDomainId` change AND the chosen `(customDomainId, slug)` collides with an existing binding on the same domain (different `id`), THE API SHALL respond with HTTP 409 and a body of `{ error: "USERNAME_TAKEN", currentBioId, currentBioSlug, domain }`.
+**User Story:** As a visitor opening `acme.co/promo`, I want the same redirect behavior, gating, and tracking as `pivoturl.com/s/promo`.
 
-3.5. WHEN `PATCH /api/gallery` receives `is_root_page = true` AND another bio on the same `customDomainId` already has `is_root_page = true`, THE API SHALL respond with HTTP 409 and a body of `{ error: "ROOT_BIO_TAKEN", currentBioId, currentBioSlug, domain }`. THE UI SHALL surface a confirm dialog that, on accept, sends the request again with `force=true` AND the API SHALL atomically clear the previous root flag and set the new one.
+#### Acceptance Criteria
 
-3.6. WHEN a bio is bound to a domain (or rebound from one to another), THE API SHALL update KV (req 8) for both the old and new keys in the same request, ordered to avoid a window where two keys map to the same gallery.
+1. WHEN the worker resolves a custom-hostname link THEN it SHALL apply the same gating it uses today for `pivoturl.com` redirects: `isActive`, `expiresAt`, `scheduledAt`, `clickLimit`/`expiresAfterClicks`, `password`, `routingRules`, and `abTestVariants`.
+2. THE `/api/internal/links` resolver SHALL continue to resolve `?domain={host}&slug={slug}` to a `domains` row and return the link only when the domain is verified; it SHALL return 404 otherwise. (This already exists; v1 SHALL NOT regress it.)
+3. WHEN a click is recorded for a custom-hostname link THEN the click row SHALL include the correct `linkId` and a `referrerDomain` derived from the Referer header, matching the `pivoturl.com/s/*` analytics shape.
+4. WHEN a request hits `/` on a `role = links` domain AND no `root_redirect_url` is set THEN the worker SHALL return the branded 404 (step 4 of Requirement 5.1).
 
-3.7. WHEN the global `pivoturl.com/p/{slug}` namespace already contains a bio with the same slug a user is trying to set on a custom domain, THE assignment SHALL still succeed because the partial unique index in 3.2 only constrains rows with a non-null `custom_domain_id`.
+### Requirement 7: Synchronous KV sync on bio bind
 
-### 4. Default domain for short links
+**User Story:** As an admin binding a domain to a bio, I want confirmation that the edge mapping is live, not a false "active" state.
 
-**User story:** As a workspace admin, I want to mark one verified domain as the default so every new short link automatically uses it without me having to choose each time.
+#### Acceptance Criteria
 
-#### Acceptance criteria
+1. WHEN a bio is bound/unbound via `PATCH /api/gallery` THEN the API SHALL call the worker's `/internal/bio/domain-mapping` endpoint AND await confirmation with a 2-second timeout, replacing the current fire-and-forget `syncDomainMapping`.
+2. WHEN the worker confirms within 2 seconds THEN the API SHALL return success normally.
+3. WHEN the call times out THEN the API SHALL respond with HTTP 502 `{ error: "KV_SYNC_FAILED", retryAfterMs: 2000 }`. THE DB write SHALL still be committed (the assignment is saved), AND the frontend SHALL show a specific message ("Couldn't reach the edge cache. Your domain assignment is saved — refresh in a few seconds.") and queue one automatic retry after `retryAfterMs`.
+4. WHEN a bio binding changes from one domain to another THEN the API SHALL order KV operations as write-new → delete-old so visitors never see a 404 mid-transition.
 
-4.1. WHEN a user clicks "Set as default for new links" on a verified domain, AND that domain is verified AND its `domain_mode` is `links_only` or `both`, THE system SHALL clear `is_default` on every other domain in the same workspace AND set it on the chosen one in a single transaction.
+### Requirement 8: Worker KV key structure (reuse existing namespaces)
 
-4.2. WHEN a workspace has a default domain set AND a user creates a new short link without specifying `domainId`, THE link creation API SHALL silently set `domainId` to the default domain's id. There SHALL be NO confirmation prompt.
+**User Story:** As a worker maintainer, I want a minimal, documented KV layout that reuses what already exists.
 
-4.3. WHEN the link creation modal is in "advanced options" mode, THE user SHALL be able to override the default and either choose another verified domain or explicitly pick the global `pivoturl.com` namespace.
+#### Acceptance Criteria
 
-4.4. WHEN a workspace has no default domain set, THE link creation API SHALL keep `domainId = NULL` and the link SHALL serve from `pivoturl.com/s/{slug}` only.
+1. THE custom-domain routing SHALL use exactly these keys:
 
-4.5. WHEN a default domain is deleted OR has its verified status revoked, THE workspace SHALL revert to having no default; existing links keep their `domainId` until explicitly changed.
+   | Key | Value | TTL | Written by |
+   |---|---|---|---|
+   | `domain:{host}` | `{ role, workspaceId, hasRootBio: boolean }` | none (manual invalidation) | `PATCH /api/gallery`, `POST/PATCH /api/links`, `PATCH/DELETE /api/domains/[id]`, `POST /api/domains/[id]/verify` |
+   | `bio:domain:{host}` | `{ slug, galleryId }` (existing shape, retained) | none | bio bind / unbind |
+   | `LINKS_KV.{host}:{slug}` | existing `Link` payload (retained, reused) | 60 s | link create / update / delete; warmed on cache miss |
+   | `bio:html:{galleryId}` | rendered HTML | 60 s | existing — unchanged |
+   | `bio:og:{galleryId}` | rendered OG image | 1 h | existing — unchanged |
 
-### 5. Worker routing priority order on custom hostnames
+2. v1 SHALL NOT introduce a separate `link:{host}:{slug}` namespace; the existing `LINKS_KV` cache key (`{domain}:{slug}`, already used by the worker) is authoritative for short-link caching.
+3. WHEN the worker reads `domain:{host}` and finds nothing on cache miss THEN it SHALL fall back to existing origin resolvers and warm the key.
+4. WHEN a domain is deleted THEN all of its keys (`domain:{host}`, `bio:domain:{host}`, and any `LINKS_KV.{host}:{slug}` entries it can enumerate) SHALL be cleared (Requirement 11).
 
-**User story:** As a visitor and as a workspace admin, I want a single, deterministic order in which the edge resolves a request on a custom hostname, so behavior is predictable when bios and short links share a domain.
+### Requirement 9: Reserved slug enforcement
 
-#### Acceptance criteria
+**User Story:** As an admin running a `both` domain, I want the system to refuse a short-link slug that would shadow a system route or the bound bio's root, server-side.
 
-5.1. WHEN the Cloudflare worker receives a request on a host other than `pivoturl.com` (or its subdomains), THE worker SHALL execute the following lookup steps **in this exact order**, returning at the first match:
+#### Acceptance Criteria
 
-  1. **Root bio.** IF the path is `/` or empty AND a `bio:{host}:__root__` KV entry exists, THEN serve the bio page identified by that entry.
-  2. **Bio username.** IF the domain mode is `bio_only` or `both` AND the path's first segment matches a `bio:{host}:{username}` KV entry, THEN serve that bio page.
-  3. **Short-link slug.** IF the domain mode is `links_only` or `both` AND the path's first segment matches a `link:{host}:{slug}` KV entry (or, on cache miss, an active `links` row resolved via `/api/internal/links`), THEN perform the redirect.
-  4. **404.** Otherwise, return the existing branded 404 page.
+1. THE existing `RESERVED_SLUGS` set (currently only used in `/api/gallery`) SHALL be applied server-side in `POST /api/links` and `PATCH /api/links/[id]` for any link with a non-null `domainId`. Reserved values include at minimum `api`, `health`, `bio`, `links`, `qr`, `admin`, `p`, `s`, `dashboard`, `favicon.ico`, `robots.txt`, `sitemap.xml`, `manifest.json`, and any path beginning with `.well-known/`. (System-path protection at the edge is additionally enforced by Requirement 5.6.)
+2. WHEN a link create/update on a custom domain uses a reserved slug THEN the API SHALL reject with HTTP 409 `{ error: "SLUG_RESERVED", message: "This path is reserved on this domain. Choose a different slug." }`.
+3. THE link-creation modal SHALL call a lightweight `GET /api/links/check-slug?domainId={id}&slug={s}` on blur returning `{ available: boolean, reason?: "SLUG_RESERVED" | "SLUG_TAKEN_ON_DOMAIN" }`. Server-side enforcement (9.1, 9.2, Requirement 2.4) remains authoritative even if the client check passes.
 
-5.2. THE worker SHALL read `domain_mode` from a single KV key per host (`domain:{host}` → `{ mode, workspaceId, defaultBioPageId? }`) populated by the API on bind/unbind, so it never has to call back to Postgres for a routing decision.
+### Requirement 10: Apex vs subdomain DNS guidance
 
-5.3. WHEN any KV key for a host is missing on cache miss, THE worker SHALL fall back to a single internal HTTP lookup against `/api/internal/domain-resolve?host={host}&path={path}` which returns the resolved entity AND THE worker SHALL warm KV from that response with a 60-second TTL.
+**User Story:** As a user adding `acme.co` (apex) vs `go.acme.co` (subdomain), I want the correct DNS instructions for my case.
 
-5.4. WHEN the path has more than one segment (e.g. `/john/contact`), THE worker SHALL use only the first segment for slug/username lookups; trailing path segments SHALL be passed through unchanged for any in-bio routing the bio public page chooses to interpret. Short-link redirects SHALL always strip trailing segments — the slug is exactly `path.split("/")[1]`.
+#### Acceptance Criteria
 
-5.5. THE priority order in 5.1 SHALL be encoded as a single function in the worker (`apps/worker/src/domain-routing.ts`) that returns a typed result — `RouteResult = { kind: "root-bio" | "bio" | "link" | "not-found", … }` — so the test harness can verify ordering in isolation.
+1. THE `domains` table SHALL gain `is_apex` (boolean, default false) and `root_redirect_url` (text, nullable).
+2. WHEN a domain is added THEN the API SHALL detect apex vs subdomain (apex = exactly one label before the public suffix) and set `is_apex` accordingly.
+3. WHEN `is_apex = true` THEN the domain setup UI SHALL present CNAME-flattening / ALIAS guidance appropriate to Cloudflare Custom Hostnames (SSL for SaaS), NOT raw A-records-to-our-IPs. WHEN `is_apex = false` THEN it SHALL present the existing `CNAME {host} → links.pivoturl.com` instructions.
+4. THE existing SSL-status messaging in `POST /api/domains/[id]/verify` SHALL be retained unchanged — it is already correct and user-friendly.
+5. WHEN a `role = links` domain has `root_redirect_url` set THEN the domain panel SHALL let an admin edit it; otherwise the bare `/` returns 404 per Requirement 6.4.
 
-### 6. Short-link routing through custom hostnames
+### Requirement 11: Transactional domain deletion with edge cleanup
 
-**User story:** As a visitor, when I open `acme.co/promo`, I want to be redirected to the destination URL the workspace owner configured, with the same speed and tracking as `pivoturl.com/s/promo`.
+**User Story:** As an admin deleting a domain, I want to know exactly what breaks, and I want the edge cleaned up so nothing keeps serving from a deleted domain.
 
-#### Acceptance criteria
+#### Acceptance Criteria
 
-6.1. WHEN the worker reaches step 3 of the routing priority and finds a `link:{host}:{slug}` KV entry, THE entry SHALL contain enough fields to perform redirect, password gating, expiry, click-limit, smart routing, and A/B selection without any further round trip — mirroring the existing payload structure used for `pivoturl.com/s/{slug}` resolution. KV TTL: 60 seconds.
+1. WHEN `DELETE /api/domains/[id]` is called AND the domain has any bindings (links OR a bio) AND the body lacks `{ confirm: true }` THEN the API SHALL respond with HTTP 409 `{ error: "IN_USE", linkCount, bioCount, bioBinding?: { bioId, slug } }`.
+2. THE UI SHALL render a warning populated from the 409 body listing affected links and bio, AND SHALL require the user to type the domain name to confirm.
+3. WHEN delete is confirmed THEN the handler SHALL, in order: (a) set `links.domain_id = NULL` for all links on this domain (already done today), (b) set `linkGallery.custom_domain_id = NULL` for the bound bio, (c) delete `bio:domain:{host}` and `domain:{host}` KV keys, (d) delete `cloudflareCustomHostnames.delete(cfHostnameId)` (already done today), (e) delete the `domains` row (already done today).
+4. WHEN any step after the DB mutations fails (KV or Cloudflare) THEN the API SHALL log full context AND return HTTP 207 indicating which side effects succeeded, so the user can retry edge/Cloudflare cleanup.
+5. THE existing guard preventing deletion of the only verified domain SHALL be retained.
 
-6.2. WHEN the internal endpoint `/api/internal/links` receives `?domain={host}&slug={slug}`, THE endpoint SHALL resolve the host to a `domains` row, return the matching link only if `domains.verified = true`, and respond 404 otherwise.
+### Requirement 12: Domain assignment surface in the dashboard
 
-6.3. WHEN a short link resolved via custom hostname has any of `password`, `expiresAt`, `clickLimit`, `routingRules`, or `abTestVariants` set, THE worker SHALL apply the same gating logic it currently uses for `pivoturl.com/s/{slug}` redirects.
+**User Story:** As an admin, I want to manage bio and link assignments and the default domain from `/dashboard/domain`, not by digging through each bio's settings.
 
-6.4. WHEN a click is recorded for a custom-hostname short link, THE click row SHALL include `linkId` correctly and `referrerDomain` derived from the original Referer header, matching the analytics shape used for `pivoturl.com/s/*`.
+#### Acceptance Criteria
 
-6.5. WHEN a request hits the root path `/` of a custom hostname AND no root bio is bound AND no link with `slug = ""` exists, THE worker SHALL fall through to step 4 (404).
+1. WHEN a user expands a verified domain row THEN the panel SHALL show: a read-only `role` badge with a plain-language explanation, a "Bio page" section (bind/unbind the single bio, or empty state), and a "Short links" section (count, "Open in Links" filtered by `domainId`, and "Set as default for new links").
+2. WHEN the domain is not verified (`cfHostnameStatus !== "active"` OR `cfSslStatus !== "active"`) THEN the assignment sections SHALL be disabled with a tooltip "Domain must be verified before it can serve traffic", while the existing DNS/verify UI remains.
+3. THE bio binding control SHALL reflect Requirement 3 (one bio per domain) and surface the 409 `DOMAIN_IN_USE` conflict inline with a confirm-to-reassign action.
 
-### 7. Bio routing through custom hostnames
+### Requirement 13: Bio settings parity
 
-**User story:** As a visitor, when I open `acme.co/` or `acme.co/john`, I want to see the bio page that the workspace owner has assigned, served from the edge cache.
+**User Story:** As an admin editing a bio, I want the existing in-bio domain picker to reflect the new one-bio-per-domain rule.
 
-#### Acceptance criteria
+#### Acceptance Criteria
 
-7.1. WHEN a bio is bound to a domain via `PATCH /api/gallery`, THE API SHALL synchronously call the worker's `/internal/bio/domain-mapping` endpoint with the relevant KV key(s) AND SHALL await confirmation with a 2-second timeout. ON timeout the API SHALL respond with HTTP 502 and a body of `{ error: "KV_SYNC_FAILED", retryAfterMs: 2000 }`. The frontend SHALL surface a specific message for `KV_SYNC_FAILED` ("Couldn't reach the edge cache. Your domain assignment is saved — refresh in a few seconds and try again.") and SHALL queue a single automatic retry after `retryAfterMs`.
+1. THE `SidebarSettings` domain picker SHALL show only verified domains AND SHALL annotate any domain already bound to another bio as "in use by {bioName}".
+2. WHEN the user selects a domain already bound to another bio THEN the picker SHALL show an inline confirm dialog before issuing the PATCH with `force: true`, mirroring the dashboard (Requirement 3.3/3.4).
+3. WHEN no verified domains exist THEN the picker SHALL render the existing "Add a domain" CTA to `/dashboard/domain`.
 
-7.2. WHEN the worker resolves a host via the bio-namespace KV keys (steps 1 or 2 of req 5.1), THE worker SHALL serve the bio page using the existing HTML cache flow (`bio:html:{galleryId}`) without further DB lookup.
+### Requirement 14: Plan limits (reference only)
 
-7.3. WHEN a bio binding is changed (old domain → new domain, or `is_root_page` toggled), THE API SHALL remove the old KV key(s) AND write the new one(s) in the same request, ordered as: write-new → delete-old, so visitors never see a 404 mid-transition.
+**User Story:** As a founder, I want domain limits enforced per plan without duplicating billing logic in this feature.
 
-7.4. WHEN a domain row is deleted, THE delete handler SHALL clear all KV keys owned by that domain (one per bound bio plus the optional root key plus all link keys plus the `domain:{host}` mode key) before deleting the Cloudflare hostname AND finally the DB row.
+#### Acceptance Criteria
 
-7.5. WHEN `is_root_page` is toggled true on a bio, THE API SHALL write `bio:{domain}:__root__` to KV pointing at that bio AND SHALL keep the `bio:{domain}:{username}` entry intact (so the bio is also accessible at `/{username}`).
+1. Domain count limits SHALL remain owned by the `pricing-and-monetization-strategy` spec and enforced via the existing `checkLimit('customDomains', …)` in `POST /api/domains`. This spec SHALL NOT redefine plan numbers.
+2. Assignment, role changes, default selection, and bio binding SHALL be free under any plan (no per-action gating).
+3. WHEN a workspace exceeds its `customDomains` limit after a downgrade THEN the oldest unassigned, non-default domains SHALL be rendered with a "downgrade required" banner but SHALL NOT be auto-deleted.
+4. THE `customDomains` limit SHALL count every existing `domains` row in the workspace regardless of verification, assignment, or suspension state. Deleting a domain SHALL immediately free a slot.
+5. WHEN a workspace upgrades THEN the higher limit SHALL apply immediately with no migration; any previously soft-disabled domains SHALL re-activate automatically if they now fit under the new limit.
+6. Soft-disabled (over-limit after downgrade) AND suspended (Requirement 17) domains SHALL continue to consume a slot while their row exists; the workspace SHALL delete a domain or upgrade to reclaim the slot. This prevents reclaiming capacity by parking domains in a suspended state.
 
-### 8. Worker KV key structure
+### Requirement 15: Migration & backfill
 
-**User story:** As a worker maintainer, I want a single, documented KV key layout so routing is auditable and migrations are predictable.
+**User Story:** As an operator, I want a single additive migration that backfills roles and KV without downtime.
 
-#### Acceptance criteria
+#### Acceptance Criteria
 
-8.1. THE `BIO_PAGES_KV` namespace SHALL contain exactly the following key prefixes for custom-domain routing:
+1. THE migration SHALL add `domains.role`, `domains.is_apex`, `domains.root_redirect_url`, `domains.status` (default `active`), `domains.suspended_at`, `domains.suspended_reason`, `linkGallery.is_root_page` (reserved for future multi-bio; default false, unused in v1 routing), the `domain_role` and `domain_status` enums, and the partial unique index from Requirement 3.1, in one ordered Drizzle migration.
+2. THE migration SHALL drop the vestigial `workspaces.custom_domain` column (dead, predates the `domains` table) after confirming no code reads it.
+3. THE backfill SHALL set `role` per Requirement 1 for every existing domain, write a `domain:{host}` KV entry per verified domain, and ensure each existing bound bio has its `bio:domain:{host}` entry.
+4. WHEN existing data has multiple bios pointing at the same domain (anomaly) THEN the backfill SHALL keep the most-recently-updated binding, clear `custom_domain_id` on the rest, and log each cleared row.
+5. THE migration SHALL be idempotent — re-running SHALL be a no-op once data is consistent.
 
-  | Key | Value | TTL | Written by |
-  |---|---|---|---|
-  | `domain:{host}` | `{ mode, workspaceId, hasRootBio: boolean, defaultBioPageId?: string }` | none (manual invalidation) | `PATCH /api/gallery`, `PATCH /api/links/*`, `DELETE /api/domains/{id}`, `POST /api/domains/{id}/verify` |
-  | `bio:{host}:__root__` | `{ galleryId, slug }` | none | bio bind / unbind |
-  | `bio:{host}:{username}` | `{ galleryId }` | none | bio bind / unbind |
-  | `link:{host}:{slug}` | full `Link` payload (matches existing `LINKS_KV` shape) | 60 s | link create / update / delete, populated lazily on cache miss |
-  | `bio:html:{galleryId}` | rendered HTML | 60 s | existing — unchanged |
-  | `bio:og:{galleryId}` | rendered OG image | 1 h | existing — unchanged |
+### Requirement 16: Workspace ownership model
 
-8.2. THE legacy `bio:domain:{host}` keys (current shape `{ slug, galleryId }`) SHALL be migrated to the new `bio:{host}:{username}` and optional `bio:{host}:__root__` shape. The migration is performed by the Next.js backfill described in req 13.
+**User Story:** As a platform operator, I want a domain to belong to exactly one workspace with clear permission boundaries, so domains are isolated per customer and per client.
 
-8.3. WHEN the worker reads any of the above keys and finds nothing, AND the path corresponds to a hostname with a `domain:{host}` entry, THE worker SHALL fall back to `/api/internal/domain-resolve` (req 5.3) and warm the corresponding key on success.
+#### Acceptance Criteria
 
-8.4. THE `link:{host}:{slug}` entries SHALL coexist with the existing `LINKS_KV.{domain}:{slug}` keys for the duration of the migration; once cut over, the legacy keys SHALL be removed in a subsequent cleanup task. (Out-of-scope for this spec's first delivery.)
+1. A domain SHALL belong to exactly one workspace via `domains.workspace_id`. THE `domains.domain` column SHALL remain globally unique (`.notNull().unique()`), so the same hostname can never be registered by two workspaces simultaneously.
+2. WHEN a workspace attempts to add a hostname already registered to another workspace THEN the API SHALL reject with HTTP 409 `{ error: "DOMAIN_ALREADY_REGISTERED" }` (preserving current `POST /api/domains` behavior).
+3. Domain create, verify, revalidate, role change, default selection, bio binding, suspension, and deletion SHALL require `canAdmin` (owner/admin). Assigning an already-verified workspace domain to a short link SHALL require `canWrite` (owner/admin/editor).
+4. **Agency model.** Each client SHALL be modeled as a separate workspace (Clerk organization). A domain SHALL NOT be shared across workspaces; cross-client access is mediated solely by Clerk org membership. There SHALL be no "shared domain pool" across workspaces.
+5. WHEN a domain mutation is attempted by a user who is not a member of the owning workspace THEN the API SHALL reject with HTTP 403/404 via the existing `resolveUserWorkspace` guard.
 
-### 9. Reserved slug enforcement
+### Requirement 17: Domain suspension
 
-**User story:** As a workspace admin running a domain in `both` mode, I want the system to refuse creating a short link whose slug collides with an existing bio username on the same domain (and vice versa), so I never have a silent override that breaks routing.
+**User Story:** As an operator, I want to suspend a domain for non-payment or abuse without deleting it, so I can preserve the customer relationship (billing) or kill malicious traffic (abuse) instantly.
 
-#### Acceptance criteria
+#### Acceptance Criteria
 
-9.1. WHEN `POST /api/links` (link create) receives a request with `domainId = X` AND `slug = Y` AND a bio exists with `customDomainId = X` AND `slug = Y`, THE API SHALL respond with HTTP 409 and body `{ error: "SLUG_RESERVED", message: "This slug is used by your bio page on this domain. Choose a different slug or change your bio page username.", conflictWith: { kind: "bio", bioId, bioSlug: Y } }`.
+1. THE `domains` table SHALL gain a `status` column of type `pgEnum("domain_status")` with values `active`, `suspended_billing`, `suspended_abuse`, NOT NULL, default `active`, PLUS nullable `suspended_at timestamptz` and `suspended_reason text`. `status` SHALL be operationally orthogonal to `verified`/`cfHostnameStatus` (verification lifecycle) — a domain may be verified yet suspended.
+2. THE `domain:{host}` KV value SHALL include `status`. WHEN `status !== "active"` THEN the worker SHALL short-circuit BEFORE the routing precedence of Requirement 5.1 and serve neither bio nor links: a branded "temporarily unavailable" page with HTTP 503 for `suspended_billing`, and HTTP 410 for `suspended_abuse`.
+3. WHEN a domain is suspended THEN the dashboard SHALL render a banner stating the reason and remediation (`suspended_billing` → "Update payment method"; `suspended_abuse` → "Contact support"), AND its assignment controls SHALL be disabled.
+4. WHEN a billing-state recovery occurs (successful payment) OR an admin clears the suspension THEN `status` SHALL return to `active`, `suspended_at`/`suspended_reason` SHALL be cleared, and the `domain:{host}` KV entry SHALL be refreshed.
+5. Suspended domains SHALL continue to consume a plan slot per Requirement 14.6.
+6. Setting or clearing suspension SHALL require `canAdmin`; `suspended_abuse` MAY additionally be set by a platform-level admin/automated abuse process outside the workspace.
 
-9.2. WHEN `PATCH /api/links/{id}` changes `(domainId, slug)` to a pair already used by a bio on the same domain, THE API SHALL respond with the same `SLUG_RESERVED` error.
+### Requirement 18: Scheduled Cloudflare status sync (DNS drift detection)
 
-9.3. WHEN `PATCH /api/gallery` changes a bio's `(customDomainId, slug)` to a pair already used by an active short link on the same domain, THE API SHALL respond with HTTP 409 and body `{ error: "SLUG_RESERVED", message: "This username is used by a short link on this domain. Choose a different username or remove the conflicting link.", conflictWith: { kind: "link", linkId, slug: Y } }`.
+**User Story:** As an admin, I want PivotURL to notice when my DNS stops pointing at it, so I find out before all my links silently break.
 
-9.4. THE check in 9.1, 9.2, 9.3 SHALL be performed server-side inside the same transaction as the write, NOT relied upon from the client. The Drizzle migration MAY add a deferred check constraint to back the application-level check, but it is not required for the v1 delivery — the server-side guard is authoritative.
+#### Acceptance Criteria
 
-9.5. THE link-creation modal SHALL also call a lightweight `GET /api/links/check-slug?domainId={id}&slug={s}` endpoint on blur for fast feedback. THE endpoint SHALL return `{ available: boolean, reason?: "SLUG_RESERVED" | "SLUG_TAKEN_BY_LINK" }`. Server-side enforcement remains in 9.1–9.3 even when the client check passes.
+1. A daily scheduled job (reusing the existing GitHub Actions cron pattern used by the URL scanner) SHALL call `cloudflareCustomHostnames.get()` for every verified domain and update `cfHostnameStatus`/`cfSslStatus` + `cfStatusUpdatedAt`.
+2. WHEN Cloudflare reports `cfHostnameStatus = "moved"` or `"deleted"` for a previously-verified domain THEN the system SHALL mark it as drifted and surface a dashboard banner ("DNS no longer points to PivotURL — your links and bio on this domain may be down"). THE domain SHALL NOT be auto-suspended or auto-deleted by drift detection.
+3. Periodic ownership re-verification (re-checking the `_pivoturl-verify` TXT token on a working domain) AND domain ownership transfer between workspaces are explicitly FUTURE SCOPE — no competitor forces re-proving ownership on a functioning domain, and adding it now is friction without value.
+4. THE existing manual `POST /api/domains/[id]/verify` and `/revalidate` endpoints SHALL remain available and unchanged for on-demand checks.
 
-9.6. WHEN a workspace toggles a domain from `links_only` to `both` (because a bio is being bound), THE bind operation SHALL refuse with HTTP 409 if any active short link on the domain shares a slug with the incoming bio's username, returning `{ error: "SLUG_RESERVED", … }`. The user resolves by either renaming the bio username or deleting the conflicting link.
+### Requirement 19: Analytics retention after domain deletion
 
-### 10. Bio settings parity
+**User Story:** As a workspace owner, I want all historical analytics to survive a domain deletion, so I never lose performance data by detaching a domain.
 
-**User story:** As a workspace admin editing a bio, I want to keep the existing in-bio domain picker, but have it reflect the new mutual-exclusion and root-bio rules so I'm not surprised by silent overwrites.
+**Audit note:** This requirement is **already satisfied by the schema** and is documented here to lock the guarantee and add a regression test. The `clicks` table references only `linkId` + `workspaceId` (no `domainId`); `links.domainId` is `onDelete: set null`; analytics consumers (`/api/v1/analytics/top-links`, `/api/internal/clicks`) already resolve the domain via `link.domainId ? … : null` and are null-safe.
 
-#### Acceptance criteria
+#### Acceptance Criteria
 
-10.1. WHEN the user opens the domain picker in `SidebarSettings`, THE picker SHALL show only verified domains AND SHALL annotate each domain with the count of bios already bound (e.g. "acme.co — 3 bios, you're at /{username}") AND a flag indicating whether a root bio exists ("Root bio: john").
+1. WHEN a domain is deleted THEN the system SHALL remove only: the `domains` row, the Cloudflare hostname, KV mappings (`domain:{host}`, `bio:domain:{host}`, link cache entries), and routing configuration.
+2. WHEN a domain is deleted THEN the system SHALL NOT delete or mutate: `clicks` rows, `linkGalleryClicks`/`linkGalleryBlockEvents`, analytics aggregates, UTM data, referrer data, or link rows. Only `links.domainId` and `linkGallery.custom_domain_id` SHALL be nulled (already the case via `set null`).
+3. Historical reports SHALL remain fully accessible after domain deletion; click rows SHALL continue to reference `linkId` and `workspaceId`.
+4. ALL analytics queries SHALL continue to function when the domain no longer exists and the hostname no longer resolves; a query SHALL NOT inner-join on `domains` in a way that drops rows when the domain is gone (LEFT JOIN / nullable lookup only).
+5. A regression test SHALL assert that deleting a domain with attached links preserves every click row and that the link's analytics endpoint still returns data with `domain: null`.
+6. No data migration is required; this requirement is a guarantee + test, not a schema change.
 
-10.2. WHEN the user picks a domain that already has a root bio AND ticks "Make this the root page", THE picker SHALL show an inline confirmation dialog before issuing the PATCH, mirroring the dashboard behavior.
+### Requirement 20: Domain verification lock (anti-hijack)
 
-10.3. WHEN no verified domains exist, THE picker SHALL render the existing "Add a domain" CTA pointing to `/dashboard/domain`.
+**User Story:** As a platform operator, I want a verified domain permanently bound to its workspace so ownership cannot be hijacked, spoofed, or reassigned.
 
-10.4. THE bio settings page SHALL surface the bio's username (slug) as the path segment users will type after the domain (e.g. preview reads `acme.co/john`), AND validation SHALL match the existing reserved-slug list plus reject any short-link slug already on the same domain (req 9.3).
+**Audit note:** Partially enforced today — `domains.domain` is globally unique (blocks cross-workspace re-registration) and all mutations pass `canAdmin` + `resolveUserWorkspace`. This requirement makes the invariants explicit.
 
-### 11. Domain deletion safety
+#### Acceptance Criteria
 
-**User story:** As a workspace admin, when I delete a domain, I want explicit awareness of what will break, including reverting bound short links and bios.
+1. THE `domains.workspace_id` of a verified domain SHALL be immutable; no API SHALL expose a path to change the owning workspace of an existing domain. Re-homing requires delete + re-add (which forces re-verification under the new workspace).
+2. WHEN any request attempts to re-register a hostname already present in the `domains` table (any workspace) THEN the API SHALL reject with HTTP 409 `{ error: "DOMAIN_ALREADY_REGISTERED" }`, regardless of verification state.
+3. WHEN a domain is already `verified = true` THEN re-running verification SHALL only refresh Cloudflare status; it SHALL NOT clear `verified`, SHALL NOT rotate the workspace binding, and SHALL NOT downgrade ownership.
+4. THE Cloudflare integration SHALL NOT create an ownership-escalation path: `customMetadata` (`workspace_id`, `domain_id`) is informational only and SHALL NOT be trusted as an authorization source; authorization SHALL always derive from the `domains` row + workspace membership.
+5. Verification SHALL require BOTH the `_pivoturl-verify` TXT token AND Cloudflare `cfHostnameStatus = active` (+ `cfSslStatus = active` when CF is configured), preserving the current dual-gate; neither alone SHALL flip `verified` true.
+6. All domain-mutating endpoints SHALL continue to require `canAdmin` on the owning workspace; abuse-state changes MAY additionally be performed by a platform admin process (Requirement 17.6).
 
-#### Acceptance criteria
+### Requirement 21: Dashboard domain usage visibility
 
-11.1. WHEN `DELETE /api/domains/{id}` is called AND the domain has any bindings (links OR bios), THE API SHALL return HTTP 409 with `{ error: "IN_USE", linkCount, bioCount, bioBindings: [{ bioId, slug, isRoot }] }` UNLESS the request body includes `{ confirm: true }`.
+**User Story:** As an admin, I want to see my domain consumption against my plan so I understand limits, disabled domains, and when to upgrade.
 
-11.2. THE UI SHALL render a warning dialog populated from the 409 body, listing each affected bio (with link to its settings) and the link count, AND requiring the user to type the domain to confirm.
+**Audit note:** The data already exists via `getUsageSummary` (returns `customDomains` current + limit). This requirement is a UI surface; it SHALL reuse that data and SHALL NOT introduce a second billing computation.
 
-11.3. WHEN delete is confirmed, THE handler SHALL atomically: (a) set `links.domain_id = NULL` for all links on this domain, (b) set `linkGallery.custom_domain_id = NULL` AND `linkGallery.is_root_page = false` for any bio bound to this domain, (c) call the worker `/internal/bio/domain-mapping` with `remove: true` for each bio's hostname-keyed entry, (d) call the worker `/internal/domain-mode` with `remove: true` for `domain:{host}`, (e) call `cloudflareCustomHostnames.delete(cfHostnameId)`, (f) delete the `domains` row.
+#### Acceptance Criteria
 
-11.4. WHEN any step in 11.3 fails after the DB rows have been mutated, THE API SHALL log the failure with full context AND return HTTP 207 with a body indicating which side-effects succeeded, leaving the user able to retry the worker / Cloudflare cleanup from a "Stuck deletes" admin tray.
+1. THE domain dashboard SHALL display: current plan name, domain limit, count of active domains, count of disabled (over-limit-after-downgrade) domains, and count of suspended domains (Requirement 17).
+2. THE usage figures SHALL be sourced from the existing `getUsageSummary`/`getEffectiveLimits` billing helpers; this feature SHALL NOT duplicate plan-limit logic.
+3. WHEN the workspace is at its domain limit THEN the panel SHALL render an upgrade CTA naming the next tier (reusing `billingLimitError`'s `upgradeTo` logic).
+4. WHEN the workspace has disabled or suspended domains THEN the panel SHALL show the downgrade/suspension impact (e.g. "2 disabled after downgrade — upgrade to re-activate").
+5. THE display SHALL match the intent of: `Plan: {plan} · {used} / {limit} Domains Used · {n} Disabled`.
 
-### 12. Plan limits (informational)
+### Requirement 22: Plan gating for domain count
 
-12.1. THE existing `customDomains` plan limit SHALL continue to gate `POST /api/domains` only; assignment changes are free under any plan.
+**User Story:** As the founder, I want domain counts gated per plan so custom domains drive upgrades.
 
-12.2. WHEN a workspace's plan is downgraded such that `current > limit` for `customDomains`, THE oldest unassigned, non-default domains SHALL be marked as soft-disabled (rendered with a "downgrade required" banner) but never auto-deleted.
+**Tiering: RESOLVED.** PivotURL adopts the 4-tier model **Free / Pro / Business / Enterprise** (per the approved `pricing-and-monetization-strategy` spec). Legacy `starter`/`growth`→`pro`, `agency`→`business` migration is owned by that spec. All plan-gated requirements below use these four tiers.
 
-### 13. Migration & backfill
+#### Acceptance Criteria
 
-13.1. THE migration SHALL add the new columns (`domains.domain_mode`, `linkGallery.is_root_page`) and partial unique indexes (req 3.2, 3.3) in a single ordered Drizzle migration.
+1. THE `customDomains` limit SHALL be owned solely by `src/lib/billing/plans.ts` and enforced solely via `checkLimit('customDomains', …)`. THE legacy `src/lib/billing/planLimits.ts` SHALL be deleted or reduced to a thin re-export (per pricing spec Requirement 1), and all consumers repointed, before new numbers take effect.
+2. Domain limits SHALL be: **Free = 0, Pro = 3, Business = 25, Enterprise = 50** (Enterprise overridable upward via `usage_overrides`).
+3. THE current `plans.ts` value `free.customDomains = -1` (unlimited) SHALL be changed to `0`. This is a live revenue leak.
+4. THE domain slot count SHALL include ALL `domains` rows for the workspace regardless of verification, assignment, suspension, or disabled state (already the behavior of `checkLimit('customDomains')`, which counts rows).
+5. Deleting a domain SHALL free a slot immediately (already true — count is a live row count).
+6. Suspended (Requirement 17) and disabled (over-limit) domains SHALL continue to consume a slot while their row exists (already true — they remain rows).
+7. WHEN Free→0 takes effect AND an existing Free workspace has attached domains THEN those domains SHALL be soft-disabled (banner, traffic handling per Requirement 17/downgrade rules), NOT deleted, with a grandfather window owned by the pricing spec's migration.
 
-13.2. THE migration SHALL run a one-time pass that:
+### Requirement 23: Default-domain feature gating
 
-  - For each existing `linkGallery` row with a non-null `custom_domain_id`, write the new `bio:{domain}:{username}` KV entry AND set `domains.domain_mode = "bio_only"` (or `"both"` if the same domain already has bound links).
-  - For each existing `links` row with a non-null `domain_id`, write the new `link:{domain}:{slug}` KV entry AND set `domains.domain_mode = "links_only"` (or `"both"`).
-  - For each verified domain, write the canonical `domain:{host}` KV entry.
-  - Remove every legacy `bio:domain:{host}` KV entry after the new entries are confirmed written.
+**User Story:** As the founder, I want "set a default domain for new links" to be a paid convenience so it nudges Free users to upgrade.
 
-13.3. WHEN existing data contains multiple bios pointing at the same domain with the same slug (data anomaly), THE backfill SHALL keep the most-recently-updated bio's binding, clear `custom_domain_id` on the rest, log each cleared row, AND surface a warning banner to the affected workspace's admins on next dashboard load.
+#### Acceptance Criteria
 
-13.4. WHEN existing data contains multiple bios with `is_root_page = true` on the same domain (cannot happen pre-migration since the column doesn't exist yet, but called out for completeness), THE backfill SHALL keep the most-recently-updated bio's flag and clear the rest.
+1. Default-domain selection SHALL be: **unavailable on Free; available on Pro, Business, and Enterprise**.
+2. THE gate SHALL be enforced **both** in the UI (control hidden/disabled with upgrade affordance) AND server-side in `PATCH /api/domains/[id]` (the "set primary"/default path), returning a consistent 402 `BILLING_LIMIT_EXCEEDED` / `FEATURE_NOT_AVAILABLE` with `upgradeTo: "pro"`.
+3. THE server-side gate SHALL prevent bypass via direct API calls; the UI gate alone SHALL NOT be relied upon.
+4. A capability flag (`defaultDomainEnabled`) SHALL be added to the plan limits in `plans.ts` rather than inline `plan === …` checks (per pricing spec Requirement 1.7).
+5. WHEN a Free workspace has no default capability THEN new links SHALL fall back to the global `pivoturl.com` namespace (`domainId = null`) without error.
 
-13.5. THE migration SHALL run idempotently — re-running SHALL be a no-op once the data is consistent.
+### Requirement 24: role=both feature gating
+
+**User Story:** As the founder, I want mixed bio+links on one domain (`role = both`) to be a paid feature, creating a natural upgrade path.
+
+#### Acceptance Criteria
+
+1. Selecting `role = both` SHALL be: **unavailable on Free; available on Pro, Business, and Enterprise**. Free workspaces MAY still pick `role = links` or `role = bio` (single-purpose), just not `both`. (Free has 0 domains in v1 per Requirement 22, so this gate primarily matters for grandfathered/over-limit Free workspaces and future Free-with-domains experiments.)
+2. THE gate SHALL be enforced **both** in the UI (the `both` option hidden/disabled with `upgradeTo: "pro"` messaging) AND server-side wherever `role` is set, returning a consistent billing error.
+3. THE server-side gate SHALL prevent API bypass.
+4. A capability flag (`mixedDomainRoleEnabled`) SHALL live in `plans.ts`.
+5. Existing paid workspaces with `role = both` SHALL be unaffected. WHEN a workspace downgrades to Free while holding a `role = both` domain THEN the domain SHALL be soft-handled per the downgrade rules (banner + restricted), NOT silently re-routed, and SHALL be documented in the pricing spec's downgrade flow.
+
+### Requirement 25: KV architecture decision (host-based retained)
+
+**User Story:** As an infrastructure engineer, I want a documented decision on KV key shape so we don't churn the hot path.
+
+#### Acceptance Criteria
+
+1. THE short-link edge cache SHALL retain the host-based key shape `LINKS_KV.{host}:{slug}` (Option A). A domainId-indirection scheme (`domain:{host}` → `domainId`, `link:{domainId}:{slug}`) is explicitly REJECTED for v1.
+2. Rationale (recorded): keys are 60s-TTL and lazily populated (self-healing, nothing to migrate); a single lookup keeps the redirect hot path fast; `domains.domain` is immutable in practice (delete + re-add, never rename), so the indirection's rename-safety benefit does not apply.
+3. THE only new KV key SHALL be `domain:{host}` carrying routing config (`role`, `status`, `workspaceId`, `hasRootBio`) per Requirement 8 — additive, not a replacement.
+4. Option B (domainId-indexed keys) MAY be revisited only if mutable domain renames or bulk per-domain cache invalidation become product requirements.
 
 ## Decisions (resolved)
 
-These were earlier open questions; they are now settled and informed the requirements above.
 
-- **Multiple bios per domain via path prefixes are supported.** The unique constraint is compound `(custom_domain_id, slug)`, not `custom_domain_id` alone (req 3.2). One bio per domain may additionally be marked as the root (req 3.3).
-- **Default domain auto-applies silently to new links.** No prompt at creation. The user can override via the link creation modal's advanced options (req 4.2, 4.3).
-- **KV sync is synchronous with a 2-second timeout.** On timeout the API returns `KV_SYNC_FAILED` and the frontend surfaces a specific message and queues one automatic retry (req 7.1).
-- **Domain deletion performs transactional cleanup.** A warning dialog lists affected bios and links, the user must explicitly confirm, the cleanup runs transactionally, and partial failures return HTTP 207 (req 11).
+- **One bio per domain, served at root, for v1.** Multi-bio-per-domain at `/{username}` is deferred (see Future scope). This avoids dropping the global bio slug index and building a username-vs-slug shared namespace that no competitor leads with.
+- **Domain `role` is explicit intent, not auto-derived.** An admin chooses `links` (default), `bio`, or `both`; bindings are validated against it. This keeps routing predictable and avoids a domain silently changing behavior when a teammate adds an unrelated binding. (Requirement 1.)
+- **System paths bypass routing.** `favicon.ico`, `robots.txt`, `sitemap.xml`, `manifest.json`, and `.well-known/*` pass through to origin at the edge before any bio/link resolution, on every domain including `role = bio`. (Requirement 5.6.)
+- **Minimal suspension model in v1.** `status` ∈ {active, suspended_billing, suspended_abuse} gates the domain at the edge; suspended domains still consume a plan slot. (Requirement 17.)
+- **DNS drift is detected, not auto-remediated.** A daily CF status sync flags `moved`/`deleted` with a banner; periodic ownership re-verification and ownership transfer stay future scope. (Requirement 18.)
+- **Reuse existing KV namespaces.** No new `link:{host}:{slug}` keys; the worker's existing `LINKS_KV.{host}:{slug}` cache is reused. Only `domain:{host}` is added.
+- **Add columns to `domains`, never a parallel `custom_domains` table.** Keeps a single source of truth (mirrors the anti-duplication goal in the pricing spec's Requirement 1).
+- **Fix the link API first.** Wiring `domainId` into create/update and making slug uniqueness per-domain is the smallest change that unblocks the whole feature; it is Requirement 2 and a prerequisite for everything else.
+- **Default domain auto-applies silently.** Override available in advanced options.
+- **KV sync on bio bind is synchronous (2s timeout) with `KV_SYNC_FAILED`.**
+- **Domain deletion is transactional with edge cleanup; partial failures return 207.**
+- **Domains are single-workspace-owned; agencies use one workspace per client.** No shared domain pool. (Requirement 16.)
+- **Steer users toward separate domains for bio vs links** (Scenario B/J) as the recommended, simplest path; `role = both` is supported for single-domain users via the routing priority in Requirement 5.
+
+## Future scope (NOT in v1 — captured to avoid re-litigation)
+
+- **Path-scoped multiple bios per domain** (`acme.co/john`, `acme.co/mary`). Would require: dropping `link_gallery_slug_idx`, a compound unique `(custom_domain_id, slug) WHERE custom_domain_id IS NOT NULL`, a per-domain `username` concept distinct from the global slug, a `bio:{host}:{username}` KV namespace, a `__root__` key for the root bio, and reserved-slug arbitration between bio usernames and link slugs on `both` domains. `linkGallery.is_root_page` is added in v1's migration (default false) so this can be enabled later without another column migration.
+- **`link:{host}:{slug}` dedicated KV namespace** and retirement of the legacy `LINKS_KV.{domain}:{slug}` keys.
+- **Cross-workspace domain transfer.**
+- **Click-logging via KV-buffer + cron-flush** (matching the bio analytics pattern) to relieve the synchronous click path before the `clicks` table becomes a bottleneck — related but tracked separately.
 
 ## Out of scope
 
-- **Email forwarding** on custom domains.
-- **Wildcard subdomains** (e.g. `*.acme.co/{slug}`). The current `domains.domain` column stores one hostname per row.
-- **Cross-workspace transfer** of a domain. Deletion + re-add remains the supported path.
-- **Cleanup of legacy `LINKS_KV.{domain}:{slug}` keys** after the new `link:{host}:{slug}` keys are in place; tracked separately.
-- **Multiple root bios per domain.** Hard cap is one (req 3.3).
+- Email forwarding on custom domains.
+- Wildcard subdomains (`*.acme.co`).
+- SOC2 / enterprise procurement (separate workstream).

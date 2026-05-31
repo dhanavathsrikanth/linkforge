@@ -16,9 +16,13 @@ import { logAudit } from "@/lib/db/audit";
 import { rateLimitByUser } from "@/lib/rate-limiter";
 import { sendWebhookEvent } from "@/lib/svix/send";
 import { startSafetyScan } from "@/lib/cloudflare/link-safety";
+import { isReservedSlug } from "@/lib/reserved-slugs";
+import { domains } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
+  domainId: z.string().uuid().optional().nullable(),
   title: z.string().max(200).optional().nullable().or(z.literal("")),
   description: z.string().max(500).optional().nullable().or(z.literal("")),
   password: z.string().max(64).optional().nullable().or(z.literal("")),
@@ -183,12 +187,49 @@ export async function POST(req: Request) {
       hashedPassword = await bcrypt.hash(v.password, 10);
     }
 
-    // Check slug uniqueness
+    // ── Resolve effective custom domain (custom-domain-assignment Req 2) ──────
+    // Explicit domainId wins; otherwise fall back to the workspace's verified
+    // default domain when one is set. NULL → served from the global namespace.
+    let domainId: string | null = v.domainId ?? null;
+    if (domainId === null) {
+      const def = await db.query.domains.findFirst({
+        where: (d, { eq, and }) =>
+          and(eq(d.workspaceId, v.workspaceId), eq(d.isDefault, true), eq(d.verified, true)),
+        columns: { id: true },
+      });
+      domainId = def?.id ?? null;
+    }
+
+    if (domainId) {
+      const dom = await db.query.domains.findFirst({ where: eq(domains.id, domainId) });
+      if (!dom || dom.workspaceId !== v.workspaceId) {
+        return NextResponse.json({ error: { code: "DOMAIN_NOT_FOUND" } }, { status: 400 });
+      }
+      if (!dom.verified) {
+        return NextResponse.json({ error: { code: "DOMAIN_NOT_VERIFIED" } }, { status: 400 });
+      }
+      if (dom.role === "bio") {
+        return NextResponse.json({ error: { code: "ROLE_DISALLOWS_LINKS" } }, { status: 409 });
+      }
+      // Reserved system/route slugs may never be a custom-domain short link
+      if (isReservedSlug(slug)) {
+        return NextResponse.json({
+          error: { code: "SLUG_RESERVED", message: "This path is reserved on this domain. Choose a different slug." },
+        }, { status: 409 });
+      }
+    }
+
+    // Slug uniqueness scoped to the domain (custom-domain-assignment Req 2.4):
+    // (domainId, slug) for custom domains, (NULL, slug) for the global namespace.
     const existing = await db.query.links.findFirst({
-      where: (l, { eq }) => eq(l.slug, slug),
+      where: (l, { eq, and, isNull }) =>
+        and(eq(l.slug, slug), domainId ? eq(l.domainId, domainId) : isNull(l.domainId)),
     });
     if (existing) {
-      return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+      return NextResponse.json(
+        { error: { code: domainId ? "SLUG_TAKEN_ON_DOMAIN" : "SLUG_TAKEN", message: "Slug already taken" } },
+        { status: 409 }
+      );
     }
 
     const [link] = await db
@@ -196,6 +237,7 @@ export async function POST(req: Request) {
       .values({
         userId: dbUser.id,
         workspaceId: v.workspaceId,
+        domainId,
         slug,
         destination: v.destination,
         title: emptyToNull(v.title),
