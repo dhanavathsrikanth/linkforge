@@ -136,5 +136,20 @@ export const PLANS = {
 
 // -1 = unlimited. Export helper types.
 export type PlanKey = keyof typeof PLANS;
-export type PlanLimits = typeof PLANS.free.limits;
+export type PlanLimits = {
+  maxOrganizations: number;
+  linksPerMonth: number;
+  clicksTrackedPerMonth: number;
+  customDomains: number;
+  teamMembers: number;
+  apiCallsPerHour: number;
+  bioPages: number;
+  qrCodesPerMonth: number;
+  analyticsRetentionDays: number;
+  abTestingEnabled: boolean;
+  whiteLabelEnabled: boolean;
+  bulkCreateEnabled: boolean;
+  defaultDomainEnabled: boolean;
+  mixedDomainRoleEnabled: boolean;
+};
 export type LimitKey = keyof PlanLimits;
