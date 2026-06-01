@@ -1,8 +1,8 @@
-import { PLANS, LimitKey } from "./plans";
+import { PLANS, LimitKey, PlanLimits } from "./plans";
 
 export function billingLimitError(limitKey: string, current: number, limit: number, currentPlan: string) {
   const upgradeTo = Object.entries(PLANS).find(([key, plan]) => {
-    const planLimit = plan.limits[limitKey as LimitKey];
+    const planLimit = (plan.limits as PlanLimits)[limitKey as LimitKey];
     return planLimit === -1 || (typeof planLimit === 'number' && planLimit > limit);
   })?.[0];
 
@@ -30,7 +30,7 @@ export function featureGateError(
   currentPlan: string,
 ) {
   const upgradeTo = Object.entries(PLANS).find(
-    ([, plan]) => plan.limits[featureKey] === true
+    ([, plan]) => (plan.limits as PlanLimits)[featureKey] === true
   )?.[0];
 
   return Response.json({
