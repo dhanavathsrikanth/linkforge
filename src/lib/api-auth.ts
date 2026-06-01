@@ -4,6 +4,7 @@ import { db } from "./db";
 import { apiKeys, workspaces } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { checkRateLimit } from "./redis";
+import { getEffectiveLimits } from "./billing/usage";
 
 export const KEY_PREFIX = "lf";
 
@@ -108,10 +109,8 @@ export async function authenticateApiKey(
     .limit(1);
 
   if (workspace) {
-    const { PLANS } = await import("./billing/plans");
-    type PlanKey = keyof typeof PLANS;
-    const plan = PLANS[workspace.plan as PlanKey] || PLANS.free;
-    const limit = plan.limits.apiCallsPerHour;
+    const limits = await getEffectiveLimits(key.workspaceId);
+    const limit = limits.apiCallsPerHour;
 
     const hourlyKey = `usage:${key.workspaceId}:apiCallsPerHour:${new Date().toISOString().slice(0, 13)}`;
     const result = await checkRateLimit(hourlyKey, limit, 3600);

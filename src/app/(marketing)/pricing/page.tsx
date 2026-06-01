@@ -10,7 +10,8 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const { isSignedIn } = useUser();
 
-  const planEntries = Object.entries(PLANS);
+  const orderedKeys: Array<keyof typeof PLANS> = ['free', 'starter', 'growth'];
+  const planEntries = orderedKeys.map((k) => [k, PLANS[k]] as const);
 
   return (
     <div className="min-h-screen bg-background pt-24 pb-20 px-6 font-sans">
@@ -34,20 +35,20 @@ export default function PricingPage() {
             <span className={`font-medium flex items-center gap-2 ${billingCycle === 'annual' ? 'text-foreground' : 'text-muted-foreground'}`}>
               Annually
               <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800 tracking-wide uppercase">
-                Save 26%
+                Save with annual billing
               </span>
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-20 animate-in fade-in duration-1000 delay-150 fill-mode-both">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-16 animate-in fade-in duration-1000 delay-150 fill-mode-both">
           {planEntries.map(([key, plan]) => {
             const isMostPopular = key === 'growth';
             
             return (
-              <div 
-                key={key} 
-                className={`relative flex flex-col bg-background rounded-2xl border ${isMostPopular ? 'border-amber-500 shadow-xl lg:scale-105 z-10' : 'border-border shadow-sm'} p-6`}
+              <div
+                key={key}
+                className={`relative flex flex-col bg-background rounded-2xl border ${isMostPopular ? 'border-amber-500 shadow-md z-10' : 'border-border shadow-sm'} p-4`}
               >
                 {isMostPopular && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-amber-500 text-white px-4 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-sm whitespace-nowrap">
@@ -55,22 +56,22 @@ export default function PricingPage() {
                   </div>
                 )}
                 
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">{plan.name}</h3>
-                  <div className="flex items-end gap-1 mb-2">
-                    <span className="text-4xl font-extrabold tracking-tight">
+                <div className="mb-4">
+                  <h3 className="text-base font-semibold mb-1">{plan.name}</h3>
+                  <div className="flex items-end gap-1 mb-1">
+                    <span className="text-3xl font-extrabold tracking-tight">
                       ${billingCycle === 'annual' ? plan.annualPrice : plan.price}
                     </span>
-                    <span className="text-muted-foreground font-medium mb-1">/mo</span>
+                    <span className="text-muted-foreground font-medium mb-0.5 text-sm">/mo</span>
                   </div>
                   {billingCycle === 'annual' && plan.annualPrice > 0 ? (
-                    <p className="text-sm text-green-600 font-medium">Billed annually (${plan.annualPrice * 12}/yr)</p>
+                    <p className="text-xs text-green-600 font-medium">You save ${ (plan.price - plan.annualPrice) * 12 }/yr</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground font-medium min-h-[20px]">{plan.price > 0 && billingCycle === 'monthly' ? 'Billed monthly' : ''}</p>
+                    <p className="text-xs text-muted-foreground font-medium min-h-[16px]">{plan.price > 0 && billingCycle === 'monthly' ? 'Billed monthly' : ''}</p>
                   )}
                 </div>
 
-                <div className="mt-auto pt-6 mb-6">
+                <div className="mt-auto pt-4 mb-4">
                   {key === 'free' ? (
                     <Link href="/signup" className="flex w-full justify-center items-center py-2.5 px-4 bg-secondary hover:bg-secondary/80 text-foreground font-medium rounded-lg transition-colors">
                       Start for free
@@ -85,20 +86,21 @@ export default function PricingPage() {
                 </div>
 
                 <ul className="space-y-4 flex-1">
+                  {/* Core limits */}
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     <span>{plan.limits.linksPerMonth === -1 ? 'Unlimited' : plan.limits.linksPerMonth.toLocaleString()} Links / mo</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     <span>{plan.limits.clicksTrackedPerMonth === -1 ? 'Unlimited' : (plan.limits.clicksTrackedPerMonth >= 1000000 ? (plan.limits.clicksTrackedPerMonth / 1000000).toFixed(1) + 'M' : plan.limits.clicksTrackedPerMonth.toLocaleString())} Clicks / mo</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     <span>{(plan.limits.customDomains as number) === -1 ? 'Unlimited' : plan.limits.customDomains} Custom Domains</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className={`w-5 h-5 shrink-0 ${plan.limits.teamMembers > 1 ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {plan.limits.teamMembers > 1 ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       ) : (
@@ -110,7 +112,12 @@ export default function PricingPage() {
                     </span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className={`w-5 h-5 shrink-0 ${plan.limits.abTestingEnabled ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <span>{plan.limits.bioPages === -1 ? 'Unlimited' : plan.limits.bioPages} Bio Pages</span>
+                  </li>
+                  {/* Feature gates */}
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className={`w-4 h-4 shrink-0 ${plan.limits.abTestingEnabled ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {plan.limits.abTestingEnabled ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       ) : (
@@ -120,14 +127,72 @@ export default function PricingPage() {
                     <span className={!plan.limits.abTestingEnabled ? 'text-muted-foreground' : ''}>A/B Testing</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
-                    <svg className={`w-5 h-5 shrink-0 ${plan.limits.whiteLabelEnabled ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {plan.limits.whiteLabelEnabled ? (
+                    <svg className={`w-4 h-4 shrink-0 ${(plan as any).limits?.defaultDomainEnabled ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {(plan as any).limits?.defaultDomainEnabled ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       ) : (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       )}
                     </svg>
-                    <span className={!plan.limits.whiteLabelEnabled ? 'text-muted-foreground' : ''}>White-labeling</span>
+                    <span className={!(plan as any).limits?.defaultDomainEnabled ? 'text-muted-foreground' : ''}>Default domain</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className={`w-4 h-4 shrink-0 ${(plan as any).limits?.mixedDomainRoleEnabled ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {(plan as any).limits?.mixedDomainRoleEnabled ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      )}
+                    </svg>
+                    <span className={!(plan as any).limits?.mixedDomainRoleEnabled ? 'text-muted-foreground' : ''}>Role = both domains</span>
+                  </li>
+                  {/* Webhooks (static per plan key) */}
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <span>
+                      {key === 'free' ? '0' : key === 'starter' ? '10' : '25'} Webhooks
+                    </span>
+                  </li>
+                  {/* Advanced (Growth highlights) */}
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className={`w-4 h-4 shrink-0 ${key === 'growth' ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {key === 'growth' ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      )}
+                    </svg>
+                    <span className={key !== 'growth' ? 'text-muted-foreground' : ''}>Multi‑touch attribution</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className={`w-4 h-4 shrink-0 ${key === 'growth' ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {key === 'growth' ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      )}
+                    </svg>
+                    <span className={key !== 'growth' ? 'text-muted-foreground' : ''}>Audit exports</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className={`w-4 h-4 shrink-0 ${key === 'growth' ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {key === 'growth' ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      )}
+                    </svg>
+                    <span className={key !== 'growth' ? 'text-muted-foreground' : ''}>Advanced analytics</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-sm">
+                    <svg className={`w-4 h-4 shrink-0 ${(plan as any).limits?.maxOrganizations > 1 || (plan as any).limits?.maxOrganizations === -1 ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {((plan as any).limits?.maxOrganizations > 1 || (plan as any).limits?.maxOrganizations === -1) ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      )}
+                    </svg>
+                    <span className={((plan as any).limits?.maxOrganizations > 1 || (plan as any).limits?.maxOrganizations === -1) ? '' : 'text-muted-foreground'}>Multiple workspaces</span>
                   </li>
                 </ul>
               </div>

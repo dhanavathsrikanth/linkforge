@@ -15,23 +15,23 @@ export type PlanLimits = {
 
 export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
     free: {
-        links: 500,
-        domains: 1,
-        clicksTracked: 5000,
-        apiCalls: 1000,
+        links: 50,
+        domains: 0,
+        clicksTracked: 1000,
+        apiCalls: 2592000,
         workspaces: 1,
     },
     starter: {
         links: 5000,
-        domains: 2,
+        domains: 3,
         clicksTracked: 50000,
         apiCalls: 10000,
         workspaces: 1,
     },
     growth: {
         links: 25000,
-        domains: 5,
-        clicksTracked: 250000,
+        domains: 10,
+        clicksTracked: 500000,
         apiCalls: 100000,
         workspaces: 3,
     },
