@@ -95,7 +95,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    <span>{plan.limits.customDomains === -1 ? 'Unlimited' : plan.limits.customDomains} Custom Domains</span>
+                    <span>{(plan.limits.customDomains as number) === -1 ? 'Unlimited' : plan.limits.customDomains} Custom Domains</span>
                   </li>
                   <li className="flex items-start gap-3 text-sm">
                     <svg className={`w-5 h-5 shrink-0 ${plan.limits.teamMembers > 1 ? 'text-green-500' : 'text-muted-foreground/30'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
