@@ -14,7 +14,7 @@
  * Neon Postgres is owned exclusively by Next.js.
  */
 
-import type { Env, BioPageEvent, BioDomainMapping } from './types';
+import type { Env, BioPageEvent, BioDomainMapping, BioEventQueueMessage } from './types';
 
 // ─── Bot patterns ─────────────────────────────────────────────────────────────
 
@@ -75,40 +75,31 @@ async function hashIP(ip: string): Promise<string> {
 // ─── Analytics buffering ──────────────────────────────────────────────────────
 
 /**
- * Buffer a page view event in KV.
- * The hourly GitHub Actions cron calls /api/internal/bio-events to flush
- * these into Neon Postgres (link_gallery_block_events).
- *
- * KV keys:
- *   bio:views:{galleryId}:{YYYY-MM-DD}   → integer (total views today)
- *   bio:unique:{galleryId}:{ipHash}       → "1" (24h TTL — unique visitor flag)
- *   bio:events:{galleryId}               → JSON array of BioPageEvent (max 500)
+ * Send a page view event to Cloudflare Queue for processing.
+ * The queue consumer writes to Upstash Redis (view counters + event log).
  */
-async function bufferAnalyticsEvent(
+async function queueAnalyticsEvent(
   env: Env,
   galleryId: string,
+  slug: string,
   event: BioPageEvent,
 ): Promise<void> {
-  const date = event.ts.slice(0, 10); // YYYY-MM-DD
-
-  // Increment daily view counter
-  const viewKey = `bio:views:${galleryId}:${date}`;
-  const currentViews = parseInt((await env.BIO_ANALYTICS_KV.get(viewKey)) ?? '0', 10);
-  await env.BIO_ANALYTICS_KV.put(viewKey, String(currentViews + 1), {
-    // Keep for 8 days so the flush cron can always read yesterday's data
-    expirationTtl: 8 * 24 * 60 * 60,
-  });
-
-  // Append event to the rolling event list (capped at 500 per gallery)
-  const eventsKey = `bio:events:${galleryId}`;
-  const existing = await env.BIO_ANALYTICS_KV.get(eventsKey);
-  const events: BioPageEvent[] = existing ? JSON.parse(existing) : [];
-  events.push(event);
-  // Keep only the last 500 events to avoid KV value size limits (25 MB)
-  const trimmed = events.slice(-500);
-  await env.BIO_ANALYTICS_KV.put(eventsKey, JSON.stringify(trimmed), {
-    expirationTtl: 8 * 24 * 60 * 60,
-  });
+  const msg: BioEventQueueMessage = {
+    type: 'bio-view',
+    galleryId,
+    slug,
+    ts: event.ts,
+    country: event.country,
+    city: event.city,
+    region: event.region,
+    device: event.device,
+    browser: event.browser,
+    os: event.os,
+    referrer: event.referrer,
+    ipHash: event.ipHash,
+    isUnique: event.isUnique,
+  };
+  await env.BIO_EVENT_QUEUE.send(msg);
 }
 
 // ─── Rate limiting (reactions) ────────────────────────────────────────────────
@@ -208,29 +199,34 @@ async function serveOgImage(
 ): Promise<Response> {
   const cacheKey = `bio:og:${slug}`;
 
+  // Check KV — permanent storage (no expiration)
+  // OG images are pre-generated at publish time or cached on first request.
+  // Invalidated only when the page is re-published.
   const cached = await env.BIO_PAGES_KV.get(cacheKey, 'arrayBuffer');
   if (cached) {
     return new Response(cached, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'public, max-age=604800, s-maxage=86400',
         'X-Cache': 'HIT',
       },
     });
   }
 
+  // KV miss — fetch from Next.js origin (edge runtime, publishedSnapshot read)
   const originUrl = `${env.API_URL}/p/${slug}/opengraph-image`;
   const originRes = await fetch(originUrl);
 
   if (originRes.ok) {
     const buf = await originRes.arrayBuffer();
+    // Store permanently in KV — only purged on re-publish
     ctx.waitUntil(
-      env.BIO_PAGES_KV.put(cacheKey, buf, { expirationTtl: 3600 })
+      env.BIO_PAGES_KV.put(cacheKey, buf)
     );
     return new Response(buf, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'public, max-age=604800, s-maxage=86400',
         'X-Cache': 'MISS',
       },
     });
@@ -335,10 +331,9 @@ export async function handleBioRequest(
       isUnique,
     };
 
-    // galleryId may be null for pivoturl.com/p/{slug} — the flush endpoint
-    // will resolve it from the slug. For custom domains it's already known.
-    const bufferKey = galleryId ?? `slug:${slug}`;
-    ctx.waitUntil(bufferAnalyticsEvent(env, bufferKey, event));
+    // Use the galleryId if known, otherwise resolve from slug in the queue consumer
+    const eventGalleryId = galleryId ?? `slug:${slug}`;
+    ctx.waitUntil(queueAnalyticsEvent(env, eventGalleryId, slug, event));
   }
 
   return serveBioPage(slug, galleryId ?? '', request, env, ctx, device);
@@ -379,6 +374,57 @@ export async function handleBioPurge(
     return new Response(JSON.stringify({ purged: keysToDelete }), {
       headers: { 'Content-Type': 'application/json' },
     });
+  } catch {
+    return new Response('Bad Request', { status: 400 });
+  }
+}
+
+// ─── OG image pre-generation ──────────────────────────────────────────────────
+
+/**
+ * Called by Next.js after publishing a bio page to pre-generate and store
+ * the OG image in KV. This eliminates the first Vercel function invocation
+ * when a crawler requests the OG image.
+ *
+ * POST /internal/bio/og-pregenerate
+ * Headers: x-worker-secret: <WORKER_SECRET>, Content-Type: image/png
+ * Body: PNG image binary
+ * Query: ?slug=<slug>
+ */
+export async function handleOgPregenerate(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const secret = request.headers.get('x-worker-secret');
+  if (!secret || secret !== env.WORKER_SECRET) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  try {
+    const url = new URL(request.url);
+    const slug = url.searchParams.get('slug');
+    if (!slug) {
+      return new Response('Missing slug query parameter', { status: 400 });
+    }
+
+    const contentType = request.headers.get('Content-Type');
+    if (contentType !== 'image/png') {
+      return new Response('Content-Type must be image/png', { status: 400 });
+    }
+
+    const pngBuffer = await request.arrayBuffer();
+    if (pngBuffer.byteLength === 0 || pngBuffer.byteLength > 2 * 1024 * 1024) {
+      return new Response('Invalid PNG size (must be 0-2MB)', { status: 400 });
+    }
+
+    // Store permanently in KV — only purged on re-publish
+    const cacheKey = `bio:og:${slug}`;
+    await env.BIO_PAGES_KV.put(cacheKey, pngBuffer);
+
+    return new Response(
+      JSON.stringify({ ok: true, key: cacheKey, size: pngBuffer.byteLength }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
   } catch {
     return new Response('Bad Request', { status: 400 });
   }

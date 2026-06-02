@@ -64,6 +64,7 @@ export interface ScanPageInfo {
   country: string;
   server: string;
   status: number;
+  title?: string;
 }
 
 export interface ScanTechnology {
@@ -468,6 +469,7 @@ export async function getScanResult(scanId: string): Promise<ScanResult | null> 
       country: String(page.country ?? ""),
       server: String(page.server ?? ""),
       status: typeof page.status === "number" ? (page.status as number) : 0,
+      title: typeof page.title === "string" ? (page.title as string) : undefined,
     },
     radarRank: typeof meta.radarRank === "number" ? (meta.radarRank as number) : null,
     domStructHash: typeof page.domStructHash === "string" ? (page.domStructHash as string) : null,

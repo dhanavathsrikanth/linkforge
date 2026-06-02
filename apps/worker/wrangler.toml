@@ -2,19 +2,13 @@ name = "pivoturl-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
+# ─── Analytics Engine ──────────────────────────────────────────────────────────
+
+[[analytics_engine_datasets]]
+binding = "ANALYTICS_ENGINE"
+dataset = "linkforge_clicks"
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
-# IMPORTANT: `routes` must be a TOP-LEVEL key, declared BEFORE any [table]
-# header (like [vars] or [[kv_namespaces]]). If it appears after [vars], TOML
-# parses it as a variable named "routes" instead of worker routes.
-#
-#   pivoturl.com/*    → bio pages, short links, bio API (DNS-only → Vercel,
-#                       so in practice these bypass CF; kept for completeness)
-#   *.pivoturl.com/*  → subdomains
-#   */*               → Cloudflare for SaaS: catches ALL traffic entering the
-#                       zone, including customer custom hostnames (acme.com)
-#                       that CNAME to our fallback origin. The worker is the
-#                       fallback origin. Ref: Cloudflare for SaaS →
-#                       "Workers as your fallback origin".
 routes = [
   { pattern = "pivoturl.com/*", zone_name = "pivoturl.com" },
   { pattern = "*.pivoturl.com/*", zone_name = "pivoturl.com" },
@@ -24,28 +18,148 @@ routes = [
 # ─── Environment variables ────────────────────────────────────────────────────
 
 [vars]
-# Base URL of the Next.js app (no trailing slash)
 API_URL = "https://pivoturl.com"
 
-# ─── Secrets (set via: wrangler secret put WORKER_SECRET) ────────────────────
-# WORKER_SECRET — shared secret between worker and Next.js /api/internal/* routes
+# ─── Secrets (set via: wrangler secret put <NAME>) ────────────────────────────
+# WORKER_SECRET         — shared secret between worker and Next.js /api/internal/*
+# UPSTASH_REDIS_REST_URL  — Upstash Redis REST endpoint URL
+# UPSTASH_REDIS_REST_TOKEN — Upstash Redis REST API token
 
 # ─── KV Namespaces ────────────────────────────────────────────────────────────
 
-# Short link cache (existing)
 [[kv_namespaces]]
 binding = "LINKS_KV"
 id = "d42094ab250442ec82ba7cdea8afc573"
 preview_id = "d42094ab250442ec82ba7cdea8afc573"
 
-# Bio page HTML cache + domain→slug mapping + OG image cache
 [[kv_namespaces]]
 binding = "BIO_PAGES_KV"
 id = "69e9003d8ba848739fee11abebf96795"
 preview_id = "69e9003d8ba848739fee11abebf96795"
 
-# Bio analytics event buffer + reaction rate limit counters
 [[kv_namespaces]]
 binding = "BIO_ANALYTICS_KV"
 id = "d6eff93107bd446fb2dfd66ad5e6a9cc"
 preview_id = "d6eff93107bd446fb2dfd66ad5e6a9cc"
+
+# ─── Queues ───────────────────────────────────────────────────────────────────
+
+[[queues.producers]]
+binding = "CLICK_QUEUE"
+queue = "link-clicks"
+
+[[queues.producers]]
+binding = "BIO_EVENT_QUEUE"
+queue = "bio-events"
+
+[[queues.consumers]]
+queue = "link-clicks"
+max_batch_size = 50
+max_batch_timeout = 5
+
+[[queues.consumers]]
+queue = "bio-events"
+max_batch_size = 50
+max_batch_timeout = 5
+
+# ─── Durable Objects ─────────────────────────────────────────────────────────
+# All 12 DO classes implement WebSocket streaming, distributed locking,
+# scheduling, caching, and workflow orchestration.
+# Class names must match exports in src/durable-objects/*.ts
+
+[[durable_objects.bindings]]
+name = "ANALYTICS_WS"
+class_name = "AnalyticsWebSocket"
+
+[[durable_objects.bindings]]
+name = "DISTRIBUTED_LOCKER"
+class_name = "DistributedLocker"
+
+[[durable_objects.bindings]]
+name = "SCHEDULER"
+class_name = "Scheduler"
+
+[[durable_objects.bindings]]
+name = "COORDINATED_CACHE"
+class_name = "CoordinatedCache"
+
+[[durable_objects.bindings]]
+name = "WORKSPACE_PRESENCE"
+class_name = "WorkspacePresence"
+
+[[durable_objects.bindings]]
+name = "WORKFLOW_ENGINE"
+class_name = "WorkflowEngine"
+
+[[durable_objects.bindings]]
+name = "QR_STREAM"
+class_name = "QrStream"
+
+[[durable_objects.bindings]]
+name = "WEBHOOK_DELIVERER"
+class_name = "WebhookDeliverer"
+
+[[durable_objects.bindings]]
+name = "SESSION_STORE"
+class_name = "SessionStore"
+
+[[durable_objects.bindings]]
+name = "EVENT_LOG"
+class_name = "EventLog"
+
+[[durable_objects.bindings]]
+name = "AB_TEST_STREAM"
+class_name = "AbTestStream"
+
+[[durable_objects.bindings]]
+name = "FEATURE_FLAGS"
+class_name = "FeatureFlags"
+
+# ─── DO migrations ────────────────────────────────────────────────────────────
+# Initial deployment: all 12 classes created. Increment tag on future changes.
+
+# ─── Vectorize (Semantic Similarity Search) ────────────────────────────────
+# Used for true similarity search with embeddings instead of hash equality
+
+[[vectorize]]
+binding = "PAGE_EMBEDDINGS"
+index_name = "page-embeddings"
+
+# ─── Workers AI (Embedding Generation) ──────────────────────────────────────
+# Used to generate embeddings for semantic similarity search
+
+[ai]
+binding = "AI"
+
+# ─── Cron Triggers ───────────────────────────────────────────────────────────
+# Replace GitHub Actions cron jobs with Workers Cron Triggers (free, no SLA, built-in)
+
+[[triggers]]
+crons = ["0 4 * * *"]  # Daily at 04:00 UTC - domain status sync
+
+[[triggers]]
+crons = ["0 * * * *"]  # Hourly - URL scanner rescan
+
+[[triggers]]
+crons = ["0 3 * * *"]  # Daily at 03:00 UTC - URL scanner retention
+
+# ─── DO migrations ──────────────────────────────────────────────────────────
+
+[[migrations]]
+tag = "v1"
+new_classes = [
+  "AnalyticsWebSocket",
+  "DistributedLocker",
+  "Scheduler",
+  "CoordinatedCache",
+  "WorkspacePresence",
+  "WorkflowEngine",
+  "QrStream",
+  "WebhookDeliverer",
+  "SessionStore",
+  "EventLog",
+  "AbTestStream",
+  "FeatureFlags",
+]
+
+

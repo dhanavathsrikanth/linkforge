@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,9 +29,11 @@ const formSchema = z.object({
 
 export function CreateLinkModal({ workspaceId }: { workspaceId: string }) {
   const [open, setOpen] = useState(false);
+  const [aiTags, setAiTags] = useState<string[]>([]);
+  const aiTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const router = useRouter();
   
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<z.infer<typeof formSchema>>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting }, reset } = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       destination: "",
@@ -41,6 +43,40 @@ export function CreateLinkModal({ workspaceId }: { workspaceId: string }) {
       tags: "",
     }
   });
+
+  // AI auto-fill on destination URL change
+  useEffect(() => {
+    const subscription = watch((value, { name }) => {
+      if (name === "destination" && value.destination) {
+        if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+        aiTimerRef.current = setTimeout(async () => {
+          try {
+            const res = await fetch("/api/ai/suggest-slug", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: value.destination, workspaceId }),
+            });
+            const data = await res.json();
+            if (data.slug && !watch("slug")) setValue("slug", data.slug);
+            if (data.title && !watch("title")) setValue("title", data.title);
+            if (data.suggestedTags?.length) {
+              setAiTags(data.suggestedTags);
+              const existing = watch("tags") as string | undefined;
+              const currentTags = existing ? existing.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
+              const merged = [...new Set([...currentTags, ...data.suggestedTags])];
+              setValue("tags", merged.join(", "), { shouldDirty: true });
+            }
+          } catch {
+            // AI failed — silently fall back
+          }
+        }, 600);
+      }
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+    };
+  }, [watch, setValue, workspaceId]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
@@ -164,6 +200,11 @@ export function CreateLinkModal({ workspaceId }: { workspaceId: string }) {
                 placeholder="promo, summer, sales"
                 {...register("tags")}
               />
+              {aiTags.length > 0 && (
+                <p className="text-xs text-purple-600 animate-in fade-in-0 duration-200">
+                  AI auto-filled: {aiTags.join(", ")}
+                </p>
+              )}
             </div>
           </div>
 

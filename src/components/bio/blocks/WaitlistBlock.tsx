@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, CheckCircle2, Mail } from "lucide-react";
+import { Loader2, CheckCircle2, Mail, Users } from "lucide-react";
 import { CoreBlock } from "@/components/bio/CoreBlock";
 import { useBlockSubmission } from "./useBlockClick";
 import { cn } from "@/lib/utils";
@@ -213,6 +213,19 @@ export function WaitlistBlock({ block, isEditable, onDelete }: Props) {
 
   const trackSubmission = useBlockSubmission(block.id, isEditable);
 
+  // In editor mode, show a live signup count badge so the owner can see
+  // at a glance how many people have joined — without opening the form editor.
+  const [signupCount, setSignupCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isEditable || !block.id) return;
+    fetch(`/api/bio/blocks/${block.id}/submissions`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (body?.submissions) setSignupCount(body.submissions.length);
+      })
+      .catch(() => {});
+  }, [block.id, isEditable]);
+
   // Light client-side email check that mirrors common server validators.
   // Doesn't replace server validation — just surfaces obvious mistakes
   // before the user clicks submit.
@@ -300,18 +313,34 @@ export function WaitlistBlock({ block, isEditable, onDelete }: Props) {
       )}
 
       <div className={cn("relative z-10 flex flex-col h-full", isGradient && "text-white")}>
-        {/* Demo badge in editor */}
+        {/* Demo badge + signup count in editor */}
         {isDemo && (
-          <span
-            className={cn(
-              "absolute top-0 right-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full",
-              isGradient
-                ? "bg-white/20 text-white"
-                : "bg-stone-100 text-stone-500"
+          <div className="absolute top-0 right-0 flex items-center gap-1.5">
+            {signupCount !== null && signupCount > 0 && (
+              <span
+                className={cn(
+                  "flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                  isGradient
+                    ? "bg-white/25 text-white"
+                    : "bg-primary/10 text-primary"
+                )}
+                title="Open block settings → Submissions tab to see all emails"
+              >
+                <Users className="w-2.5 h-2.5" />
+                {signupCount} signup{signupCount === 1 ? "" : "s"}
+              </span>
             )}
-          >
-            Preview
-          </span>
+            <span
+              className={cn(
+                "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                isGradient
+                  ? "bg-white/20 text-white"
+                  : "bg-stone-100 text-stone-500"
+              )}
+            >
+              Preview
+            </span>
+          </div>
         )}
 
         {!submitted ? (

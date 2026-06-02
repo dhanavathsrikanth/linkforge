@@ -18,7 +18,7 @@ import { sendWebhookEvent } from "@/lib/svix/send";
 import { startSafetyScan } from "@/lib/cloudflare/link-safety";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 import { domains } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql, and, isNull, ilike, or, desc } from "drizzle-orm";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -82,7 +82,7 @@ function emptyToNull<T extends string | undefined | null>(v: T): string | null {
   return s.length === 0 ? null : s;
 }
 
-// GET /api/links — list user's links scoped to workspace
+// GET /api/links — list user's links scoped to workspace with server-side search & pagination
 export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -95,38 +95,74 @@ export async function GET(request: Request) {
     const workspaceId = searchParams.get("workspaceId");
     const folderId = searchParams.get("folderId");
     const tags = searchParams.get("tags");
+    const search = searchParams.get("search")?.trim() || "";
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+    const offset = (page - 1) * limit;
 
     const ws = await resolveUserWorkspace(dbUser.id, workspaceId);
 
-    let userLinks;
+    // Build dynamic query conditions using Drizzle ORM
+    let conditions = [eq(links.workspaceId, ws.id)];
+
+    // Folder filter
     if (folderId === "none") {
-      userLinks = await db.query.links.findMany({
-        where: (l, { eq, and, isNull }) => and(eq(l.workspaceId, ws.id), isNull(l.folderId)),
-        orderBy: (l, { desc }) => desc(l.createdAt),
-        limit: 100,
-      });
+      conditions.push(isNull(links.folderId));
     } else if (folderId && folderId !== "") {
-      userLinks = await db.query.links.findMany({
-        where: (l, { eq, and }) => and(eq(l.workspaceId, ws.id), eq(l.folderId, folderId)),
-        orderBy: (l, { desc }) => desc(l.createdAt),
-        limit: 100,
-      });
-    } else {
-      userLinks = await db.query.links.findMany({
-        where: (l, { eq }) => eq(l.workspaceId, ws.id),
-        orderBy: (l, { desc }) => desc(l.createdAt),
-        limit: 100,
-      });
+      conditions.push(eq(links.folderId, folderId));
     }
 
-    if (tags) {
-      const tagList = tags.split(",").map((t) => t.trim());
+    // Search filter using ILIKE
+    if (search) {
+      const searchPattern = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(links.slug, searchPattern),
+          ilike(links.destination, searchPattern),
+          ilike(links.title, searchPattern),
+          ilike(links.description, searchPattern)
+        )!
+      );
+    }
+
+    // Tags filter (handled separately due to array column)
+    const tagList = tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+
+    // Build where clause
+    const whereClause = and(...conditions);
+
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(links)
+      .where(whereClause);
+    const total = Number(countResult[0]?.count || 0);
+
+    // Get paginated results
+    let userLinks = await db.query.links.findMany({
+      where: whereClause,
+      orderBy: [desc(links.createdAt)],
+      limit,
+      offset,
+    });
+
+    // Filter by tags on server-side (PostgreSQL array overlap)
+    if (tagList.length > 0) {
       userLinks = userLinks.filter((link) =>
         tagList.some((tag) => link.tags?.includes(tag))
       );
     }
 
-    return NextResponse.json({ links: userLinks, workspaceId: ws.id });
+    return NextResponse.json({
+      links: userLinks,
+      workspaceId: ws.id,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
     console.error("[GET /api/links]", err);
     return NextResponse.json({ error: "Failed to fetch links" }, { status: 500 });

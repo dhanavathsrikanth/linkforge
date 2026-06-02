@@ -1,6 +1,10 @@
-import type { Env, Link, RequestContext, ClickData, DomainConfig } from './types';
-import { handleBioRequest, handleBioPurge, handleBioDomainMapping } from './bio';
+import type { Env, Link, RequestContext, ClickQueueMessage, DomainConfig } from './types';
+import { handleBioRequest, handleBioPurge, handleBioDomainMapping, handleOgPregenerate } from './bio';
 import { resolveRoute } from './domain-routing';
+import { handleQueue } from './queue-handler';
+import { checkRateLimitEdge } from './rate-limiter';
+import { handlePasswordChallenge, handlePasswordVerify } from './password-challenge';
+
 
 // ─── Suspended-domain page ────────────────────────────────────────────────────
 
@@ -23,18 +27,12 @@ function suspendedPage(httpStatus: 503 | 410): Response {
   });
 }
 
-/**
- * Read the routing config for a custom host from KV (`domain:{host}`), warming
- * from the Next.js origin on a cache miss. Returns null when the host has no
- * config at all (during rollout) so callers can fall back to legacy behavior.
- */
 async function getDomainConfig(host: string, env: Env): Promise<DomainConfig | null> {
   const key = `domain:${host}`;
   const cached = await env.BIO_PAGES_KV.get(key);
   if (cached) {
     try { return JSON.parse(cached) as DomainConfig; } catch { /* fall through */ }
   }
-  // Cache miss → warm from origin (Next.js owns the DB).
   try {
     const res = await fetch(
       `${env.API_URL}/api/internal/domain-resolve?host=${encodeURIComponent(host)}`,
@@ -109,7 +107,7 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// ─── Helpers (unchanged from original) ───────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────
 
 function detectDevice(userAgent: string): 'mobile' | 'desktop' | 'tablet' | 'bot' {
   const ua = userAgent.toLowerCase();
@@ -151,8 +149,8 @@ function resolveDestination(
       const { condition, destination } = rule;
       let matches = true;
       if (condition.device && condition.device !== device) matches = false;
-      if (condition.country && condition.country !== country) matches = false;
-      if (condition.language && condition.language !== language) matches = false;
+      if (condition.country && condition.country.toUpperCase() !== country.toUpperCase()) matches = false;
+      if (condition.language && !language.toLowerCase().startsWith(condition.language.toLowerCase())) matches = false;
       if (matches) return { destination };
     }
   }
@@ -176,53 +174,211 @@ async function hashIP(ip: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function logClick(
+async function writeClickAnalyticsEngine(
   env: Env,
-  linkId: string,
+  link: Link,
+  context: RequestContext,
+  browser: string | undefined,
+  os: string | undefined,
+  referrer: string | null,
+  variant?: string,
+): Promise<void> {
+  env.ANALYTICS_ENGINE.writeDataPoint({
+    indexes: [
+      link.id,             // linkId
+      link.workspaceId,    // workspaceId
+      link.slug,           // slug
+      context.device,       // device
+      context.country,      // country
+    ],
+    doubles: [
+      Date.now(),          // timestamp
+      context.isUnique ? 1 : 0,  // isUnique (for SUM aggregation)
+    ],
+    blobs: [
+      browser ?? '',   // max 30 bytes
+      os ?? '',
+      (referrer ? extractDomain(referrer) ?? '' : '').slice(0, 30),
+      variant ?? '',
+      context.country,
+    ],
+  });
+}
+
+async function queueClick(
+  env: Env,
+  link: Link,
   context: RequestContext,
   userAgent: string,
   referrer: string | null,
   variant?: string,
 ): Promise<void> {
-  try {
-    const { browser, os } = parseUserAgent(userAgent);
-    const clickData: ClickData = {
-      linkId,
-      device: context.device,
-      browser,
-      os,
-      country: context.country,
-      city: context.city,
-      region: context.region,
-      ipHash: context.ipHash,
-      isUnique: context.isUnique,
-      language: context.language,
-      referrer: referrer || undefined,
-      variant,
-    };
-    await fetch(`${env.API_URL}/api/internal/clicks`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-worker-secret': env.WORKER_SECRET,
-      },
-      body: JSON.stringify(clickData),
-    });
-  } catch (error) {
-    console.error('Failed to log click:', error);
-  }
+  const { browser, os } = parseUserAgent(userAgent);
+
+  // Write to Analytics Engine (primary analytics pipeline — always succeeds)
+  writeClickAnalyticsEngine(env, link, context, browser, os, referrer, variant);
+
+  // Queue for Redis real-time feed + billing/webhooks side-effects
+  const msg: ClickQueueMessage = {
+    type: 'click',
+    linkId: link.id,
+    slug: link.slug,
+    destination: link.destination,
+    device: context.device,
+    browser,
+    os,
+    country: context.country,
+    city: context.city,
+    region: context.region,
+    ipHash: context.ipHash,
+    isUnique: context.isUnique,
+    language: context.language,
+    referrer: referrer || undefined,
+    referrerDomain: referrer ? extractDomain(referrer) : undefined,
+    variant,
+    isQrScan: false,
+    isDeepLink: false,
+    timestamp: Date.now(),
+  };
+  await env.CLICK_QUEUE.send(msg);
+}
+
+function extractDomain(url: string): string | undefined {
+  try { return new URL(url).hostname; } catch { return undefined; }
 }
 
 // ─── Main fetch handler ───────────────────────────────────────────────────────
 
 export default {
+  async queue(batch: MessageBatch, env: Env): Promise<void> {
+    await handleQueue(batch as MessageBatch<any>, env);
+  },
+
+  // ─── Cron Trigger Handlers ────────────────────────────────────────────────
+  // Replaces GitHub Actions cron jobs with Workers Cron Triggers
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    const cron = event.cron;
+    console.log(`[cron] Triggered: ${cron}`);
+
+    try {
+      if (cron === "0 4 * * *") {
+        // Daily at 04:00 UTC - domain status sync
+        await handleDomainStatusSync(env);
+      } else if (cron === "0 * * * *") {
+        // Hourly - URL scanner rescan
+        await handleUrlScannerRescan(env);
+      } else if (cron === "0 3 * * *") {
+        // Daily at 03:00 UTC - URL scanner retention
+        await handleUrlScannerRetention(env);
+      }
+    } catch (err) {
+      console.error("[cron] Error:", err);
+    }
+  },
+
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const host = request.headers.get('Host') || '';
     const pathname = url.pathname;
 
+    // ── Durable Object routing ─────────────────────────────────────────────────
+    // Route /do/{name}/{id}/{action} to the corresponding DO namespace.
+    // Handles WebSocket upgrades and HTTP requests for all 12 DO classes.
+    if (pathname.startsWith('/do/')) {
+      const parts = pathname.split('/');
+      const doName = parts[2];
+      const doId = parts[3] || 'default';
+      const routeBindings: Record<string, DurableObjectNamespace> = {
+        'analytics-ws': env.ANALYTICS_WS,
+        'presence': env.WORKSPACE_PRESENCE,
+        'qr': env.QR_STREAM,
+        'abtest': env.AB_TEST_STREAM,
+        'locker': env.DISTRIBUTED_LOCKER,
+        'scheduler': env.SCHEDULER,
+        'cache': env.COORDINATED_CACHE,
+        'workflow': env.WORKFLOW_ENGINE,
+        'webhook': env.WEBHOOK_DELIVERER,
+        'session': env.SESSION_STORE,
+        'event-log': env.EVENT_LOG,
+        'feature-flags': env.FEATURE_FLAGS,
+      };
+      const ns = routeBindings[doName];
+      if (ns) {
+        const stub = ns.idFromName(doId);
+        return ns.get(stub).fetch(request);
+      }
+    }
+
+    // ── Password challenge routes ─────────────────────────────────────────────
+    // Serve password challenge and verification at edge for performance
+    if (pathname.startsWith('/internal/challenge/')) {
+      const slug = pathname.split('/')[3];
+      if (slug) {
+        return handlePasswordChallenge(request, env, slug, host);
+      }
+    }
+
+    if (pathname === '/internal/verify-password' && request.method === 'POST') {
+      const body = await request.json() as { slug: string };
+      if (body.slug) {
+        return handlePasswordVerify(request, env, body.slug);
+      }
+    }
+
+    // ── Edge rate limiting ─────────────────────────────────────────────────────
+    // Enforced at Cloudflare edge before requests reach Vercel.
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const rlKey = `${clientIp}:${pathname}`;
+
+    // Public API: 100 req/min per IP (matches free-plan rate limit)
+    if (pathname.startsWith('/api/') && !pathname.startsWith('/api/internal/')) {
+      const rl = checkRateLimitEdge(rlKey, 100, 60_000);
+      if (!rl.allowed) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded', code: 'RATE_LIMITED' }),
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': String(Math.ceil(rl.resetMs / 1000)),
+              'X-RateLimit-Limit': '100',
+              'X-RateLimit-Remaining': '0',
+            },
+          },
+        );
+      }
+    }
+
+    // ── Edge API key validation ───────────────────────────────────────────────
+    // Validate API keys at edge using KV cache before requests reach Vercel.
+    const authHeader = request.headers.get('authorization') || '';
+    if (pathname.startsWith('/api/') && authHeader.startsWith('Bearer lf_')) {
+      const token = authHeader.slice(7).trim();
+      const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+      const hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const cacheKey = `apikey:${hash}`;
+      let keyData: { active: boolean; expiresAt: string | null; keyType: string; workspaceId: string } | null = null;
+      try {
+        const raw = await env.LINKS_KV.get(cacheKey);
+        if (raw) keyData = JSON.parse(raw);
+      } catch { /* KV read failed — pass through to Vercel */ }
+      if (keyData && (!keyData.active || (keyData.expiresAt && Date.now() > new Date(keyData.expiresAt).getTime()))) {
+        return new Response(
+          JSON.stringify({ error: { code: 'UNAUTHORIZED', message: keyData.active ? 'API key has expired.' : 'API key has been revoked.' } }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
+    // ── Passthrough for Next.js API routes ───────────────────────────────────
+    // Forward to Vercel origin directly to avoid circular worker invocation.
+    if (pathname.startsWith('/api/')) {
+      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+      return fetch(new Request(originUrl, request));
+    }
+
     // ── Internal worker management endpoints ──────────────────────────────────
-    // These are called by Next.js server-side, never by browsers.
+    // These have their own stricter rate limits.
 
     if (pathname === '/internal/bio/purge' && request.method === 'POST') {
       return handleBioPurge(request, env);
@@ -232,7 +388,42 @@ export default {
       return handleBioDomainMapping(request, env);
     }
 
-    // Control-plane write of `domain:{host}` routing config (Next.js → worker).
+    if (pathname === '/internal/bio/og-pregenerate' && request.method === 'POST') {
+      return handleOgPregenerate(request, env);
+    }
+
+    if (pathname === '/internal/click' && request.method === 'POST') {
+      const rl = checkRateLimitEdge(`${clientIp}:/internal/click`, 100, 60_000);
+      if (!rl.allowed) {
+        return new Response('Rate limited', { status: 429 });
+      }
+      try {
+        const body = await request.json() as {
+          linkId: string; workspaceId: string; slug: string;
+          device: string; browser: string; os: string;
+          country: string; city?: string; region?: string;
+          referrerDomain?: string; ipHash: string; isUnique: boolean;
+          isQrScan: boolean; isDeepLink: boolean; abVariant?: string;
+          timestamp: number;
+        };
+        env.ANALYTICS_ENGINE.writeDataPoint({
+          indexes: [body.linkId, body.workspaceId, body.slug, body.device, body.country],
+          doubles: [body.timestamp, body.isUnique ? 1 : 0],
+          blobs: [
+            (body.browser ?? '').slice(0, 30),
+            (body.os ?? '').slice(0, 30),
+            (body.referrerDomain ?? '').slice(0, 30),
+            (body.abVariant ?? '').slice(0, 30),
+          ],
+        });
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response('Bad Request', { status: 400 });
+      }
+    }
+
     if (pathname === '/internal/domain-config' && request.method === 'POST') {
       const secret = request.headers.get('x-worker-secret');
       if (!secret || secret !== env.WORKER_SECRET) {
@@ -256,9 +447,31 @@ export default {
       }
     }
 
-    // ── Custom-domain routing (custom-domain-assignment spec, Req 5) ───────────
-    // Deterministic resolver runs first for non-pivoturl hosts. Falls back to
-    // legacy bio/link dispatch when the host has no `domain:{host}` config yet.
+    if (pathname === '/internal/api-key-sync' && request.method === 'POST') {
+      const secret = request.headers.get('x-worker-secret');
+      if (!secret || secret !== env.WORKER_SECRET) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+      try {
+        const body = (await request.json()) as
+          | { keyHash: string; active: boolean; expiresAt: string | null; keyType: string; workspaceId: string }
+          | { keyHash: string; remove: true };
+        const cacheKey = `apikey:${body.keyHash}`;
+        if ('remove' in body && body.remove) {
+          await env.LINKS_KV.delete(cacheKey);
+        } else if ('keyHash' in body) {
+          const { keyHash, ...data } = body as any;
+          await env.LINKS_KV.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response('Bad Request', { status: 400 });
+      }
+    }
+
+    // ── Custom-domain routing ─────────────────────────────────────────────────
     {
       const isPivotUrl = host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
       if (!isPivotUrl) {
@@ -269,7 +482,7 @@ export default {
             case 'suspended':
               return suspendedPage(route.httpStatus);
             case 'system-passthrough':
-              return fetch(request); // let origin serve favicon/robots/.well-known/…
+              return fetch(request);
             case 'root-redirect':
               return Response.redirect(route.url, 302);
             case 'root-bio': {
@@ -281,7 +494,6 @@ export default {
               });
             }
             case 'link':
-              // fall through to the short-link redirect logic below
               break;
             case 'not-found':
               return new Response(NOT_FOUND_PAGE, {
@@ -290,15 +502,10 @@ export default {
               });
           }
         }
-        // cfg === null → legacy fallback below
       }
     }
 
     // ── Bio page routing ──────────────────────────────────────────────────────
-    // Handle:
-    //   1. pivoturl.com/p/{slug}          — standard bio page URL
-    //   2. Any custom domain              — mapped via KV bio:domain:{host}
-    //   3. POST /api/bio/reactions        — rate limited at edge
 
     const isPivotUrlDomain = host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
     const isBioPath = pathname.startsWith('/p/');
@@ -308,10 +515,9 @@ export default {
     if (isBioPath || isCustomDomain || isReactionPost) {
       const bioResponse = await handleBioRequest(request, env, ctx);
       if (bioResponse) return bioResponse;
-      // null means "not a bio request" — fall through to link redirect
     }
 
-    // ── Short link redirect (existing logic) ──────────────────────────────────
+    // ── Short link redirect ───────────────────────────────────────────────────
 
     const domain = host;
     const slug = pathname.startsWith('/') ? pathname.slice(1) : pathname;
@@ -395,7 +601,7 @@ export default {
 
       const referrer = request.headers.get('Referer');
       if (device !== 'bot') {
-        ctx.waitUntil(logClick(env, link.id, context, userAgent, referrer, variant));
+        ctx.waitUntil(queueClick(env, link, context, userAgent, referrer, variant));
       }
 
       return Response.redirect(destination, 302);
@@ -409,3 +615,69 @@ export default {
     }
   },
 };
+
+// ─── Cron Trigger Handlers ────────────────────────────────────────────────
+// Replaces GitHub Actions cron jobs with Workers Cron Triggers
+
+async function handleDomainStatusSync(env: Env): Promise<void> {
+  console.log('[cron] Running domain status sync');
+  try {
+    const response = await fetch(`${env.API_URL}/api/internal/domains/status-sync`, {
+      method: 'POST',
+      headers: {
+        'x-worker-secret': env.WORKER_SECRET,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[cron] Domain status sync complete:', data);
+    } else {
+      console.warn('[cron] Domain status sync failed:', response.status);
+    }
+  } catch (err) {
+    console.error('[cron] Domain status sync error:', err);
+  }
+}
+
+async function handleUrlScannerRescan(env: Env): Promise<void> {
+  console.log('[cron] Running URL scanner rescan');
+  try {
+    const response = await fetch(`${env.API_URL}/api/internal/url-scanner/rescan-due`, {
+      method: 'POST',
+      headers: {
+        'x-worker-secret': env.WORKER_SECRET,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[cron] URL scanner rescan complete:', data);
+    } else {
+      console.warn('[cron] URL scanner rescan failed:', response.status);
+    }
+  } catch (err) {
+    console.error('[cron] URL scanner rescan error:', err);
+  }
+}
+
+async function handleUrlScannerRetention(env: Env): Promise<void> {
+  console.log('[cron] Running URL scanner retention');
+  try {
+    const response = await fetch(`${env.API_URL}/api/internal/url-scanner/retention`, {
+      method: 'POST',
+      headers: {
+        'x-worker-secret': env.WORKER_SECRET,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('[cron] URL scanner retention complete:', data);
+    } else {
+      console.warn('[cron] URL scanner retention failed:', response.status);
+    }
+  } catch (err) {
+    console.error('[cron] URL scanner retention error:', err);
+  }
+}

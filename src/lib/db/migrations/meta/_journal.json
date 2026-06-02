@@ -113,6 +113,13 @@
       "when": 1780254111081,
       "tag": "0015_noisy_phalanx",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780381329721,
+      "tag": "0016_equal_chronomancer",
+      "breakpoints": true
     }
   ]
 }

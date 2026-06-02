@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Key, Plus, Trash2, Copy, Check, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Key, Plus, Trash2, Copy, Check, Eye, EyeOff, AlertCircle, Activity } from "lucide-react";
 
 interface ApiKey {
   id: string;
@@ -12,10 +12,27 @@ interface ApiKey {
   expiresAt: string | null;
   active: boolean;
   createdAt: string;
+  usage?: {
+    callsThisHour: number;
+    callsToday: number;
+    lastCall: string | null;
+  };
+}
+
+interface UsageSummary {
+  totalKeys: number;
+  activeKeys: number;
+  totalCallsThisHour: number;
+  totalCallsToday: number;
+  plan: {
+    apiCallsPerHour: number;
+    apiCallsPerMonth: number;
+  };
 }
 
 export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -30,9 +47,14 @@ export default function ApiKeysPage() {
 
   async function fetchKeys() {
     try {
-      const res = await fetch("/api/v2/keys");
+      const res = await fetch("/api/v2/keys/usage");
       const json = await res.json();
-      setKeys(json.data || []);
+      if (json.data) {
+        setKeys(json.data || []);
+        setSummary(json.summary || null);
+      } else {
+        setKeys(json.data || []);
+      }
     } catch {
       setError("Failed to load API keys.");
     } finally {
@@ -79,6 +101,12 @@ export default function ApiKeysPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function formatNumber(num: number): string {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toLocaleString();
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -105,6 +133,54 @@ export default function ApiKeysPage() {
           Create Key
         </button>
       </div>
+
+      {/* Usage Summary Cards */}
+      {summary?.plan && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Key className="h-4 w-4" />
+              Total Keys
+            </div>
+            <div className="text-2xl font-bold text-foreground">{summary.totalKeys}</div>
+            <div className="text-xs text-muted-foreground">{summary.activeKeys} active</div>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Activity className="h-4 w-4" />
+              This Hour
+            </div>
+            <div className="text-2xl font-bold text-foreground">{formatNumber(summary.totalCallsThisHour)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summary.plan.apiCallsPerHour === -1 
+                ? "unlimited" 
+                : `of ${formatNumber(summary.plan.apiCallsPerHour)}/hr limit`}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Activity className="h-4 w-4" />
+              Today
+            </div>
+            <div className="text-2xl font-bold text-foreground">{formatNumber(summary.totalCallsToday)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summary.plan.apiCallsPerMonth === -1 
+                ? "unlimited" 
+                : `of ${formatNumber(summary.plan.apiCallsPerMonth)}/mo`}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Activity className="h-4 w-4" />
+              Rate Limit
+            </div>
+            <div className="text-2xl font-bold text-foreground">
+              {summary.plan.apiCallsPerHour === -1 ? "∞" : formatNumber(summary.plan.apiCallsPerHour)}
+            </div>
+            <div className="text-xs text-muted-foreground">calls/hour</div>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -180,11 +256,12 @@ export default function ApiKeysPage() {
         <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-border bg-muted/50">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[30%]">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[18%]">Prefix</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[14%]">Type</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[14%]">Created</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[14%]">Last Used</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[18%]">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Prefix</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[8%]">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Hour</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Today</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[12%]">Last Used</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[8%]">Status</th>
               <th className="px-4 py-3 w-[2%]" />
             </tr>
@@ -192,7 +269,7 @@ export default function ApiKeysPage() {
           <tbody className="divide-y divide-border">
             {keys.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                <td colSpan={8} className="px-4 py-12 text-center text-sm text-muted-foreground">
                   No API keys yet. Create one to get started.
                 </td>
               </tr>
@@ -212,8 +289,27 @@ export default function ApiKeysPage() {
                       {key.keyType}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(key.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "—"}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {key.usage?.callsThisHour !== undefined ? (
+                      <span className="font-mono text-foreground">{formatNumber(key.usage.callsThisHour)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {key.usage?.callsToday !== undefined ? (
+                      <span className="font-mono text-foreground">{formatNumber(key.usage.callsToday)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {key.usage?.lastCall 
+                      ? new Date(key.usage.lastCall).toLocaleString() 
+                      : key.lastUsedAt 
+                        ? new Date(key.lastUsedAt).toLocaleDateString() 
+                        : "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 text-sm ${key.active ? "text-emerald-600" : "text-muted-foreground"}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${key.active ? "bg-emerald-500" : "bg-muted-foreground"}`} />

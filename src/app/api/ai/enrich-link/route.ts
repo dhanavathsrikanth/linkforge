@@ -64,9 +64,9 @@ Respond with JSON: { "title": "...", "description": "...", "ogImage": "..." }`,
   } catch (err) {
     console.error("[POST /api/ai/enrich-link]", err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    if (message.includes("OPENROUTER_API_KEY")) {
+    if (message.includes("CLOUDFLARE_ACCOUNT_ID") || message.includes("CLOUDFLARE_API_TOKEN")) {
       return NextResponse.json(
-        { error: "AI not configured — set OPENROUTER_API_KEY" },
+        { error: "AI not configured — set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN" },
         { status: 503 }
       );
     }

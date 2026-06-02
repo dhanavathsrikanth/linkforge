@@ -227,9 +227,11 @@ export function SidebarSettings({
     activeDomain?.cfHostnameStatus === "active_redeploying";
 
   // The live URL shown to the user
+  const appBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://pivoturl.com";
+  const appHostname = (() => { try { return new URL(appBase).hostname; } catch { return "pivoturl.com"; } })();
   const liveUrl = activeDomain
     ? `https://${activeDomain.domain}`
-    : `https://pivoturl.com/p/${slug}`;
+    : `${appBase}/p/${slug}`;
 
   return (
     <div className="flex flex-col h-full">
@@ -319,7 +321,7 @@ export function SidebarSettings({
             Custom Domain
           </h3>
           <p className="text-xs text-stone-400 mb-3">
-            Serve your bio page from your own domain instead of pivoturl.com/p/…
+            Serve your bio page from your own domain instead of {appHostname}/p/…
           </p>
 
           <DomainPicker
@@ -336,7 +338,7 @@ export function SidebarSettings({
                 <p className="text-xs font-medium text-amber-700">DNS propagating</p>
                 <p className="text-[11px] text-amber-600 mt-0.5">
                   Your domain is being verified. This can take up to 24 hours. Your page is still accessible at{" "}
-                  <span className="font-mono">pivoturl.com/p/{slug}</span>.
+                  <span className="font-mono">{appHostname}/p/{slug}</span>.
                 </p>
               </div>
             </div>

@@ -5,6 +5,7 @@ import { Header as Topbar } from "@/components/dashboard/Header";
 import { BillingProvider } from "@/providers/BillingProvider";
 import { WorkspaceProvider, useWorkspace } from "@/providers/WorkspaceProvider";
 import { RealtimeProvider } from "@/providers/RealtimeProvider";
+import { LiveAnalyticsProvider } from "@/providers/LiveAnalyticsProvider";
 import { MobileSidebarToggle } from "@/components/dashboard/MobileSidebarToggle";
 import { CommandPalette } from "@/components/CommandPalette";
 
@@ -25,6 +26,7 @@ export default function DashboardLayout({
   return (
     <BillingProvider>
     <WorkspaceProvider>
+    <LiveAnalyticsProvider>
     <RealtimeWrapper>
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
@@ -38,6 +40,7 @@ export default function DashboardLayout({
     </div>
     <CommandPalette />
     </RealtimeWrapper>
+    </LiveAnalyticsProvider>
     </WorkspaceProvider>
     </BillingProvider>
   );

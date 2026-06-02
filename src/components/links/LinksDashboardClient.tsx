@@ -406,6 +406,11 @@ export function LinksDashboardClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [localFolders, setLocalFolders] = useState<FolderItem[]>(folders);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedFolderId, selectedTags, searchQuery]);
+
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -414,10 +419,25 @@ export function LinksDashboardClient({
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [bulkRunning, setBulkRunning] = useState(false);
 
-  const { data: realtimeLinksData, isLoading: realtimeLinksLoading } = useQuery<{ links: LinkRow[] }>({
-    queryKey: ["links", workspaceId],
+  // Server-side pagination state
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+
+  const { data: realtimeLinksData, isLoading: realtimeLinksLoading } = useQuery<{
+    links: LinkRow[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }>({
+    queryKey: ["links", workspaceId, selectedFolderId, selectedTags, searchQuery, page, limit],
     queryFn: async () => {
-      const res = await fetch(`/api/links?workspaceId=${workspaceId}`);
+      const params = new URLSearchParams();
+      params.set("workspaceId", workspaceId);
+      params.set("page", page.toString());
+      params.set("limit", limit.toString());
+      if (selectedFolderId) params.set("folderId", selectedFolderId);
+      if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      
+      const res = await fetch(`/api/links?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch links");
       return res.json();
     },
@@ -440,13 +460,12 @@ export function LinksDashboardClient({
     staleTime: 10000,
   });
 
+  // Note: lastEvent was deprecated - real-time updates now handled via React Query refetchInterval
+  // Keeping this effect for potential future use but it's no-op currently
   useEffect(() => {
-    if (realtimeLinksData?.links && lastEvent) {
-      if (lastEvent.type.startsWith("link_") && lastEvent.workspaceId === workspaceId) {
-        setLinks(realtimeLinksData.links);
-      }
-    }
-  }, [realtimeLinksData, lastEvent, workspaceId]);
+    // Real-time link updates are handled by the query's refetchInterval
+    // This effect kept for debugging purposes
+  }, [realtimeLinksData, workspaceId]);
 
   useEffect(() => {
     if (realtimeFoldersData?.folders) {
@@ -467,31 +486,11 @@ export function LinksDashboardClient({
     }));
   }, [localFolders, links]);
 
+  // Server-side filtering now handles folder, tags, and search
+  // Client-side just displays the paginated results from API
   const filteredLinks = useMemo(() => {
-    let filtered = [...links];
-
-    if (selectedFolderId !== null) {
-      filtered = filtered.filter((link) => link.folderId === selectedFolderId);
-    }
-
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter((link) =>
-        selectedTags.some((tag) => link.tags.includes(tag))
-      );
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (link) =>
-          link.destination.toLowerCase().includes(q) ||
-          link.slug.toLowerCase().includes(q) ||
-          (link.title && link.title.toLowerCase().includes(q))
-      );
-    }
-
-    return filtered;
-  }, [links, selectedFolderId, selectedTags, searchQuery]);
+    return [...links];
+  }, [links]);
 
   const allFilteredSelected = useMemo(
     () => filteredLinks.length > 0 && filteredLinks.every((l) => selectedIds.has(l.id)),
@@ -759,7 +758,7 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
               </Button>
             )}
             <div className="text-sm text-muted-foreground whitespace-nowrap">
-              {filteredLinks.length} {filteredLinks.length === 1 ? "link" : "links"}
+              {realtimeLinksData?.pagination?.total ?? filteredLinks.length} {realtimeLinksData?.pagination?.total === 1 ? "link" : "links"}
             </div>
           </div>
         </div>

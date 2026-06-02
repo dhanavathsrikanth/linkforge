@@ -69,11 +69,7 @@ export function RealtimeStatusIndicator() {
         content={
           <div>
             <p className="text-xs">Real-time sync active</p>
-            {lastEvent && (
-              <p className="text-xs text-muted-foreground">
-                Last update: {new Date(lastEvent.timestamp).toLocaleTimeString()}
-              </p>
-            )}
+            {/* lastEvent was deprecated - real-time sync is handled via WebSocket */}
           </div>
         }
       >

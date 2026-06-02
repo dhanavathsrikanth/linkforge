@@ -2,20 +2,7 @@ import { NextResponse } from "next/server";
 import { db, scanScreenshots } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { verifyScreenshotToken } from "@/lib/cloudflare/screenshot-token";
-
-/**
- * GET /api/url-scanner/screenshot?token=...
- *
- * Serves a screenshot from the `scan_screenshots` table. The `token` param
- * is a short-lived (10-minute) HMAC-signed reference to the scan ID — see
- * `screenshot-token.ts`. Tokens are issued only by:
- *   - the dashboard details API (auth-checked)
- *   - the public `/s/[slug]/preview` page (workspace opt-in)
- *
- * Cache-Control is set to a small private max-age so the same token can be
- * reused inside its TTL without round-tripping the DB on every <img/> load,
- * but the asset is never publicly cacheable past the token's lifetime.
- */
+import { getFromR2 } from "@/lib/r2";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -34,9 +21,10 @@ export async function GET(req: Request) {
 
   const [shot] = await db
     .select({
-      bytes: scanScreenshots.bytes,
+      r2Key: scanScreenshots.r2Key,
       mimeType: scanScreenshots.mimeType,
       sizeBytes: scanScreenshots.sizeBytes,
+      bytes: scanScreenshots.bytes,
     })
     .from(scanScreenshots)
     .where(eq(scanScreenshots.scanId, verified.scanId))
@@ -46,13 +34,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // R2-stored screenshot
+  if (shot.r2Key) {
+    const r2Data = await getFromR2(shot.r2Key);
+    if (!r2Data) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    return new Response(new Uint8Array(r2Data.body), {
+      status: 200,
+      headers: {
+        "Content-Type": r2Data.contentType,
+        "Content-Length": r2Data.body.byteLength.toString(),
+        "Cache-Control": "private, max-age=300, immutable",
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    });
+  }
+
+  // Legacy bytea-stored screenshot
+  if (!shot.bytes) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   return new Response(new Uint8Array(shot.bytes), {
     status: 200,
     headers: {
       "Content-Type": shot.mimeType,
       "Content-Length": String(shot.sizeBytes),
       "Cache-Control": "private, max-age=300, immutable",
-      // Hide from search engines / archivers — these are workspace assets
       "X-Robots-Tag": "noindex, nofollow",
     },
   });

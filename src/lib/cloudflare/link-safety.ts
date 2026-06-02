@@ -23,7 +23,7 @@ import {
 import { tryReserveScan, releaseReservation } from "@/lib/cloudflare/scan-quota";
 import { sendWebhookEvent } from "@/lib/svix/send";
 import { redis } from "@/lib/redis";
-import { findSimilarScans } from "@/lib/cloudflare/similarity-search";
+import { findSimilarPages, storePageEmbedding } from "@/lib/cloudflare/similarity-search";
 import { safetyCapabilitiesForPlan } from "@/lib/cloudflare/safety-capabilities";
 import { workspaces, scanScreenshots } from "@/lib/db/schema";
 import { fetchScanScreenshot } from "@/lib/cloudflare/screenshot";
@@ -421,16 +421,16 @@ async function persistFinishedReport(
   const capabilities = safetyCapabilitiesForPlan(ws?.plan ?? "free");
 
   let similarToMalicious = false;
-  let similarityPayload: { hash: string; matches: string[] } | null = null;
+  let similarityPayload: { url: string; matches: string[] } | null = null;
   try {
-    const sim = await findSimilarScans({
-      domStructHash: result.domStructHash,
-      screenshotHash: result.screenshotHash,
+    const sim = await findSimilarPages({
+      url: result.url,
+      title: result.page.title,
     });
     if (sim?.hasMalicious && capabilities.similaritySearch) {
       similarToMalicious = true;
       similarityPayload = {
-        hash: sim.hash,
+        url: sim.queryUrl,
         matches: sim.matches.filter((m) => m.malicious).map((m) => m.scanId).slice(0, 10),
       };
       flags.push({
@@ -441,6 +441,18 @@ async function persistFinishedReport(
     }
   } catch (err) {
     console.warn("[persistFinishedReport] similarity search failed:", err);
+  }
+
+  // ── Store embedding for future similarity searches (fire-and-forget) ────
+  try {
+    await storePageEmbedding({
+      scanId: result.uuid,
+      url: result.url,
+      title: result.page.title,
+      malicious: result.verdicts.overall.malicious,
+    });
+  } catch (err) {
+    console.warn("[persistFinishedReport] store embedding failed:", err);
   }
 
   const trust = computeTrustScore(
@@ -540,16 +552,21 @@ async function persistFinishedReport(
     );
   }
 
-  // ── Persist screenshot bytes (Req 6) ──────────────────────────────────
-  // Fetched lazily, gated on the workspace plan capability so we don't
-  // waste storage on plans that can't surface them. The bytes are stored
-  // raw (bytea) — no base64 inflation, no re-encoding (PNG is already
-  // losslessly compressed).
+  // ── Persist screenshot to R2 (Req 6) ──────────────────────────────────
+  // Screenshots are stored in Cloudflare R2 instead of Postgres bytea.
+  // The DB row stores metadata + the R2 key for retrieval.
   if (capabilities.screenshot && result.screenshotHash) {
     const shot = await fetchScanScreenshot(result.uuid, "desktop").catch(
       () => null
     );
     if (shot) {
+      const r2Key = `screenshots/${result.uuid}/desktop.png`;
+      try {
+        const { uploadToR2WithKey } = await import("@/lib/r2");
+        await uploadToR2WithKey(r2Key, shot.bytes, shot.mimeType);
+      } catch (err) {
+        console.warn("[persistFinishedReport] R2 screenshot upload failed:", err);
+      }
       await db
         .insert(scanScreenshots)
         .values({
@@ -559,7 +576,8 @@ async function persistFinishedReport(
           workspaceId,
           resolution: "desktop",
           mimeType: shot.mimeType,
-          bytes: shot.bytes,
+          bytes: null,
+          r2Key,
           sizeBytes: shot.sizeBytes,
         })
         .onConflictDoNothing({

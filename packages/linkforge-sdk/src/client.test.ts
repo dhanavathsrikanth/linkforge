@@ -1,4 +1,4 @@
-import { PivotUrlClient } from "./client.ts";
+import { PivotUrlClient } from "./client";
 import { test, expect } from "vitest";
 
 test('client getKeyType returns secret for lf_sk_ prefix', () => {

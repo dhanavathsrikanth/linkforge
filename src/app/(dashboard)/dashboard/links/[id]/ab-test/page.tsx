@@ -20,6 +20,7 @@ interface VariantStat {
   destination: string;
   label: string;
   clicks: number;
+  conversions: number;
   conversionRate: number;
   relativeUplift: number;
   confidenceInterval: [number, number];
@@ -42,7 +43,9 @@ interface ABTestData {
   significance: string | null;
   startedAt: string | null;
   endedAt: string | null;
+  durationDays: number;
   result: ABTestResultUI | null;
+  autoExpired: boolean;
 }
 
 function generateId() {
@@ -60,10 +63,10 @@ export default function ABTestPage() {
   const [enabled, setEnabled] = useState(false);
   const [variants, setVariants] = useState<ABVariantUI[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [minSampleSize] = useState(100);
-  const [confidenceLevel] = useState(0.95);
-  const [autoSelectWinner] = useState(true);
-  const [testDurationDays] = useState(14);
+  const [minSampleSize, setMinSampleSize] = useState(100);
+  const [confidenceLevel, setConfidenceLevel] = useState(0.95);
+  const [autoSelectWinner, setAutoSelectWinner] = useState(true);
+  const [testDurationDays, setTestDurationDays] = useState(14);
   const [declaringWinner, setDeclaringWinner] = useState(false);
 
   async function fetchData() {
@@ -74,6 +77,10 @@ export default function ABTestPage() {
       setData(d);
       setEnabled(d.enabled ?? false);
       setVariants(d.variants && d.variants.length > 0 ? d.variants : []);
+      if (d.durationDays) setTestDurationDays(d.durationDays);
+      if (d.minSampleSize) setMinSampleSize(d.minSampleSize);
+      if (d.confidenceLevel) setConfidenceLevel(d.confidenceLevel);
+      if (d.autoSelectWinner !== undefined) setAutoSelectWinner(d.autoSelectWinner);
     } catch {
       setError("Failed to load A/B test data");
     } finally {
@@ -453,6 +460,18 @@ export default function ABTestPage() {
             Live Results
           </h2>
 
+          {data?.autoExpired && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Test auto-expired — duration reached
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                This test reached its configured duration limit and has been stopped automatically.
+              </p>
+            </div>
+          )}
+
           {/* Variant stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
             {result.variantStats.map((stat, i) => {
@@ -491,10 +510,14 @@ export default function ABTestPage() {
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-center">
+                  <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <div className="text-lg font-bold text-foreground tabular-nums">{stat.clicks}</div>
                       <div className="text-[10px] text-muted-foreground">Clicks</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-foreground tabular-nums">{stat.conversions}</div>
+                      <div className="text-[10px] text-muted-foreground">Conversions</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-foreground tabular-nums">
@@ -515,6 +538,31 @@ export default function ABTestPage() {
               );
             })}
           </div>
+
+          {/* Duration progress */}
+          {data?.startedAt && data?.enabled && (
+            <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>Test duration: {data.durationDays} days</span>
+                <span>
+                  {(() => {
+                    const start = new Date(data.startedAt!).getTime();
+                    const elapsed = (Date.now() - start) / (1000 * 60 * 60 * 24);
+                    const remaining = Math.max(0, data.durationDays - elapsed);
+                    return `${remaining.toFixed(1)} days remaining`;
+                  })()}
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.min(100, (Date.now() - new Date(data.startedAt!).getTime()) / (1000 * 60 * 60 * 24 * data.durationDays) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Status banner */}
           {result.isSignificant && result.winner ? (
@@ -578,6 +626,28 @@ export default function ABTestPage() {
               </div>
             </div>
           )}
+          {/* Conversion tracking hint */}
+          <div className="mt-5 rounded-lg border border-dashed border-violet-200 bg-violet-50/50 p-4 dark:border-violet-800 dark:bg-violet-950/10">
+            <div className="flex items-start gap-3">
+              <Info className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-violet-800 dark:text-violet-300">
+                  Tracking conversions per variant
+                </p>
+                <p className="text-xs text-violet-600 dark:text-violet-400 mt-1">
+                  Pass <code className="bg-violet-100 dark:bg-violet-900/30 px-1 rounded text-[11px]">abVariant</code> in your conversion tracking API call
+                  to attribute conversions to specific A/B variants.
+                  Use the variant <strong>label</strong> as the value.
+                </p>
+                <div className="mt-2 bg-violet-100/70 dark:bg-violet-900/20 rounded p-2 text-[11px] font-mono text-violet-700 dark:text-violet-300 overflow-x-auto">
+                  {`curl -X POST https://api.pivoturl.com/v1/conversions \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"linkId": "${linkId}", "event": "purchase", "value": 29.99, "abVariant": "Variant A"}'`}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

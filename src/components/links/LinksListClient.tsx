@@ -28,12 +28,16 @@ type Props = {
   workspaceId: string;
   initialLinks: LinkRow[];
   defaultDomain?: string;
+  onCreated?: (link: LinkRow) => void;
+  onAdvanced?: (prefill: { destination?: string; slug?: string }) => void;
 };
 
 export function LinksListClient({
   workspaceId,
   initialLinks,
   defaultDomain = getShortLinkBase(),
+  onCreated,
+  onAdvanced,
 }: Props) {
   const router = useRouter();
   const [links, setLinks] = useState<LinkRow[]>(initialLinks);
@@ -90,8 +94,6 @@ export function LinksListClient({
       <QuickCreateBar
         workspaceId={workspaceId}
         defaultDomain={defaultDomain}
-        onCreated={handleCreated}
-        onAdvanced={openAdvanced}
       />
 
       {/* List */}

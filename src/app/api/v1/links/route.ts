@@ -193,7 +193,6 @@ export async function POST(request: Request) {
         sha256CertFingerprints: v.smartRouting?.sha256CertFingerprints ?? [],
         universalLinksEnabled: v.smartRouting?.universalLinksEnabled ?? false,
         appLinksEnabled: v.smartRouting?.appLinksEnabled ?? false,
-        geoRouting: v.smartRouting?.geo ?? null,
         abTestEnabled: v.abTest?.enabled ?? false,
         abTestVariants: v.abTest?.variants
           ? v.abTest.variants.map((av, i) => ({

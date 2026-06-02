@@ -5,6 +5,8 @@ import { db, linkGallery } from "@/lib/db";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { eq } from "drizzle-orm";
 import { buildPublishedSnapshot } from "@/lib/bio/publish-snapshot";
+import { generateOgImage } from "@/lib/bio/og-image";
+import type { PublishedSnapshot } from "@/types/gallery";
 
 // ─── CF KV cache invalidation helper ─────────────────────────────────────────
 async function purgeBioCache(slug: string): Promise<void> {
@@ -22,6 +24,32 @@ async function purgeBioCache(slug: string): Promise<void> {
     });
   } catch (err) {
     console.warn("[purgeBioCache] Failed (non-blocking):", err);
+  }
+}
+
+// ─── OG image pre-generation ──────────────────────────────────────────────────
+// Generates the OG image and uploads to Worker KV so the first crawler
+// request never hits Vercel.
+async function pregOgImage(slug: string, snapshot: PublishedSnapshot): Promise<void> {
+  const workerUrl = process.env.CF_WORKER_URL;
+  const workerSecret = process.env.WORKER_SECRET;
+  if (!workerUrl || !workerSecret) return;
+
+  try {
+    const imageResponse = generateOgImage(snapshot, slug);
+    // ImageResponse is a Web Response — extract the PNG buffer
+    const pngBuffer = await imageResponse.arrayBuffer();
+
+    await fetch(`${workerUrl}/internal/bio/og-pregenerate?slug=${encodeURIComponent(slug)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/png",
+        "x-worker-secret": workerSecret,
+      },
+      body: pngBuffer,
+    });
+  } catch (err) {
+    console.warn("[pregOgImage] Failed (non-blocking):", err);
   }
 }
 
@@ -85,6 +113,10 @@ export async function POST(
 
     // Invalidate caches so the new content is live immediately.
     void purgeBioCache(updated.slug);
+
+    // Pre-generate OG image and upload to Worker KV (non-blocking)
+    void pregOgImage(updated.slug, snapshot as PublishedSnapshot);
+
     try {
       revalidatePath(`/p/${updated.slug}`);
     } catch (err) {

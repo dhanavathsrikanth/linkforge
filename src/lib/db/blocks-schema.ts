@@ -12,8 +12,9 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { linkGallery, workspaces } from "./schema";
 
-// ─── Assets Table (stores uploaded images in Neon DB instead of S3) ────────────
-// Size limit: ~1MB per image (base64 encoded), recommended <500KB per image
+// ─── Assets Table ──────────────────────────────────────────────────────────────
+// New uploads store an "r2:<key>" reference in `data`; legacy rows contain base64.
+// Serve path: src/app/api/gallery/assets/[id]/route.ts (R2 proxy → legacy fallback).
 
 export const linkGalleryAssets = pgTable(
   "link_gallery_assets",

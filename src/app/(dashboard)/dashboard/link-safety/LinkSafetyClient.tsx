@@ -974,6 +974,13 @@ function flagSummary(flag: { kind: string; payload: Record<string, unknown> }): 
     const names = (p.names as string[] | undefined) ?? [];
     return names.slice(0, 3).join(", ");
   }
+  if (flag.kind === "similar_to_malicious") {
+    const matches = (p.matches as string[] | undefined) ?? [];
+    const url = (p.url as string | undefined) ?? "";
+    let host = "";
+    try { host = new URL(url).hostname; } catch { /* skip */ }
+    return `${matches.length} match${matches.length !== 1 ? "es" : ""}${host ? ` for ${host}` : ""}`;
+  }
   return null;
 }
 

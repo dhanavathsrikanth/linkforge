@@ -432,6 +432,10 @@ export const links = pgTable(
     abTestSignificance: numeric("ab_test_significance", { precision: 5, scale: 4 }),
     abTestStartedAt: timestamp("ab_test_started_at", { withTimezone: true, mode: "date" }),
     abTestEndedAt: timestamp("ab_test_ended_at", { withTimezone: true, mode: "date" }),
+    abTestDurationDays: integer("ab_test_duration_days").default(14),
+    abTestMinSampleSize: integer("ab_test_min_sample_size").default(100),
+    abTestConfidenceLevel: numeric("ab_test_confidence_level", { precision: 3, scale: 2 }).default("0.95"),
+    abTestAutoSelectWinner: boolean("ab_test_auto_select_winner").default(true),
 
     // QR customization — stored as JSONB, falls back to DEFAULT_QR_SETTINGS
     qrSettings: jsonb("qr_settings")
@@ -612,7 +616,7 @@ export const scanReports = pgTable(
     validationError: text("validation_error"),
     screenshotUnavailable: boolean("screenshot_unavailable").notNull().default(false),
     similarToMalicious: jsonb("similar_to_malicious").$type<{
-      hash: string;
+      url: string;
       matches: string[];
     } | null>(),
 
@@ -697,7 +701,8 @@ export const scanScreenshots = pgTable(
       enum: ["desktop", "mobile", "tablet"],
     }).notNull().default("desktop"),
     mimeType: text("mime_type").notNull().default("image/png"),
-    bytes: bytea("bytes").notNull(),
+    bytes: bytea("bytes"),
+    r2Key: text("r2_key"),
     sizeBytes: integer("size_bytes").notNull(),
     width: integer("width"),
     height: integer("height"),
@@ -762,6 +767,7 @@ export const clicks = pgTable(
     country: text("country"),   // ISO 3166-1 alpha-2
     city: text("city"),
     region: text("region"),
+    language: text("language"), // BCP 47 tag, e.g. "en-US"
 
     // Device
     device: deviceEnum("device").notNull().default("unknown"),
@@ -841,6 +847,7 @@ export const conversions = pgTable(
     event: text("event").notNull(), // 'signup', 'purchase', 'trial_start', …
     value: numeric("value", { precision: 12, scale: 2 }),
     currency: text("currency").notNull().default("USD"),
+    abVariant: text("ab_variant"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()

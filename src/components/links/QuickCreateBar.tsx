@@ -1,59 +1,109 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
-import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy } from "lucide-react";
+import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy, Hash, Tag, Folder } from "lucide-react";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { cn, getShortLinkBase } from "@/lib/utils";
+
+function buildShortUrl(slug: string) {
+  return `${getShortLinkBase()}/${slug}`;
+}
 
 type Props = {
   workspaceId: string;
   defaultDomain?: string;
-  onCreated?: (link: any) => void;
-  onAdvanced?: (prefill: { destination?: string; slug?: string }) => void;
 };
 
-export function QuickCreateBar({
-  workspaceId,
-  defaultDomain = getShortLinkBase(),
-  onCreated,
-  onAdvanced,
-}: Props) {
-  const [destination, setDestination] = useState("");
+type Result = {
+  id: string;
+  shortSlug: string;
+  shortDomain: string;
+  destination: string;
+};
+
+export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
+  const [url, setUrl] = useState("");
   const [slug, setSlug] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ slug: string; shortUrl: string } | null>(null);
-  const { copied, copy } = useClipboard();
-  const destRef = useRef<HTMLInputElement>(null);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-clear error after typing
-  useEffect(() => {
-    if (error) setError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, slug]);
+  // AI auto-slug + smart tags
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTags, setAiTags] = useState<string[]>([]);
+  const [aiFolder, setAiFolder] = useState<string | null>(null);
+  const [appliedTags, setAppliedTags] = useState<string[]>([]);
+  const [appliedFolder, setAppliedFolder] = useState<string | null>(null);
+  const aiTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  function submit() {
+  // URL clipboard paste → auto-trigger AI
+  const handleUrlChange = (value: string) => {
+    setUrl(value);
+    setResult(null);
     setError(null);
-    const trimmed = destination.trim();
-    if (!trimmed) {
-      setError("Paste a URL to shorten");
-      destRef.current?.focus();
-      return;
-    }
+    if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
 
-    // Auto-prefix protocol if missing
-    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-
+    // Only trigger AI if a valid URL is pasted
     try {
-      // Validate URL
-      new URL(normalized);
+      new URL(value.startsWith("http") ? value : `https://${value}`);
     } catch {
-      setError("Invalid URL");
-      return;
+      return; // Not a valid URL yet
     }
 
+    aiTimerRef.current = setTimeout(async () => {
+      setAiLoading(true);
+      try {
+        const normalized = value.startsWith("http") ? value : `https://${value}`;
+        const res = await fetch("/api/ai/suggest-slug", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: normalized, workspaceId }),
+        });
+        const data = await res.json();
+        if (data.slug && !slug) setSlug(data.slug);
+        if (data.suggestedTags?.length) {
+          setAiTags(data.suggestedTags);
+          setAppliedTags(data.suggestedTags);
+        }
+        if (data.suggestedFolder) {
+          setAiFolder(data.suggestedFolder);
+          setAppliedFolder(data.suggestedFolder);
+        }
+      } catch {
+        // AI failed — silently fall back
+      }
+      setAiLoading(false);
+    }, 600);
+  };
+
+  const clipboard = useClipboard();
+
+  // Reset state on success
+  useEffect(() => {
+    if (result) {
+      // Don't reset immediately — let user see success
+    }
+  }, [result]);
+
+  function reset() {
+    setUrl("");
+    setSlug("");
+    setResult(null);
+    setError(null);
+    setAiTags([]);
+    setAiFolder(null);
+    setAppliedTags([]);
+    setAppliedFolder(null);
+    inputRef.current?.focus();
+  }
+
+  function handleCreate() {
+    if (!url.trim()) return;
+    setError(null);
     startTransition(async () => {
       try {
+        const normalized = url.startsWith("http") ? url : `https://${url}`;
         const res = await fetch("/api/links", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -61,151 +111,174 @@ export function QuickCreateBar({
             destination: normalized,
             slug: slug.trim() || undefined,
             workspaceId,
+            tags: appliedTags.length > 0 ? appliedTags : undefined,
+            ...(appliedFolder ? { folderName: appliedFolder } : {}),
           }),
         });
-        const data = await res.json();
+
         if (!res.ok) {
-          setError(typeof data?.error === "string" ? data.error : "Failed to create link");
+          const data = await res.json().catch(() => ({}));
+          setError(data.error || "Failed to create link");
           return;
         }
-        const link = data.link;
-        const shortUrl = `https://${defaultDomain}/${link.slug}`;
-        setCreated({ slug: link.slug, shortUrl });
-        setDestination("");
-        setSlug("");
-        onCreated?.(link);
-      } catch (e: any) {
-        setError(e?.message || "Network error");
+
+        const data = await res.json();
+        setResult({
+          id: data.id,
+          shortSlug: data.shortSlug,
+          shortDomain: data.shortDomain,
+          destination: data.destination,
+        });
+      } catch {
+        setError("Network error. Please try again.");
       }
     });
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submit();
-    }
+  // ── Success state ─────────────────────────────────────────────────────────
+  if (result) {
+    const shortUrl = buildShortUrl(result.shortSlug);
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 animate-in fade-in-0 duration-200">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
+            <Check className="h-3 w-3 text-white" />
+          </div>
+          <span className="text-sm font-medium text-emerald-800">Link created</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded-md bg-white/80 border border-emerald-200 px-3 py-1.5 text-sm text-emerald-900 font-mono truncate">
+            {shortUrl}
+          </code>
+          <button
+            type="button"
+            onClick={() => clipboard.copy(shortUrl)}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-emerald-200 bg-white px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+          >
+            {clipboard.copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {clipboard.copied ? "Copied!" : "Copy"}
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            className="flex h-8 items-center rounded-md border border-emerald-200 bg-white px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+          >
+            New link
+          </button>
+        </div>
+      </div>
+    );
   }
 
+  // ── Input state ───────────────────────────────────────────────────────────
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        Quick create — paste a URL and press Enter
-      </div>
-
-      <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        {/* Domain + slug group */}
-        <div className="flex h-11 items-center rounded-lg border border-border bg-background overflow-hidden md:w-[300px]">
-          <span className="px-3 text-sm font-medium text-muted-foreground select-none">
-            {defaultDomain}
-          </span>
-          <span className="text-muted-foreground/60">/</span>
+    <div className="space-y-2">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-1 items-center rounded-lg border border-gray-300 bg-white px-3 focus-within:border-gray-900 focus-within:ring-2 focus-within:ring-gray-900/10 transition-all">
+          <Link2 className="h-4 w-4 text-gray-400 flex-shrink-0" />
           <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="auto"
-            className="flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground/50"
-            spellCheck={false}
-            autoComplete="off"
+            ref={inputRef}
+            type="url"
+            value={url}
+            onChange={(e) => handleUrlChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreate();
+            }}
+            placeholder="Paste a URL to shorten…"
+            className="flex-1 border-0 bg-transparent px-2.5 py-2.5 text-sm outline-none placeholder:text-gray-400"
           />
-          {destination.trim() && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/ai/suggest-slug", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url: destination }),
-                  });
-                  const data = await res.json();
-                  if (data.slug) setSlug(data.slug);
-                } catch {}
-              }}
-              className="flex h-full items-center px-2 text-muted-foreground hover:text-violet-500 transition-colors"
-              title="AI suggest slug"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-            </button>
-          )}
+          {aiLoading && <Loader2 className="h-4 w-4 animate-spin text-purple-500" />}
         </div>
 
-        {/* Destination */}
-        <div className="relative flex-1">
-          <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            ref={destRef}
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="https://your-long-url.com/path"
-            className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60"
-            spellCheck={false}
-            autoComplete="off"
-          />
-        </div>
+        <input
+          type="text"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleCreate();
+          }}
+          placeholder="Custom slug (optional)"
+          className="w-full sm:w-44 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 transition-all font-mono"
+        />
 
-        {/* Submit */}
         <button
           type="button"
-          onClick={submit}
-          disabled={pending}
+          onClick={handleCreate}
+          disabled={isPending || !url.trim()}
           className={cn(
-            "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed",
+            "flex h-[42px] items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium transition-all",
+            isPending || !url.trim()
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-gray-900 text-white hover:bg-gray-800 active:scale-[0.98]"
           )}
         >
-          {pending ? (
+          {isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Creating
+              Creating…
             </>
           ) : (
             <>
-              Create
-              <ArrowRight className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" />
+              Shorten
             </>
           )}
         </button>
       </div>
 
-      {/* Footer row */}
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <div className="min-h-[1.25rem]">
-          {error && <p className="text-xs font-medium text-red-500">{error}</p>}
-          {!error && created && (
-            <button
-              type="button"
-              onClick={() => copy(created.shortUrl)}
-              className="group inline-flex items-center gap-2 text-xs font-medium text-primary"
-            >
-              <span className="opacity-90">Created:</span>
-              <span className="rounded-md bg-primary/10 px-2 py-0.5">{created.shortUrl}</span>
-              <span className="inline-flex items-center gap-1 text-muted-foreground group-hover:text-foreground">
-                {copied ? (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" />
-                    Copy
-                  </>
+      {/* AI-suggested tags */}
+      {aiTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 animate-in slide-in-from-top-1 fade-in-0 duration-200">
+          <Tag className="h-3 w-3 text-purple-500" />
+          {aiTags.map((tag) => {
+            const active = appliedTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() =>
+                  setAppliedTags((prev) =>
+                    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+                  )
+                }
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-xs font-medium transition-all",
+                  active
+                    ? "bg-purple-100 text-purple-700 border border-purple-300"
+                    : "bg-gray-100 text-gray-400 border border-gray-200 line-through"
                 )}
-              </span>
-            </button>
-          )}
+              >
+                {active ? "✓ " : ""}
+                {tag}
+              </button>
+            );
+          })}
         </div>
-        <button
-          type="button"
-          onClick={() => onAdvanced?.({ destination, slug })}
-          className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
-        >
-          Advanced options →
-        </button>
-      </div>
+      )}
+
+      {/* AI-suggested folder */}
+      {aiFolder && (
+        <div className="flex items-center gap-1.5 animate-in slide-in-from-top-1 fade-in-0 duration-200">
+          <Folder className="h-3 w-3 text-amber-500" />
+          <button
+            type="button"
+            onClick={() => setAppliedFolder((prev) => (prev ? null : aiFolder))}
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-medium transition-all",
+              appliedFolder
+                ? "bg-amber-100 text-amber-700 border border-amber-300"
+                : "bg-gray-100 text-gray-400 border border-gray-200 line-through"
+            )}
+          >
+            {appliedFolder ? "✓ " : ""}
+            {aiFolder}
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-sm text-red-600 animate-in slide-in-from-top-1 fade-in-0 duration-200">{error}</p>
+      )}
     </div>
   );
 }

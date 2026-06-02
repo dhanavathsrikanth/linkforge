@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, and, gte, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { workspaces, usageOverrides, domains, workspaceMembers, linkGallery } from "@/lib/db/schema";
+import { workspaces, usageOverrides, domains, workspaceMembers, linkGallery, clickStats } from "@/lib/db/schema";
 import { redis } from "@/lib/redis";
 import { PLANS, PlanKey, PlanLimits, LimitKey } from "./plans";
 
@@ -16,6 +16,127 @@ export type UsageSummary = {
   limits: PlanLimits;
   current: Record<LimitKey, number>;
 };
+
+// ─── Counter Keys ─────────────────────────────────────────────────────────────
+type CounterType = "customDomains" | "teamMembers" | "bioPages";
+
+// Workspace usage key registry — tracks all usage keys per workspace
+// Eliminates need for Redis SCAN operations
+function getUsageKeySetKey(workspaceId: string): string {
+  return `usage-keys:${workspaceId}`;
+}
+
+async function addUsageKey(workspaceId: string, key: string): Promise<void> {
+  await redis.sadd(getUsageKeySetKey(workspaceId), key);
+}
+
+async function getUsageKeys(workspaceId: string): Promise<string[]> {
+  return redis.smembers(getUsageKeySetKey(workspaceId)) as Promise<string[]>;
+}
+
+async function clearUsageKeySet(workspaceId: string): Promise<void> {
+  const keys = await getUsageKeys(workspaceId);
+  if (keys.length > 0) {
+    await redis.del(...keys);
+  }
+  await redis.del(getUsageKeySetKey(workspaceId));
+}
+
+function getCounterKey(workspaceId: string, type: CounterType): string {
+  return `counter:${workspaceId}:${type}`;
+}
+
+// ─── Counter Sync (lazy initialization) ───────────────────────────────────────
+/**
+ * Ensures the Redis counter matches the actual DB count.
+ * Called on first access if counter doesn't exist or is stale.
+ * Uses single DB query to count, then sets Redis counter.
+ */
+async function syncCounterToDB(workspaceId: string, type: CounterType): Promise<number> {
+  let count = 0;
+
+  if (type === "customDomains") {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(domains)
+      .where(eq(domains.workspaceId, workspaceId));
+    count = result[0]?.count ?? 0;
+  } else if (type === "teamMembers") {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspaceId, workspaceId));
+    count = result[0]?.count ?? 0;
+  } else if (type === "bioPages") {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(linkGallery)
+      .where(eq(linkGallery.workspaceId, workspaceId));
+    count = result[0]?.count ?? 0;
+  }
+
+  // Set counter with TTL of 1 hour (refreshes on each check)
+  const counterKey = getCounterKey(workspaceId, type);
+  await redis.set(counterKey, count, { EX: 3600 });
+  
+  // Register key for deterministic cleanup (no SCAN needed)
+  await addUsageKey(workspaceId, counterKey);
+  
+  return count;
+}
+
+/**
+ * Gets the current counter value from Redis, syncing from DB if needed.
+ */
+async function getCounter(workspaceId: string, type: CounterType): Promise<number> {
+  const key = getCounterKey(workspaceId, type);
+  const cached = await redis.get(key);
+
+  if (cached !== null) {
+    return Number(cached);
+  }
+
+  // Cache miss - sync from DB
+  return syncCounterToDB(workspaceId, type);
+}
+
+/**
+ * Increments the counter (for new items). Returns the new count.
+ */
+async function incrementCounter(workspaceId: string, type: CounterType, count: number = 1): Promise<number> {
+  const key = getCounterKey(workspaceId, type);
+  const current = await redis.incrby(key, count);
+
+  // Set TTL on first increment if not already set
+  if (current === count) {
+    await redis.expire(key, 3600);
+  }
+
+  return current;
+}
+
+/**
+ * Decrements the counter (for deleted items). Returns the new count.
+ */
+async function decrementCounter(workspaceId: string, type: CounterType, count: number = 1): Promise<number> {
+  const key = getCounterKey(workspaceId, type);
+  const newVal = await redis.decrby(key, count);
+  
+  // Don't allow negative counters
+  if (newVal < 0) {
+    await redis.set(key, 0, { EX: 3600 });
+    return 0;
+  }
+  
+  return newVal;
+}
+
+/**
+ * Resets a specific counter (for workspace deletion or manual reset).
+ */
+async function resetCounter(workspaceId: string, type: CounterType): Promise<void> {
+  await redis.del(getCounterKey(workspaceId, type));
+}
 
 // Merges plan defaults with per-workspace usageOverrides
 export async function getEffectiveLimits(workspaceId: string): Promise<PlanLimits> {
@@ -93,6 +214,8 @@ export async function checkLimit(
           const ttlSeconds = Math.ceil((nextMonth.getTime() - now.getTime()) / 1000);
           await redis.expire(redisKey, ttlSeconds);
         }
+        // Register key for deterministic cleanup (no SCAN needed)
+        await addUsageKey(workspaceId, redisKey);
       }
     } else {
       const val = await redis.get(redisKey);
@@ -108,41 +231,52 @@ export async function checkLimit(
     };
   }
 
-  // Static limits (do not use Redis)
-  let current = 0;
-  if (limitKey === "customDomains") {
-    const records = await db.select({ id: domains.id }).from(domains).where(eq(domains.workspaceId, workspaceId));
-    current = records.length;
-  } else if (limitKey === "teamMembers") {
-    const records = await db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspaceId));
-    current = records.length;
-  } else if (limitKey === "bioPages") {
-    const records = await db.select({ id: linkGallery.id }).from(linkGallery).where(eq(linkGallery.workspaceId, workspaceId));
-    current = records.length;
+  // Static limits - use Redis counters with lazy DB sync
+  const staticLimitMap: Record<string, CounterType> = {
+    customDomains: "customDomains",
+    teamMembers: "teamMembers",
+    bioPages: "bioPages",
+  };
+
+  const counterType = staticLimitMap[limitKey];
+  if (counterType) {
+    let current = 0;
+    if (increment) {
+      current = await incrementCounter(workspaceId, counterType);
+    } else {
+      current = await getCounter(workspaceId, counterType);
+    }
+
+    return {
+      allowed: current < limit,
+      current,
+      limit,
+      unlimited: false,
+      remaining: Math.max(0, limit - current),
+    };
   }
 
+  // Fallback for any other limits (shouldn't reach here)
   return {
-    allowed: current < limit,
-    current,
+    allowed: true,
+    current: 0,
     limit,
     unlimited: false,
-    remaining: Math.max(0, limit - current),
+    remaining: limit,
   };
 }
 
 export async function resetUsageForWorkspace(workspaceId: string): Promise<void> {
-  const pattern = `usage:${workspaceId}:*`;
-  let cursor = 0;
-
-  do {
-    const result = await redis.scan(cursor, { match: pattern, count: 100 });
-    cursor = result[0] as unknown as number;
-    const keys = result[1];
-
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
-  } while (cursor !== 0);
+  // Use key registry for deterministic O(1) cleanup — no SCAN needed
+  const keys = await getUsageKeys(workspaceId);
+  if (keys.length > 0) {
+    await redis.del(...keys);
+  }
+  
+  // Also reset the static counter keys
+  await resetCounter(workspaceId, "customDomains");
+  await resetCounter(workspaceId, "teamMembers");
+  await resetCounter(workspaceId, "bioPages");
 }
 
 export async function getUsageSummary(workspaceId: string): Promise<UsageSummary> {
@@ -162,9 +296,10 @@ export async function getUsageSummary(workspaceId: string): Promise<UsageSummary
   const apiVal = await redis.get(`usage:${workspaceId}:apiCallsPerHour:${hourlyTimeKey}`);
   current["apiCallsPerHour"] = apiVal ? Number(apiVal) : 0;
 
-  current["customDomains"] = (await db.select({ id: domains.id }).from(domains).where(eq(domains.workspaceId, workspaceId))).length;
-  current["teamMembers"] = (await db.select({ id: workspaceMembers.id }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspaceId))).length;
-  current["bioPages"] = (await db.select({ id: linkGallery.id }).from(linkGallery).where(eq(linkGallery.workspaceId, workspaceId))).length;
+  // Static limits - use Redis counters instead of DB queries
+  current["customDomains"] = await getCounter(workspaceId, "customDomains");
+  current["teamMembers"] = await getCounter(workspaceId, "teamMembers");
+  current["bioPages"] = await getCounter(workspaceId, "bioPages");
 
   current["abTestingEnabled"] = limits.abTestingEnabled ? 1 : 0;
   current["whiteLabelEnabled"] = limits.whiteLabelEnabled ? 1 : 0;
@@ -227,6 +362,8 @@ export async function incrementUsage(
       const ttlSeconds = Math.ceil((nextMonth.getTime() - now.getTime()) / 1000);
       await redis.expire(redisKey, ttlSeconds);
     }
+    // Register key for deterministic cleanup (no SCAN needed)
+    await addUsageKey(workspaceId, redisKey);
   }
   return current;
 }
@@ -311,4 +448,58 @@ export async function getDisabledDomainIds(workspaceId: string): Promise<string[
     return a.createdAt.getTime() - b.createdAt.getTime(); // oldest first
   });
   return ranked.slice(limit).map((r) => r.id);
+}
+// ─── Counter Management Exports ─────────────────────────────────────────────
+// These functions should be called by domain/member/bio-page create/delete handlers
+
+/**
+ * Call this when a new domain is created for a workspace.
+ */
+export async function onDomainCreated(workspaceId: string): Promise<number> {
+  return incrementCounter(workspaceId, "customDomains");
+}
+
+/**
+ * Call this when a domain is deleted from a workspace.
+ */
+export async function onDomainDeleted(workspaceId: string): Promise<number> {
+  return decrementCounter(workspaceId, "customDomains");
+}
+
+/**
+ * Call this when a new team member is added to a workspace.
+ */
+export async function onMemberAdded(workspaceId: string): Promise<number> {
+  return incrementCounter(workspaceId, "teamMembers");
+}
+
+/**
+ * Call this when a team member is removed from a workspace.
+ */
+export async function onMemberRemoved(workspaceId: string): Promise<number> {
+  return decrementCounter(workspaceId, "teamMembers");
+}
+
+/**
+ * Call this when a new bio page is created for a workspace.
+ */
+export async function onBioPageCreated(workspaceId: string): Promise<number> {
+  return incrementCounter(workspaceId, "bioPages");
+}
+
+/**
+ * Call this when a bio page is deleted from a workspace.
+ */
+export async function onBioPageDeleted(workspaceId: string): Promise<number> {
+  return decrementCounter(workspaceId, "bioPages");
+}
+
+/**
+ * Force-syncs all counters for a workspace from the database.
+ * Useful after bulk imports or data migrations.
+ */
+export async function syncAllCounters(workspaceId: string): Promise<void> {
+  await syncCounterToDB(workspaceId, "customDomains");
+  await syncCounterToDB(workspaceId, "teamMembers");
+  await syncCounterToDB(workspaceId, "bioPages");
 }

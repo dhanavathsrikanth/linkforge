@@ -1,26 +1,86 @@
 // ─── Existing link redirect types ────────────────────────────────────────────
 
 export interface Env {
-  // ── Existing KV ──────────────────────────────────────────────────────────
-  LINKS_KV: KVNamespace;
+  // ── Analytics Engine ────────────────────────────────────────────────────
+  ANALYTICS_ENGINE: AnalyticsEngineDataset;
 
-  // ── Bio page KV namespaces ────────────────────────────────────────────────
-  /** HTML cache for published bio pages + domain→slug mapping + OG image cache */
+  // ── KV Namespaces ───────────────────────────────────────────────────────
+  LINKS_KV: KVNamespace;
   BIO_PAGES_KV: KVNamespace;
-  /** Analytics event buffer — flushed hourly to Neon via /api/internal/bio-events */
   BIO_ANALYTICS_KV: KVNamespace;
 
-  // ── Secrets / vars ────────────────────────────────────────────────────────
-  /** Base URL of the Next.js app — e.g. https://pivoturl.com */
+  // ── Secrets / vars ──────────────────────────────────────────────────────
   API_URL: string;
-  /** Shared secret between worker and Next.js internal endpoints */
   WORKER_SECRET: string;
+
+  // ── Queues ───────────────────────────────────────────────────────────────
+  CLICK_QUEUE: Queue<ClickQueueMessage>;
+  BIO_EVENT_QUEUE: Queue<BioEventQueueMessage>;
+
+  // ── Upstash Redis (set via wrangler secret put) ──────────────────────────
+  UPSTASH_REDIS_REST_URL: string;
+  UPSTASH_REDIS_REST_TOKEN: string;
+
+  // ── Durable Objects ─────────────────────────────────────────────────────
+  ANALYTICS_WS: DurableObjectNamespace;
+  DISTRIBUTED_LOCKER: DurableObjectNamespace;
+  SCHEDULER: DurableObjectNamespace;
+  COORDINATED_CACHE: DurableObjectNamespace;
+  WORKSPACE_PRESENCE: DurableObjectNamespace;
+  WORKFLOW_ENGINE: DurableObjectNamespace;
+  QR_STREAM: DurableObjectNamespace;
+  WEBHOOK_DELIVERER: DurableObjectNamespace;
+  SESSION_STORE: DurableObjectNamespace;
+  EVENT_LOG: DurableObjectNamespace;
+  AB_TEST_STREAM: DurableObjectNamespace;
+  FEATURE_FLAGS: DurableObjectNamespace;
+}
+
+// ─── Queue message types ─────────────────────────────────────────────────────
+
+export interface ClickQueueMessage {
+  type: 'click';
+  linkId: string;
+  slug: string;
+  destination: string;
+  device: string;
+  browser?: string;
+  os?: string;
+  country: string;
+  city: string;
+  region: string;
+  ipHash: string;
+  isUnique: boolean;
+  language: string;
+  referrer?: string;
+  referrerDomain?: string;
+  variant?: string;
+  isQrScan: boolean;
+  isDeepLink: boolean;
+  timestamp: number;
+}
+
+export interface BioEventQueueMessage {
+  type: 'bio-view';
+  galleryId: string;
+  slug: string;
+  ts: string;
+  country: string;
+  city: string;
+  region: string;
+  device: string;
+  browser?: string;
+  os?: string;
+  referrer?: string;
+  ipHash: string;
+  isUnique: boolean;
 }
 
 // ─── Link redirect types (unchanged) ─────────────────────────────────────────
 
 export interface Link {
   id: string;
+  workspaceId: string;
   domain: string;
   slug: string;
   destination: string;
@@ -57,21 +117,6 @@ export interface RequestContext {
   language: string;
   ipHash: string;
   isUnique: boolean;
-}
-
-export interface ClickData {
-  linkId: string;
-  device: string;
-  browser?: string;
-  os?: string;
-  country: string;
-  city: string;
-  region: string;
-  ipHash: string;
-  isUnique: boolean;
-  language: string;
-  referrer?: string;
-  variant?: string;
 }
 
 // ─── Bio page types ───────────────────────────────────────────────────────────

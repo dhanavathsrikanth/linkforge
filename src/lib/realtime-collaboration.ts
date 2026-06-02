@@ -1,3 +1,11 @@
+// ─── DEPRECATED ───────────────────────────────────────────────────────────────
+// Upstash Redis REST does not support pub/sub subscriptions, so the old
+// event-based system (publishEvent / onEvent / triggerRefresh) never worked.
+// All real-time collaboration now flows through Cloudflare Durable Objects
+// WebSockets (WorkspacePresence DO for presence, AnalyticsWebSocket DO for
+// click streams, etc.). The Redis-based presence tracking via hash sets is
+// retained as a lightweight fallback for workspace presence polling.
+
 import { Redis } from "@upstash/redis";
 
 export interface RealtimeEvent {
@@ -19,8 +27,6 @@ export interface PresenceUser {
 class RealtimeCollaboration {
   private redis: Redis | null = null;
   private isAvailable: boolean = false;
-  private subscribedChannels: Set<string> = new Set();
-  private eventListeners: Map<string, Set<(event: RealtimeEvent) => void>> = new Map();
   private presenceInterval: NodeJS.Timeout | null = null;
   private currentWorkspaceId: string | null = null;
   private currentUser: { id: string; name: string; imageUrl?: string } | null = null;
@@ -30,25 +36,19 @@ class RealtimeCollaboration {
     const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!upstashUrl || !upstashToken) {
-      console.warn("[Realtime] Upstash Redis environment variables not set. Realtime features disabled.");
       this.isAvailable = false;
       return;
     }
 
     if (!upstashUrl.startsWith("https://")) {
-      console.warn("[Realtime] Invalid Upstash Redis URL. Realtime features disabled.");
       this.isAvailable = false;
       return;
     }
 
     try {
-      this.redis = new Redis({
-        url: upstashUrl,
-        token: upstashToken,
-      });
+      this.redis = new Redis({ url: upstashUrl, token: upstashToken });
       this.isAvailable = true;
     } catch {
-      console.warn("[Realtime] Failed to initialize Upstash Redis client. Realtime features disabled.");
       this.isAvailable = false;
     }
   }
@@ -59,28 +59,14 @@ class RealtimeCollaboration {
 
   async subscribeToWorkspace(workspaceId: string) {
     if (!this.isAvailable || !this.redis) return;
-
-    const channel = `workspace:${workspaceId}:events`;
-    
-    if (this.subscribedChannels.has(channel)) return;
-    
-    this.subscribedChannels.add(channel);
     this.currentWorkspaceId = workspaceId;
-
     await this.startPresenceTracking(workspaceId);
   }
 
   async unsubscribeFromWorkspace(workspaceId: string) {
-    if (!this.isAvailable || !this.redis) return;
-
-    const channel = `workspace:${workspaceId}:events`;
-    
-    this.subscribedChannels.delete(channel);
-    
     if (this.currentWorkspaceId === workspaceId) {
       this.currentWorkspaceId = null;
     }
-
     await this.stopPresenceTracking(workspaceId);
   }
 
@@ -96,7 +82,6 @@ class RealtimeCollaboration {
           lastSeen: Date.now(),
         }),
       });
-
       await this.redis.expire(`presence:${workspaceId}`, 60);
 
       this.presenceInterval = setInterval(async () => {
@@ -113,7 +98,7 @@ class RealtimeCollaboration {
         }
       }, 30000);
     } catch {
-      console.warn("[Realtime] Failed to start presence tracking. Redis may not be available.");
+      console.warn("[Realtime] Failed to start presence tracking.");
     }
   }
 
@@ -122,87 +107,56 @@ class RealtimeCollaboration {
       clearInterval(this.presenceInterval);
       this.presenceInterval = null;
     }
-
     if (this.currentUser && this.redis && this.isAvailable) {
-      try {
-        await this.redis.hdel(`presence:${workspaceId}`, this.currentUser.id);
-      } catch {
-        // Silently ignore errors during cleanup
-      }
+      try { await this.redis.hdel(`presence:${workspaceId}`, this.currentUser.id); } catch { }
     }
   }
 
   async getActiveUsers(workspaceId: string): Promise<PresenceUser[]> {
     if (!this.redis || !this.isAvailable) return [];
-
     try {
       const presence = await this.redis.hgetall(`presence:${workspaceId}`);
-      
       if (!presence) return [];
-
       const now = Date.now();
       const activeUsers: PresenceUser[] = [];
-
       for (const [, value] of Object.entries(presence)) {
         if (typeof value === "string") {
           const user = JSON.parse(value) as PresenceUser;
-          if (now - user.lastSeen < 60000) {
-            activeUsers.push(user);
-          }
+          if (now - user.lastSeen < 60000) activeUsers.push(user);
         }
       }
-
       return activeUsers;
     } catch {
       return [];
     }
   }
 
-  async publishEvent(event: Omit<RealtimeEvent, "timestamp">) {
-    if (!this.redis || !this.isAvailable) return;
+  /**
+   * @deprecated Upstash Redis REST does not support pub/sub subscriptions.
+   * Use the DO WebSocket system for real-time workspace events.
+   * This method is a no-op kept for backward compatibility.
+   */
+  async publishEvent(_event: Omit<RealtimeEvent, "timestamp">) {}
 
-    const fullEvent: RealtimeEvent = {
-      ...event,
-      timestamp: Date.now(),
-    };
-
-    try {
-      await this.redis.publish(`workspace:${event.workspaceId}:events`, JSON.stringify(fullEvent));
-    } catch (error) {
-      console.warn("[Realtime] Failed to publish event:", error);
-    }
+  /**
+   * @deprecated Upstash Redis REST does not support pub/sub subscriptions.
+   * Use DO WebSocket hooks (e.g. usePresence, useLiveAnalytics) instead.
+   * This method returns a no-op cleanup function.
+   */
+  onEvent(_workspaceId: string, _callback: (event: RealtimeEvent) => void): () => void {
+    return () => {};
   }
 
-  onEvent(workspaceId: string, callback: (event: RealtimeEvent) => void) {
-    const channel = `workspace:${workspaceId}:events`;
-    
-    if (!this.eventListeners.has(channel)) {
-      this.eventListeners.set(channel, new Set());
-    }
-    
-    this.eventListeners.get(channel)!.add(callback);
-
-    return () => {
-      this.eventListeners.get(channel)?.delete(callback);
-    };
-  }
-
-  async triggerRefresh(workspaceId: string, type: RealtimeEvent["type"], userId: string, userName?: string) {
-    await this.publishEvent({
-      type,
-      workspaceId,
-      userId,
-      userName,
-      data: { triggeredAt: Date.now() },
-    });
-  }
+  /**
+   * @deprecated Use DO WebSocket system instead. No-op.
+   */
+  async triggerRefresh(_workspaceId: string, _type: RealtimeEvent["type"], _userId: string, _userName?: string) {}
 
   cleanup() {
     if (this.presenceInterval) {
       clearInterval(this.presenceInterval);
+      this.presenceInterval = null;
     }
-    this.subscribedChannels.clear();
-    this.eventListeners.clear();
     this.currentWorkspaceId = null;
     this.currentUser = null;
   }

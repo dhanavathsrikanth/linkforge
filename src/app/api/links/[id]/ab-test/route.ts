@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { links, clicks, abTestResults } from "@/lib/db";
-import { eq, and, sql } from "drizzle-orm";
+import { links, clicks, conversions, abTestResults } from "@/lib/db";
+import { eq, and, sql, gte, lte } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
 import { logAudit } from "@/lib/db/audit";
@@ -54,6 +54,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (link.workspaceId !== ws.id)
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
+    // Auto-expire if test has exceeded duration
+    let autoExpired = false;
+    if (link.abTestEnabled && link.abTestStartedAt && !link.abTestEndedAt) {
+      const durationDays = link.abTestDurationDays ?? 14;
+      const deadline = new Date(link.abTestStartedAt);
+      deadline.setDate(deadline.getDate() + durationDays);
+      if (new Date() > deadline) {
+        await db.update(links).set({ abTestEnabled: false, abTestEndedAt: new Date() }).where(eq(links.id, id));
+        link.abTestEnabled = false;
+        link.abTestEndedAt = new Date();
+        autoExpired = true;
+      }
+    }
+
     // Aggregate live click data per variant from the clicks table
     const clickStats = await db
       .select({
@@ -65,18 +79,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       .where(and(eq(clicks.linkId, id), sql`${clicks.abVariant} is not null`))
       .groupBy(clicks.abVariant);
 
-    // Merge click stats into the variant definitions
+    // Aggregate real conversion data per variant from the conversions table
+    const conversionStats = await db
+      .select({
+        variant: conversions.abVariant,
+        count: sql<number>`count(*)::int`,
+        totalValue: sql<number>`coalesce(sum(${conversions.value}::numeric), 0)::int`,
+      })
+      .from(conversions)
+      .where(and(eq(conversions.linkId, id), sql`${conversions.abVariant} is not null`))
+      .groupBy(conversions.abVariant);
+
+    // Merge click + conversion stats into the variant definitions
     const variants: ABVariant[] = (link.abTestVariants ?? []).map((v: any) => {
-      const stats = clickStats.find((cs) => cs.variant === (v.label || v.destination));
+      const label = v.label || v.destination;
+      const clickStat = clickStats.find((cs) => cs.variant === label);
+      const convStat = conversionStats.find((cs) => cs.variant === label);
+      const clicks_ = clickStat?.count ?? v.clicks ?? 0;
+      const conversions_ = convStat?.count ?? v.conversions ?? 0;
       return {
         id: v.id || crypto.randomUUID(),
         destination: v.destination,
         weight: v.weight,
-        label: v.label || `Variant ${String.fromCharCode(64 + (link.abTestVariants?.indexOf(v) ?? 0 + 1))}`,
-        clicks: stats?.count ?? v.clicks ?? 0,
-        conversions: v.conversions ?? 0,
-        conversionRate: v.conversionRate ?? 0,
-        uniqueClicks: stats?.uniqueClicks ?? v.uniqueClicks ?? 0,
+        label,
+        clicks: clicks_,
+        conversions: conversions_,
+        conversionRate: clicks_ > 0 ? conversions_ / clicks_ : 0,
+        uniqueClicks: clickStat?.uniqueClicks ?? v.uniqueClicks ?? 0,
       };
     });
 
@@ -90,6 +119,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       significance: link.abTestSignificance,
       startedAt: link.abTestStartedAt,
       endedAt: link.abTestEndedAt,
+      durationDays: link.abTestDurationDays ?? 14,
+      minSampleSize: link.abTestMinSampleSize ?? 100,
+      confidenceLevel: Number(link.abTestConfidenceLevel) || 0.95,
+      autoSelectWinner: link.abTestAutoSelectWinner ?? true,
+      autoExpired,
       result,
     });
   } catch (err) {
@@ -151,6 +185,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         conversionRate: 0,
         uniqueClicks: 0,
       })),
+      abTestDurationDays: v.testDurationDays,
+      abTestMinSampleSize: v.minimumSampleSize,
+      abTestConfidenceLevel: v.confidenceLevel.toString(),
+      abTestAutoSelectWinner: v.autoSelectWinner,
     };
 
     if (v.enabled && !link.abTestStartedAt) {
@@ -201,17 +239,40 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!canWrite(ws.role))
       return NextResponse.json({ error: "Permission denied" }, { status: 403 });
 
-    // Store final results per variant
+    // Aggregate live click + conversion stats for final results
+    const clickStats = await db
+      .select({
+        variant: clicks.abVariant,
+        count: sql<number>`count(*)::int`,
+        uniqueClicks: sql<number>`count(distinct ${clicks.ip})::int`,
+      })
+      .from(clicks)
+      .where(and(eq(clicks.linkId, id), sql`${clicks.abVariant} is not null`))
+      .groupBy(clicks.abVariant);
+
+    const conversionStats = await db
+      .select({
+        variant: conversions.abVariant,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(conversions)
+      .where(and(eq(conversions.linkId, id), sql`${conversions.abVariant} is not null`))
+      .groupBy(conversions.abVariant);
+
+    // Store final results per variant with real data
     if (link.abTestVariants && link.abTestVariants.length > 0) {
       for (const v of link.abTestVariants as any[]) {
+        const label = v.label || v.destination;
+        const clicks_ = clickStats.find((cs) => cs.variant === label)?.count ?? 0;
+        const conversions_ = conversionStats.find((cs) => cs.variant === label)?.count ?? 0;
         await db.insert(abTestResults).values({
           linkId: id,
           workspaceId: ws.id,
           variantDestination: v.destination,
-          clicks: v.clicks ?? 0,
-          conversions: v.conversions ?? 0,
-          conversionRate: v.conversionRate ?? 0,
-          uniqueClicks: v.uniqueClicks ?? 0,
+          clicks: clicks_,
+          conversions: conversions_,
+          conversionRate: clicks_ > 0 ? String(Number((conversions_ / clicks_).toFixed(4))) : "0",
+          uniqueClicks: clickStats.find((cs) => cs.variant === label)?.uniqueClicks ?? 0,
           isWinner: false,
         });
       }

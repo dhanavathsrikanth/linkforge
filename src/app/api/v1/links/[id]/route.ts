@@ -118,7 +118,7 @@ export async function PATCH(
     if (v.smartRouting) {
       if (v.smartRouting.ios !== undefined) updateData.iosDestination = v.smartRouting.ios;
       if (v.smartRouting.android !== undefined) updateData.androidDestination = v.smartRouting.android;
-      if (v.smartRouting.geo !== undefined) updateData.geoRouting = v.smartRouting.geo;
+      // geoRouting is deprecated — routingRules handles geo-based routing
     }
 
     if (v.abTest !== undefined) {

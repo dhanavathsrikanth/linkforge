@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { links, clicks } from "@/lib/db/schema";
+import { links, clicks, conversions } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { determineWinner } from "@/lib/ab-test/statistics";
 import type { ABVariant } from "@/types/ab-test";
@@ -24,6 +24,21 @@ export async function GET(req: NextRequest) {
       const rawVariants = link.abTestVariants as any[] | null;
       if (!rawVariants || rawVariants.length < 2) continue;
 
+      // Auto-expire if duration exceeded
+      if (link.abTestStartedAt) {
+        const durationDays = link.abTestDurationDays ?? 14;
+        const deadline = new Date(link.abTestStartedAt);
+        deadline.setDate(deadline.getDate() + durationDays);
+        if (new Date() > deadline) {
+          await db
+            .update(links)
+            .set({ abTestEnabled: false, abTestEndedAt: new Date() })
+            .where(eq(links.id, link.id));
+          results.push({ slug: link.slug, winner: null, action: "duration_expired" });
+          continue;
+        }
+      }
+
       // Aggregate live click data per variant
       const clickStats = await db
         .select({
@@ -35,17 +50,31 @@ export async function GET(req: NextRequest) {
         .where(and(eq(clicks.linkId, link.id), sql`${clicks.abVariant} is not null`))
         .groupBy(clicks.abVariant);
 
+      // Aggregate real conversion data per variant
+      const conversionStats = await db
+        .select({
+          variant: conversions.abVariant,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(conversions)
+        .where(and(eq(conversions.linkId, link.id), sql`${conversions.abVariant} is not null`))
+        .groupBy(conversions.abVariant);
+
       const variants: ABVariant[] = rawVariants.map((v: any) => {
-        const stats = clickStats.find((cs) => cs.variant === (v.label || v.destination));
+        const label = v.label || v.destination;
+        const clickStat = clickStats.find((cs) => cs.variant === label);
+        const convStat = conversionStats.find((cs) => cs.variant === label);
+        const clicks_ = clickStat?.count ?? v.clicks ?? 0;
+        const conversions_ = convStat?.count ?? v.conversions ?? 0;
         return {
           id: v.id || "",
           destination: v.destination,
           weight: v.weight,
           label: v.label || "",
-          clicks: stats?.count ?? v.clicks ?? 0,
-          conversions: v.conversions ?? 0,
-          conversionRate: v.conversionRate ?? 0,
-          uniqueClicks: stats?.uniqueClicks ?? v.uniqueClicks ?? 0,
+          clicks: clicks_,
+          conversions: conversions_,
+          conversionRate: clicks_ > 0 ? conversions_ / clicks_ : 0,
+          uniqueClicks: clickStat?.uniqueClicks ?? v.uniqueClicks ?? 0,
         };
       });
 

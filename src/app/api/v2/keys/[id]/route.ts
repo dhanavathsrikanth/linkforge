@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { apiKeys, workspaces, workspaceMembers, users } from "@/lib/db/schema";
+import { invalidateApiKeyCache } from "@/lib/api-auth";
 
 export async function DELETE(
   req: Request,
@@ -78,6 +79,18 @@ export async function DELETE(
     .update(apiKeys)
     .set({ active: false })
     .where(eq(apiKeys.id, id));
+
+  // Invalidate Redis cache + Worker KV edge cache
+  invalidateApiKeyCache(key.keyHash);
+  const workerUrl = process.env.CF_WORKER_URL;
+  const secret = process.env.WORKER_SECRET;
+  if (workerUrl && secret) {
+    fetch(`${workerUrl}/internal/api-key-sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-worker-secret': secret },
+      body: JSON.stringify({ keyHash: key.keyHash, remove: true }),
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ data: { revoked: true } });
 }

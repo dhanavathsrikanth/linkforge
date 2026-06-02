@@ -30,39 +30,26 @@ export async function testRedisConnection(): Promise<boolean> {
 }
 
 // Helper function for rate limiting (common use case)
+// Uses atomic Redis INCR to eliminate TOCTOU race conditions.
 export async function checkRateLimit(
   key: string, 
   limit: number, 
-  window: number // in seconds
+  window: number
 ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
   try {
     const now = Math.floor(Date.now() / 1000);
-    
-    // Get current count
-    const current = await redis.get(key);
-    const count = current && typeof current === 'string' ? parseInt(current, 10) : 0;
-    
-    if (count >= limit) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetTime: now + window,
-      };
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, window);
     }
-    
-    // Increment counter
-    const newCount = count + 1;
-    await redis.set(key, newCount.toString());
-    await redis.expire(key, window);
-    
+    const remaining = Math.max(0, limit - count);
     return {
-      allowed: true,
-      remaining: limit - newCount,
+      allowed: count <= limit,
+      remaining,
       resetTime: now + window,
     };
   } catch (error) {
     console.error("Rate limiting error:", error);
-    // Fail open - allow request if Redis is down
     return {
       allowed: true,
       remaining: limit - 1,

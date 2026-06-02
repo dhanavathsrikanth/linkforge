@@ -1,7 +1,4 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { clicks, links, domains } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
@@ -26,20 +23,17 @@ type ClickPayload = {
   referrer?: string;
   referrerDomain?: string;
   language?: string;
-  /** True when the request came via a QR code scan (?source=qr) */
   isQrScan?: boolean;
-  /** True when the redirect used a URI scheme deep link */
   isDeepLink?: boolean;
 };
 
 /**
- * Internal endpoint called ASYNCHRONOUSLY by the Cloudflare Worker after
- * every redirect. Records click analytics and increments totalClicks.
+ * Internal endpoint called by the Cloudflare Worker (or queue consumer fallback)
+ * after every redirect. Handles Redis writes, PostHog, billing, and webhooks.
  *
  * POST /api/internal/clicks
  */
 export async function POST(req: Request) {
-  // ── Auth ────────────────────────────────────────────────────────────────────
   const secret = req.headers.get("x-worker-secret");
   if (!secret || secret !== process.env.WORKER_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,6 +49,7 @@ export async function POST(req: Request) {
   const {
     linkId,
     workspaceId,
+    slug,
     variant,
     timestamp,
     ipHash,
@@ -63,145 +58,75 @@ export async function POST(req: Request) {
     browser,
     os,
     country,
-    city,
-    region,
     referrer,
     referrerDomain,
     isQrScan,
     isDeepLink,
   } = body;
 
-  if (!linkId || !workspaceId) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  if (!linkId) {
+    return NextResponse.json({ error: "Missing linkId" }, { status: 400 });
   }
 
-  // Map device string to the schema's deviceEnum values
-  type DeviceType = "desktop" | "mobile" | "tablet" | "bot" | "unknown";
-  const deviceValue: DeviceType = (["desktop", "mobile", "tablet", "bot"].includes(device)
-    ? device
-    : "unknown") as DeviceType;
-
   try {
-    // Insert click record + increment totalClicks atomically
-    // Also get domain info for PostHog tracking
-    const link = await db.query.links.findFirst({
-      where: eq(links.id, linkId),
-    });
-
-    const domain = link?.domainId
-      ? await db.query.domains.findFirst({
-        where: eq(domains.id, link.domainId),
-      })
-      : null;
-
     const today = new Date().toISOString().split("T")[0];
+    const clickTs = new Date(timestamp).getTime();
 
-    const dbResults = await Promise.allSettled([
-      db.insert(clicks).values({
-        linkId,
+    // Write to Redis for realtime feed (idempotent — queue consumer may also write)
+    if (slug) {
+      await Promise.all([
+        redis.lpush(`clicks:${slug}`, JSON.stringify({
+          ts: clickTs,
+          device,
+          browser,
+          os,
+          country,
+          referrer: referrer ?? null,
+          referrerDomain: referrerDomain ?? null,
+          abVariant: variant ?? null,
+        })),
+        redis.ltrim(`clicks:${slug}`, 0, 49),
+        redis.incr(`stats:clicks:${slug}:daily:${today}`),
+        redis.incr(`stats:clicks:${slug}:total`),
+        redis.incr(`stats:clicks:daily:${today}`),
+        redis.incr(`stats:clicks:total`),
+      ]);
+    }
+
+    // Track click event in PostHog
+    await trackLinkClicked({ linkId, domain: getDefaultDomain() }).catch(() => {});
+
+    // Increment monthly clicksTracked usage
+    if (workspaceId) {
+      try {
+        await incrementUsage(workspaceId, "clicksTracked", 1);
+      } catch (e) {
+        console.warn("[POST /api/internal/clicks] increment usage failed", e);
+      }
+
+      // Fire webhook event
+      sendWebhookEvent({
+        eventType: "link.clicked",
         workspaceId,
-        ip: ipHash,
-        device: deviceValue,
-        browser: browser ?? null,
-        os: os ?? null,
-        country: country ?? null,
-        city: city ?? null,
-        region: region ?? null,
-        referrer: referrer ?? null,
-        referrerDomain: referrerDomain ?? null,
-        abVariant: variant ?? null,
-        isQrScan: isQrScan ?? false,
-        isDeepLink: isDeepLink ?? false,
-        createdAt: new Date(timestamp),
-      }),
-      ...(isUnique
-        ? [
-          db
-            .update(links)
-            .set({
-              totalClicks: sql`${links.totalClicks} + 1`,
-              uniqueClicks: sql`${links.uniqueClicks} + 1`,
-            })
-            .where(eq(links.id, linkId)),
-        ]
-        : [
-          db
-            .update(links)
-            .set({ totalClicks: sql`${links.totalClicks} + 1` })
-            .where(eq(links.id, linkId)),
-        ]),
-    ]);
-    for (const r of dbResults) {
-      if (r.status === "rejected") {
-        console.error("[POST /api/internal/clicks] A DB op failed", r.reason);
-      }
+        data: {
+          linkId,
+          slug,
+          domain: getDefaultDomain(),
+          country: country ?? null,
+          device,
+          browser: browser ?? null,
+          os: os ?? null,
+          referrer: referrer ?? "",
+          referrerDomain: referrerDomain ?? null,
+          abVariant: variant ?? null,
+          isBot: device === "bot",
+          isQrScan: isQrScan ?? false,
+          ipHash,
+          timestamp: clickTs,
+        },
+        idempotencyKey: `link.clicked-${linkId}-${timestamp}`,
+      });
     }
-
-    // Write to Redis for realtime feed (best-effort)
-    try {
-      const slug = body.slug || link?.slug;
-      if (slug) {
-        await Promise.all([
-          redis.lpush(`clicks:${slug}`, JSON.stringify({
-            ts: new Date(timestamp).getTime(),
-            device: deviceValue,
-            browser,
-            os,
-            country,
-            referrer: referrer ?? null,
-            referrerDomain: referrerDomain ?? null,
-            abVariant: body.variant ?? null,
-          })),
-          redis.ltrim(`clicks:${slug}`, 0, 49),
-          redis.incr(`stats:clicks:${slug}:daily:${today}`),
-          redis.incr(`stats:clicks:${slug}:total`),
-          redis.incr(`stats:clicks:daily:${today}`),
-          redis.incr(`stats:clicks:total`),
-        ]);
-      }
-    } catch (e) {
-      console.warn("[POST /api/internal/clicks] Redis write failed (non-blocking)", e);
-    }
-
-    // Track click event in PostHog (non-blocking, best effort)
-    if (link) {
-      await trackLinkClicked({
-        linkId,
-        domain: domain?.domain || getDefaultDomain(),
-      }).catch(() => {});
-    }
-
-    // Increment monthly clicksTracked usage (best-effort)
-    try {
-      await incrementUsage(workspaceId, "clicksTracked", 1);
-    } catch (e) {
-      console.warn("[POST /api/internal/clicks] increment usage failed", e);
-    }
-
-    sendWebhookEvent({
-      eventType: "link.clicked",
-      workspaceId,
-      data: {
-        linkId,
-        slug: body.slug,
-        domain: domain?.domain || getDefaultDomain(),
-        country: country ?? null,
-        city: city ?? null,
-        region: region ?? null,
-        device: deviceValue,
-        deviceType: deviceValue,
-        browser: browser ?? null,
-        os: os ?? null,
-        referrer: referrer ?? "",
-        referrerDomain: referrerDomain ?? null,
-        abVariant: variant ?? null,
-        isBot: deviceValue === "bot",
-        isQrScan: isQrScan ?? false,
-        ipHash,
-        timestamp: new Date(timestamp).getTime(),
-      },
-      idempotencyKey: `link.clicked-${linkId}-${body.timestamp}`,
-    });
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {

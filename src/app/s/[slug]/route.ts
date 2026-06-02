@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { clicks, links } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { links } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
@@ -40,16 +40,17 @@ function parseOs(ua: string): string {
 }
 
 function pickAbVariant(
-  variants: { destination: string; weight: number }[]
-): { destination: string } {
-  if (!variants || variants.length === 0) return { destination: "" };
+  variants: { destination: string; weight: number; label?: string; id?: string }[]
+): { destination: string; label: string } {
+  if (!variants || variants.length === 0) return { destination: "", label: "" };
   const totalWeight = variants.reduce((sum, v) => sum + (v.weight ?? 1), 0);
   let rand = Math.random() * totalWeight;
   for (const v of variants) {
     rand -= v.weight ?? 1;
-    if (rand <= 0) return { destination: v.destination };
+    if (rand <= 0) return { destination: v.destination, label: v.label ?? v.id ?? v.destination };
   }
-  return { destination: variants[variants.length - 1].destination };
+  const last = variants[variants.length - 1];
+  return { destination: last.destination, label: last.label ?? last.id ?? last.destination };
 }
 
 function appendUtmParams(
@@ -131,8 +132,10 @@ export async function GET(
       const cookieStore = await cookies();
       const authed = cookieStore.get(`pw_auth_${slug}`);
       if (!authed || authed.value !== "true") {
+        // Redirect to edge-served password challenge (single round trip)
+        const host = req.headers.get("host") || "";
         return NextResponse.redirect(
-          new URL(`/challenge/${link.slug}`, req.url)
+          new URL(`https://${host}/internal/challenge/${link.slug}`, req.url)
         );
       }
     }
@@ -160,21 +163,32 @@ export async function GET(
     const device = parseDevice(ua);
     const referrer = req.headers.get("referer") || "";
 
-    // Pick A/B variant before tracking so we can record which was served
-    let selectedAbVariant: string | null = null;
-    if (link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0) {
-      const picked = pickAbVariant(link.abTestVariants);
-      selectedAbVariant = (picked as any).name || picked.destination;
-    }
-
-    // Resolve base destination: A/B test → smart routing → deep link → default
+    // Resolve base destination: A/B test (sticky via cookie) → smart routing → deep link → default
     let baseDestination = link.destination;
+    let selectedAbVariant: string | null = null;
 
-    if (selectedAbVariant) {
-      const picked = pickAbVariant(link.abTestVariants!);
+    if (link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0) {
+      const cookieStore = await cookies();
+      const variantCookie = cookieStore.get(`ab_v_${link.id}`);
+      let picked: { destination: string; label: string };
+
+      if (variantCookie) {
+        const matched = link.abTestVariants.find(
+          v => (v.label || v.id || v.destination) === variantCookie.value
+        );
+        if (matched) {
+          picked = { destination: matched.destination, label: matched.label ?? matched.id ?? matched.destination };
+        } else {
+          picked = pickAbVariant(link.abTestVariants);
+        }
+      } else {
+        picked = pickAbVariant(link.abTestVariants);
+      }
+
+      selectedAbVariant = picked.label;
       baseDestination = picked.destination;
     } else if (link.routingRules && link.routingRules.length > 0) {
-      const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "";
+      const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "XX";
       const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
       for (const rule of link.routingRules) {
         let match = true;
@@ -187,10 +201,15 @@ export async function GET(
 
     const os = parseOs(ua);
     let isDeepLink = false;
-    if (os === "iOS" && link.iosDestination) {
-      baseDestination = link.iosDestination;
-    } else if (os === "Android" && link.androidDestination) {
-      baseDestination = link.androidDestination;
+    // Skip OS-specific override when A/B testing is active — variant
+    // destinations should not be overridden, or test results become invalid.
+    const isAbActive = link.abTestEnabled && link.abTestVariants && link.abTestVariants.length > 0;
+    if (!isAbActive) {
+      if (os === "iOS" && link.iosDestination) {
+        baseDestination = link.iosDestination;
+      } else if (os === "Android" && link.androidDestination) {
+        baseDestination = link.androidDestination;
+      }
     }
 
     // URI scheme deep link
@@ -237,7 +256,6 @@ export async function GET(
           const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "XX";
           const city = req.headers.get("cf-ipcity") || req.headers.get("x-vercel-ip-city") || null;
           const region = req.headers.get("cf-region") || req.headers.get("x-vercel-ip-country-region") || null;
-          const language = (req.headers.get("accept-language") || "").split(",")[0]?.split(";")[0]?.trim() || "";
           const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
           const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return null; } })() : null;
 
@@ -246,30 +264,9 @@ export async function GET(
           const isUnique = existing === null;
 
           const today = new Date().toISOString().split("T")[0];
+
+          // Redis: real-time feed + stats counters (fast, sub-ms)
           const ops: Promise<unknown>[] = [
-            db.insert(clicks).values({
-              linkId: link.id,
-              workspaceId: link.workspaceId,
-              ip: ipHash,
-              device,
-              browser,
-              os,
-              country,
-              city,
-              region,
-              referrer,
-              referrerDomain,
-              isQrScan,
-              isDeepLink,
-              abVariant: selectedAbVariant,
-              createdAt: new Date(),
-            }),
-            db.update(links)
-              .set({
-                totalClicks: sql`${links.totalClicks} + 1`,
-                ...(isUnique ? { uniqueClicks: sql`${links.uniqueClicks} + 1` } : {}),
-              })
-              .where(eq(links.id, link.id)),
             redis.lpush(`clicks:${slug}`, JSON.stringify({
               ts: Date.now(),
               device, browser, os, country, city,
@@ -288,6 +285,35 @@ export async function GET(
             ops.push(redis.set(uniqKey, "1").then(() => redis.expire(uniqKey, 86400)));
           }
 
+          // Forward to Worker for Analytics Engine write (fire-and-forget)
+          const workerUrl = process.env.CF_WORKER_URL;
+          if (workerUrl) {
+            ops.push(
+              fetch(`${workerUrl}/internal/click`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  linkId: link.id,
+                  workspaceId: link.workspaceId,
+                  slug: link.slug,
+                  device,
+                  browser,
+                  os,
+                  country,
+                  city,
+                  region,
+                  referrerDomain,
+                  ipHash,
+                  isUnique,
+                  isQrScan,
+                  isDeepLink,
+                  abVariant: selectedAbVariant,
+                  timestamp: Date.now(),
+                }),
+              }).catch(() => {})
+            );
+          }
+
           const settled = await Promise.allSettled(ops);
           for (const r of settled) {
             if (r.status === "rejected") {
@@ -303,7 +329,19 @@ export async function GET(
       })();
     }
 
-    return NextResponse.redirect(finalDestination, { status: 302 });
+    const response = NextResponse.redirect(finalDestination, { status: 302 });
+
+    if (selectedAbVariant) {
+      response.cookies.set(`ab_v_${link.id}`, selectedAbVariant, {
+        maxAge: 60 * 60 * 24 * 365,
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: true,
+      });
+    }
+
+    return response;
   } catch {
     return new Response(null, { status: 404 });
   }

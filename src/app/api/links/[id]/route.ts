@@ -66,7 +66,7 @@ const UpdateLinkSchema = z.object({
           country: z.string().optional(),
           language: z.string().optional(),
         }),
-        destination: z.string(),
+        destination: z.string().url(),
       })
     )
     .optional()

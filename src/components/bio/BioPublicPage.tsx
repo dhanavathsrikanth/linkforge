@@ -136,7 +136,7 @@ export function BioPublicPage({ page }: BioPublicPageProps) {
 
         {/* ── Share bar ─────────────────────────────────────────────── */}
         <BioShareBar
-          url={`https://pivoturl.com/p/${page.slug}`}
+          url={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}/p/${page.slug}`}
           displayName={page.displayName}
         />
 
@@ -144,7 +144,7 @@ export function BioPublicPage({ page }: BioPublicPageProps) {
         {page.showBranding && (
           <div className="flex justify-center mt-10">
             <a
-              href={`https://pivoturl.com?utm_source=bio&utm_medium=branding&utm_campaign=${page.slug}`}
+              href={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}?utm_source=bio&utm_medium=branding&utm_campaign=${page.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest opacity-40 hover:opacity-70 transition-opacity"

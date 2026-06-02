@@ -421,10 +421,24 @@ export function AdvancedCreateSheet({
                                       const res = await fetch("/api/ai/suggest-slug", {
                                         method: "POST",
                                         headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ url: form.destination }),
+                                        body: JSON.stringify({ url: form.destination, workspaceId }),
                                       });
                                       const data = await res.json();
                                       if (data.slug) update("slug", data.slug);
+                                      if (data.title) update("title", data.title);
+                                      if (data.description) update("ogDescription", data.description);
+                                      // Merge AI suggested tags (deduplicate)
+                                      if (Array.isArray(data.suggestedTags) && data.suggestedTags.length > 0) {
+                                        const merged = [...new Set([...form.tags, ...data.suggestedTags])];
+                                        update("tags", merged);
+                                      }
+                                      // Map AI folder name to existing folder ID
+                                      if (data.suggestedFolder) {
+                                        const match = folders.find(
+                                          (f) => f.name.toLowerCase() === data.suggestedFolder.toLowerCase()
+                                        );
+                                        if (match) update("folderId", match.id);
+                                      }
                                     } catch {}
                                   }}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"

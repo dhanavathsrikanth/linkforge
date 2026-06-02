@@ -14,6 +14,10 @@ import {
   Sparkles,
   User,
   ShieldCheck,
+  Activity,
+  FlaskConical,
+  Flag,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
@@ -30,6 +34,7 @@ const mainNav = [
   { name: "Link Safety",     href: "/dashboard/link-safety",        icon: ShieldCheck },
   { name: "QR Codes",        href: "/dashboard/qr",                 icon: QrCode },
   { name: "Analytics",       href: "/dashboard/analytics",          icon: BarChart3 },
+  { name: "Live Analytics",  href: "/dashboard/analytics/live",     icon: Activity },
   { name: "Insights",        href: "/dashboard/analytics/insights", icon: Sparkles },
 ];
 

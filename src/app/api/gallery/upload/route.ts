@@ -3,17 +3,23 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { linkGalleryAssets, linkGallery } from "@/lib/db";
 import { getOrCreateDbUser } from "@/lib/auth";
+import { uploadToR2, r2Key } from "@/lib/r2";
 import { and, eq } from "drizzle-orm";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isR2Configured(): boolean {
+  return !!(
+    (process.env.CLOUDFLARE_R2_ACCOUNT_ID || process.env.CF_ACCOUNT_ID) &&
+    process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
+    process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+  );
+}
 
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Resolve the Clerk userId to our DB user UUID. Querying linkGallery by
-  // userId directly (a Clerk string like "user_2…") against a uuid column
-  // throws an SQL syntax error and surfaces as a 500.
   const dbUser = await getOrCreateDbUser();
   if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
 
@@ -46,33 +52,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Gallery not found" }, { status: 404 });
     }
 
-    // Strip data URI prefix so we can compute size from raw base64.
     const rawBase64 = file.includes(",") ? file.split(",")[1] : file;
-
-    // Approximate decoded byte size from base64 length.
     const size = Math.round((rawBase64.length * 3) / 4);
-    if (size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: "File too large. Max 2MB." }, { status: 413 });
+    const maxSize = parseInt(process.env.CLOUDFLARE_R2_MAX_UPLOAD_BYTES || "10485760", 10); // 10MB default
+    if (size > maxSize) {
+      return NextResponse.json({ error: `File too large. Max ${Math.round(maxSize / 1024 / 1024)}MB.` }, { status: 413 });
     }
 
-    // blockId is a uuid column — only forward valid UUIDs (newly-added
-    // blocks before their first save have no DB row yet, so we drop the
-    // association rather than fail the upload).
     const safeBlockId = blockId && UUID_RE.test(blockId) ? blockId : null;
 
     const [asset] = await db
       .insert(linkGalleryAssets)
-      .values({
-        galleryId,
-        blockId: safeBlockId,
-        filename,
-        mimeType,
-        size,
-        data: rawBase64,
-      })
+      .values({ galleryId, blockId: safeBlockId, filename, mimeType, size, data: "" })
       .returning();
 
-    return NextResponse.json({ asset });
+    if (isR2Configured()) {
+      const binary = Buffer.from(rawBase64, "base64");
+      const key = await uploadToR2(asset.id, filename, binary, mimeType);
+      await db.update(linkGalleryAssets).set({ data: `r2:${key}` }).where(eq(linkGalleryAssets.id, asset.id));
+    } else {
+      await db.update(linkGalleryAssets).set({ data: rawBase64 }).where(eq(linkGalleryAssets.id, asset.id));
+    }
+
+    const stored = await db.query.linkGalleryAssets.findFirst({
+      where: eq(linkGalleryAssets.id, asset.id),
+      columns: { id: true, galleryId: true, blockId: true, filename: true, mimeType: true, size: true, width: true, height: true, createdAt: true, updatedAt: true },
+    });
+    return NextResponse.json({ asset: stored });
   } catch (err) {
     console.error("[POST /api/gallery/upload]", err);
     const detail = err instanceof Error ? err.message : "unknown";
@@ -113,6 +119,7 @@ export async function GET(req: Request) {
     const assets = await db.query.linkGalleryAssets.findMany({
       where: and(...conditions),
       orderBy: (t, { desc }) => [desc(t.createdAt)],
+      columns: { id: true, galleryId: true, blockId: true, filename: true, mimeType: true, size: true, width: true, height: true, createdAt: true, updatedAt: true },
     });
 
     return NextResponse.json({ assets });

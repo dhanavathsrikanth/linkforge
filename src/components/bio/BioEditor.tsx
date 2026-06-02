@@ -825,7 +825,7 @@ export function BioEditor({ initialData, domains = [] }: BioEditorProps) {
       {/* Share modal */}
       {showShareModal && (
         <BioShareModal
-          url={`https://pivoturl.com/p/${page.slug}`}
+          url={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}/p/${page.slug}`}
           displayName={page.displayName}
           onClose={() => setShowShareModal(false)}
         />

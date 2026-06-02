@@ -73,6 +73,8 @@
     /* ANIMATIONS */
     --animate-marquee: marquee 60s linear infinite;
     --animate-caret-blink: caret-blink 1s infinite;
+    --animate-accordion-up: accordion-up 200ms ease-out;
+    --animate-accordion-down: accordion-down 200ms ease-out;
 
     @keyframes marquee {
         0% {
@@ -91,6 +93,24 @@
         51%,
         100% {
             opacity: 0;
+        }
+    }
+
+    @keyframes accordion-up {
+        from {
+            height: var(--radix-accordion-content-height);
+        }
+        to {
+            height: 0;
+        }
+    }
+
+    @keyframes accordion-down {
+        from {
+            height: 0;
+        }
+        to {
+            height: var(--radix-accordion-content-height);
         }
     }
 

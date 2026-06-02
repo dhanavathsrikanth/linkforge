@@ -116,10 +116,13 @@ const config: Config = {
           "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.15) 0%, transparent 70%)",
       },
       animation: {
-        "fade-in":    "fadeIn 0.4s ease-out both",
-        "slide-up":   "slideUp 0.4s ease-out both",
-        "pulse-glow": "pulseGlow 2s ease-in-out infinite",
-        "spin-slow":  "spin 3s linear infinite",
+        "fade-in":       "fadeIn 0.4s ease-out both",
+        "slide-up":      "slideUp 0.4s ease-out both",
+        "pulse-glow":    "pulseGlow 2s ease-in-out infinite",
+        "spin-slow":     "spin 3s linear infinite",
+        "accordion-up":   "accordion-up 200ms ease-out",
+        "accordion-down": "accordion-down 200ms ease-out",
+        "border-beam":    "border-beam 15s linear infinite",
       },
       keyframes: {
         fadeIn: {
@@ -133,6 +136,17 @@ const config: Config = {
         pulseGlow: {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(124,58,237,0)" },
           "50%":       { boxShadow: "0 0 24px 4px rgba(124,58,237,0.4)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to:   { height: "0" },
+        },
+        "accordion-down": {
+          from: { height: "0" },
+          to:   { height: "var(--radix-accordion-content-height)" },
+        },
+        "border-beam": {
+          "100%": { "offset-distance": "100%" },
         },
       },
       transitionTimingFunction: {

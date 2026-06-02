@@ -11,7 +11,7 @@ import {
   ExternalLink,
   ArrowLeft,
 } from "lucide-react";
-import { TrustBadge } from "@/components/safety/TrustBadge";
+import { TrustBadge, type TrustBand } from "@/components/safety/TrustBadge";
 
 interface Props {
   slug: string;
@@ -24,6 +24,8 @@ interface Props {
   asnName: string | null;
   country: string | null;
   scannedAt: Date | null;
+  trustScore: number | null;
+  trustBand: TrustBand;
 }
 
 /**
@@ -43,6 +45,8 @@ export function BlockedInterstitial({
   asnName,
   country,
   scannedAt,
+  trustScore,
+  trustBand,
 }: Props) {
   const [bypassing, setBypassing] = useState(false);
 
@@ -87,9 +91,12 @@ export function BlockedInterstitial({
         {/* Body */}
         <div className="px-6 py-6 space-y-5">
           <div className="rounded-xl border border-stone-200 bg-stone-50/50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-              Destination
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                Destination
+              </p>
+              <TrustBadge score={trustScore} band={trustBand} size="sm" />
+            </div>
             <p className="mt-1 font-mono text-sm text-stone-900 break-all">
               {destination}
             </p>

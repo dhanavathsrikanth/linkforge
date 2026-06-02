@@ -10,6 +10,7 @@ const TrackConversionSchema = z.object({
   event: z.string().min(1).max(100),
   value: z.number().positive().optional(),
   currency: z.string().length(3).optional().default("USD"),
+  abVariant: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   sessionId: z.string().optional(),
   customerId: z.string().optional(),
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       event: v.event,
       value: v.value?.toString() ?? null,
       currency: v.currency || "USD",
+      abVariant: v.abVariant ?? null,
       metadata: v.metadata ?? null,
     });
 

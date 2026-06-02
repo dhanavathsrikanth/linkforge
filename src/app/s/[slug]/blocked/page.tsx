@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { BlockedInterstitial } from "./BlockedInterstitial";
+import type { TrustBand } from "@/components/safety/TrustBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,8 @@ export default async function BlockedLinkPage({
       safetyVerdict: true,
       safetyScannedAt: true,
       safetyBlockedByAdmin: true,
+      safetyTrustScore: true,
+      safetyTrustBand: true,
     },
   });
 
@@ -80,6 +83,8 @@ export default async function BlockedLinkPage({
       asnName={verdict?.asnName ?? null}
       country={verdict?.country ?? null}
       scannedAt={link.safetyScannedAt}
+      trustScore={link.safetyTrustScore}
+      trustBand={(link.safetyTrustBand ?? "unknown") as TrustBand}
     />
   );
 }

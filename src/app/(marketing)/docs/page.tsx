@@ -11,11 +11,13 @@ const sections = [
   { id: "authentication", label: "Authentication" },
   { id: "links", label: "Links API" },
   { id: "analytics", label: "Analytics API" },
+  { id: "analytics-engine", label: "Analytics Engine" },
   { id: "smart-insights", label: "Smart Insights" },
   { id: "link-checker", label: "Link Checker" },
   { id: "qr", label: "QR Code API" },
   { id: "workspace", label: "Workspace API" },
   { id: "keys", label: "API Keys" },
+  { id: "realtime", label: "Real-Time Features" },
   { id: "sdk", label: "SDK & Clients" },
   { id: "webhooks", label: "Webhooks" },
   { id: "settings", label: "Settings & Account" },
@@ -174,7 +176,7 @@ export default function DocsPage() {
             <Section id="whats-new">
               <h2 className="text-2xl font-bold text-slate-900 mb-4">What's New</h2>
               <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 mb-6">
-                Latest updates from the <strong>May 2026</strong> release.
+                Latest updates from the <strong>June 2026</strong> release.
               </div>
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3">Settings Consolidation</h3>
@@ -306,6 +308,30 @@ export default function DocsPage() {
               </ul>
 
               <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Billing &amp; Webhooks</h3>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Cloudflare R2 Storage + Workers Analytics Engine</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                June 2026 infrastructure upgrades improve scalability and reduce database load. Images and screenshots are now stored in Cloudflare R2, and click time-series data is written to Workers Analytics Engine.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>R2 Image Storage</strong> — uploaded images stored in Cloudflare R2 instead of the database; legacy base64 data still served as fallback. Asset URLs served via <Code>/api/gallery/assets/[id]</Code> with caching headers.</li>
+                <li><strong>R2 Screenshot Storage</strong> — URL scanner screenshots stored in R2 with automatic migration for existing data. Served via <Code>/api/url-scanner/screenshot/[scanId]</Code>.</li>
+                <li><strong>Workers Analytics Engine</strong> — click time-series data written to Cloudflare Analytics Engine on every redirect, queryable via <Code>POST /api/analytics/engine</Code>. Replaces Postgres click INSERT for scalability.</li>
+                <li><strong>Migration scripts</strong> — <Code>scripts/migrate-images-to-r2.ts</Code> and <Code>scripts/migrate-screenshots-to-r2.ts</Code> for migrating existing data.</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Real-Time Collaboration (Durable Objects)</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The real-time collaboration system was completely rebuilt in June 2026. The old Upstash Redis pub/sub system was broken because Redis REST does not support client-side subscriptions. All 12 Durable Object classes are now properly wired with WebSocket support for live presence, analytics streams, A/B test results, and QR scan events.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>DO bindings in wrangler.toml</strong> — All 12 classes declared and deployed</li>
+                <li><strong>DO migrations</strong> — Initial deployment with all classes created</li>
+<li><strong>DO routing in Worker</strong> — <Code>{'/do/{name}/{id}/{action?}'}</Code> paths forwarded to appropriate DO</li>
+<li><strong>WebSocket streaming</strong> — 4 DOs support real-time WebSocket connections (presence, analytics, A/B tests, QR scans)</li>
+                <li><strong>React Query fallback</strong> — 30-second polling for workspace data refresh</li>
+                <li><strong>Active users indicator</strong> — Now works via <Code>WorkspacePresence</Code> DO WebSocket</li>
+              </ul>
 
               <h4 className="text-sm font-semibold text-slate-500 mb-2 mt-6">Dodo Payments Webhook Fixes</h4>
               <p className="text-slate-600 mb-4 leading-relaxed">
@@ -593,6 +619,69 @@ func main() {
     }
   ]
 }`} />
+            </Section>
+
+            {/* ─── Analytics Engine ───────────────────────── */}
+            <Section id="analytics-engine">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Analytics Engine</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Click event time-series data is stored in <strong>Cloudflare Workers Analytics Engine</strong>, a serverless time-series database built into the Cloudflare network. Every click redirect writes an event to Analytics Engine, replacing the previous Postgres-based click INSERT for scalable long-term storage.
+              </p>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The real-time feed (last 50 clicks) still uses Redis. Analytics Engine powers all historical queries — overview KPIs, breakdowns, time-series charts, and top-links — via SQL queries proxied through the API.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Query Events</h3>
+              <Endpoint method="POST" path="/api/analytics/engine" description="Run a SQL query against the Analytics Engine dataset. Clerk-authenticated (dashboard session)." />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Request</h4>
+              <p className="text-slate-500 text-sm mb-3">Body (JSON):</p>
+              <CodeBlock code={`{
+  "query": "SELECT timestamp, blob1 AS linkId, double1 AS workspaceId FROM pivoturl_clicks WHERE double1 = {workspaceId} ORDER BY timestamp DESC LIMIT 10"
+}`} />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Response</h4>
+              <CodeBlock code={`{
+  "data": [
+    {
+      "timestamp": "2026-06-01T12:00:00Z",
+      "linkId": "abc-123",
+      "workspaceId": 42
+    }
+  ],
+  "meta": { "rows": 1 }
+}`} />
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Event Schema</h4>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Field</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Type</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">blob1</td><td className="px-4 py-2 text-slate-600">TEXT</td><td className="px-4 py-2 text-slate-500">Link ID (UUID)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">blob2</td><td className="px-4 py-2 text-slate-600">TEXT</td><td className="px-4 py-2 text-slate-500">Country code</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">blob3</td><td className="px-4 py-2 text-slate-600">TEXT</td><td className="px-4 py-2 text-slate-500">Device type</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">blob4</td><td className="px-4 py-2 text-slate-600">TEXT</td><td className="px-4 py-2 text-slate-500">Referrer domain</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">blob5</td><td className="px-4 py-2 text-slate-600">TEXT</td><td className="px-4 py-2 text-slate-500">Slug</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">double1</td><td className="px-4 py-2 text-slate-600">INT</td><td className="px-4 py-2 text-slate-500">Workspace ID (numeric)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">double2</td><td className="px-4 py-2 text-slate-600">INT</td><td className="px-4 py-2 text-slate-500">Unix timestamp (seconds)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">Usage Notes</h4>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li>All queries must include a <Code>WHERE</Code> clause filtering by workspace ID to prevent cross-workspace access</li>
+                <li>The endpoint is rate-limited — designed for dashboard queries, not bulk exports</li>
+                <li>Analytics Engine has a ~30-second write-to-read consistency window</li>
+                <li>Real-time data (&lt; 5 minutes old) may not yet appear in Analytics Engine queries</li>
+              </ul>
+
+              <p className="text-slate-600 text-sm">
+                Manage click tracking from your Worker or via the Vercel-to-Worker forwarding bridge at <Code>/api/internal/clicks</Code>.
+              </p>
             </Section>
 
             {/* ─── Smart Insights ─────────────────────────── */}
@@ -1299,6 +1388,118 @@ console.log(\`\${remaining} requests remaining, resets at \${resetAt}\`);`} />
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <strong>Tip:</strong> When <Code>X-RateLimit-Remaining</Code> approaches 0, back off and retry after the timestamp in <Code>X-RateLimit-Reset</Code>. Rate limits reset on a rolling hourly window.
               </div>
+            </Section>
+
+            {/* ─── Real-Time Features ─────────────────────────────────────── */}
+            <Section id="realtime">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Real-Time Features</h2>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                PivotUrl uses <strong>Cloudflare Durable Objects WebSockets</strong> for real-time collaboration features. All 12 DO classes are deployed and actively handling WebSocket connections at the edge.
+              </p>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Workspace Presence</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                See who's viewing your workspace in real-time. Uses the <Code>WorkspacePresence</Code> DO with WebSocket connections.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>WebSocket endpoint:</strong> <Code>{'wss://pivoturl.com/do/presence/workspace:{workspaceId}/ws'}</Code></li>
+                <li><strong>HTTP fallback:</strong> <Code>{'GET /do/presence/workspace:{workspaceId}'}</Code> returns JSON list of active users</li>
+                <li><strong>Connection lifetime:</strong> Users are removed after 60 seconds of inactivity</li>
+                <li><strong>Features:</strong> Live user list, cursor tracking, page presence, real-time join/leave events</li>
+              </ul>
+              <CodeBlock code={`// Client-side WebSocket connection
+const ws = new WebSocket('wss://pivoturl.com/do/presence/workspace:ws_123/ws');
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: 'presence',
+    userId: 'user_123',
+    name: 'Jane Doe',
+    imageUrl: 'https://...',
+    page: '/dashboard/links',
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === 'initial_state') {
+    console.log('Active users:', msg.users);
+  }
+  if (msg.type === 'presence_update') {
+    console.log('User updated:', msg.userId, msg.state);
+  }
+  if (msg.type === 'presence_leave') {
+    console.log('User left:', msg.userId);
+  }
+};`} />
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Real-Time Analytics</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Live click stream for individual links. Uses the <Code>AnalyticsWebSocket</Code> DO.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>WebSocket endpoint:</strong> <Code>{'wss://pivoturl.com/do/analytics-ws/link:{linkId}/ws'}</Code></li>
+                <li><strong>Push endpoint:</strong> <Code>{'POST /do/analytics-ws/link:{linkId}/push'}</Code></li>
+                <li><strong>Features:</strong> Real-time click events with geo/device/referrer data</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">A/B Test Live Results</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                See A/B test variant performance in real-time. Uses the <Code>AbTestStream</Code> DO.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>WebSocket endpoint:</strong> <Code>{'wss://pivoturl.com/do/abtest/ab:{testId}/ws'}</Code></li>
+                <li><strong>Record endpoint:</strong> <Code>{'POST /do/abtest/ab:{testId}/record'}</Code></li>
+                <li><strong>Features:</strong> Live win probability, variant click counts</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">QR Scan Streaming</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                Real-time QR code scan events. Uses the <Code>QrStream</Code> DO.
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>WebSocket endpoint:</strong> <Code>{'wss://pivoturl.com/do/qr/{qrId}/ws'}</Code></li>
+                <li><strong>Push endpoint:</strong> <Code>{'POST /do/qr/{qrId}/push-scan'}</Code></li>
+                <li><strong>Features:</strong> Live QR scan events with geo/device data</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">Other DOs</h3>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">DO Class</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">Purpose</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-700">WebSocket</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">DistributedLocker</td><td className="px-4 py-2 text-slate-600">Distributed locking</td><td className="px-4 py-2 text-slate-500">No (HTTP only)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">Scheduler</td><td className="px-4 py-2 text-slate-600">Scheduled one-shot tasks</td><td className="px-4 py-2 text-slate-500">No (HTTP + alarms)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">CoordinatedCache</td><td className="px-4 py-2 text-slate-600">Stale-while-revalidate cache</td><td className="px-4 py-2 text-slate-500">No (HTTP only)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">WorkflowEngine</td><td className="px-4 py-2 text-slate-600">State machine orchestration</td><td className="px-4 py-2 text-slate-500">No (HTTP only)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">WebhookDeliverer</td><td className="px-4 py-2 text-slate-600">Webhook delivery with retries</td><td className="px-4 py-2 text-slate-500">No (HTTP + alarms)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">SessionStore</td><td className="px-4 py-2 text-slate-600">Server-side session storage</td><td className="px-4 py-2 text-slate-500">No (HTTP only)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">EventLog</td><td className="px-4 py-2 text-slate-600">Audit event logging</td><td className="px-4 py-2 text-slate-500">No (HTTP only)</td></tr>
+                    <tr><td className="px-4 py-2 font-mono text-xs text-slate-800">FeatureFlags</td><td className="px-4 py-2 text-slate-600">Feature flag evaluation</td><td className="px-4 py-2 text-slate-500">Yes (live updates)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 className="text-lg font-semibold text-slate-900 mb-3 mt-8">June 2026 Fix</h3>
+              <p className="text-slate-600 mb-4 leading-relaxed">
+                The real-time collaboration system was completely rebuilt in June 2026. The old Upstash Redis pub/sub system was broken because Redis REST does not support client-side subscriptions. All 12 Durable Object classes are now properly wired with:
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-sm text-slate-600 mb-4">
+                <li><strong>DO bindings in wrangler.toml</strong> — All 12 classes declared and deployed</li>
+                <li><strong>DO migrations</strong> — Initial deployment with all classes created</li>
+<li><strong>DO routing in Worker</strong> — <Code>{'/do/{name}/{id}/{action?}'}</Code> paths forwarded to appropriate DO</li>
+<li><strong>WebSocket support</strong> — 4 DOs support WebSocket streaming (presence, analytics, A/B tests, QR scans)</li>
+                <li><strong>React Query fallback</strong> — 30-second polling for workspace data refresh</li>
+              </ul>
+              <p className="text-slate-600 text-sm">
+                The deprecated <Code>/api/realtime/event</Code> endpoint is now a no-op. Use DO WebSockets for real-time features.
+              </p>
             </Section>
 
             {/* Footer */}
