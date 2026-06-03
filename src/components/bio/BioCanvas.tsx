@@ -98,7 +98,7 @@ const BLOCK_DEFAULT_CONFIGS: Record<string, Record<string, unknown>> = {
       { link: "https://x.com/", icon: { src: "https://cdn.simpleicons.org/x/000000" }, label: "X" },
       { link: "https://instagram.com/", icon: { src: "https://cdn.simpleicons.org/instagram/E4405F" }, label: "Instagram" },
       { link: "https://github.com/", icon: { src: "https://cdn.simpleicons.org/github/181717" }, label: "GitHub" },
-      { link: "https://linkedin.com/", icon: { src: "https://cdn.simpleicons.org/linkedin/0A66C2" }, label: "LinkedIn" },
+      { link: "https://linkedin.com/", icon: { src: "/icons/linkedin.svg" }, label: "LinkedIn" },
     ],
   },
   links: {

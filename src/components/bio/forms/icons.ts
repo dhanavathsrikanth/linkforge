@@ -176,6 +176,7 @@ function inlineIconUrl(slug: string, color: string): string | null {
 export function iconUrl(icon: BrandIcon): string {
   return (
     inlineIconUrl(icon.slug, icon.color) ??
+    customIconUrl(icon.slug, icon.color) ??
     `https://cdn.simpleicons.org/${icon.slug}/${icon.color}`
   );
 }
@@ -184,13 +185,20 @@ export function iconUrl(icon: BrandIcon): string {
 export function iconUrlGray(icon: BrandIcon): string {
   return (
     inlineIconUrl(icon.slug, "9B9B9B") ??
+    customIconUrl(icon.slug, "9B9B9B") ??
     `https://cdn.simpleicons.org/${icon.slug}/9B9B9B`
   );
 }
 
+/** Override for icons removed from the SimpleIcons CDN */
+function customIconUrl(slug: string, _color: string): string | null {
+  if (slug === "linkedin") return "/icons/linkedin.svg";
+  return null;
+}
+
 /** Build icon URL from a slug + optional color override */
 export function buildIconUrl(slug: string, color = "9B9B9B"): string {
-  return inlineIconUrl(slug, color) ?? `https://cdn.simpleicons.org/${slug}/${color}`;
+  return inlineIconUrl(slug, color) ?? customIconUrl(slug, color) ?? `https://cdn.simpleicons.org/${slug}/${color}`;
 }
 
 /** Check if a URL is a Simple Icons CDN URL */
