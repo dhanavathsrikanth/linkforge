@@ -10,12 +10,14 @@ const isPublicRoute = createRouteMatcher([
   "/api/links/resolve(.*)",
   "/api/internal(.*)",
   "/api/v2(.*)",           // v2 routes handle auth internally (API keys or Clerk)
+  "/api/v1(.*)",           // v1 routes handle auth internally (API keys or Clerk)
+  "/api/bio/(.*)",         // Bio reactions, analytics track, public data — handlers do their own auth
   "/api/workspaces/current", // WorkspaceProvider fetches this client-side; route handler does its own auth
   "/docs",                 // Public API documentation
   "/pricing",              // Public pricing page
 ]);
 
-export const proxy = clerkMiddleware(async (auth, req) => {
+export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return;
 
   const { userId, redirectToSignIn } = await auth();
