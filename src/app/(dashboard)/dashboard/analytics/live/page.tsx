@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { useSearchParams } from "next/navigation";
 import { LiveAnalyticsFeed } from "@/components/durable-objects/LiveAnalyticsFeed";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Activity, FlaskConical, QrCode } from "lucide-react";
 
-export default function LiveAnalyticsPage() {
+function LiveAnalyticsContent() {
   const { workspace, isLoading } = useWorkspace();
   const searchParams = useSearchParams();
   const linkId = searchParams.get("linkId") || "";
@@ -112,5 +113,13 @@ export default function LiveAnalyticsPage() {
         <LiveABTestResults linkId={linkId || "demo"} />
       </div>
     </div>
+  );
+}
+
+export default function LiveAnalyticsPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[400px] items-center justify-center rounded-xl border border-dashed border-border"><div className="text-sm text-muted-foreground">Loading...</div></div>}>
+      <LiveAnalyticsContent />
+    </Suspense>
   );
 }
