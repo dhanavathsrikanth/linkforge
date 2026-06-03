@@ -168,6 +168,10 @@ export function BioEditor({ initialData, domains = [] }: BioEditorProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isPublishing, setIsPublishing] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [appBase, setAppBase] = useState(
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://pivoturl.com"
+  );
+  useEffect(() => { setAppBase(window.location.origin.replace(/\/$/, "")); }, []);
 
   // Remember the slug we loaded with — we only send `slug` to the API when
   // the user explicitly changes it. Re-sending the unchanged slug on every
@@ -825,7 +829,7 @@ export function BioEditor({ initialData, domains = [] }: BioEditorProps) {
       {/* Share modal */}
       {showShareModal && (
         <BioShareModal
-          url={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}/p/${page.slug}`}
+          url={`${appBase}/p/${page.slug}`}
           displayName={page.displayName}
           onClose={() => setShowShareModal(false)}
         />

@@ -227,7 +227,10 @@ export function SidebarSettings({
     activeDomain?.cfHostnameStatus === "active_redeploying";
 
   // The live URL shown to the user
-  const appBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://pivoturl.com";
+  const [appBase, setAppBase] = useState(
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://pivoturl.com"
+  );
+  useEffect(() => { setAppBase(window.location.origin.replace(/\/$/, "")); }, []);
   const appHostname = (() => { try { return new URL(appBase).hostname; } catch { return "pivoturl.com"; } })();
   const liveUrl = activeDomain
     ? `https://${activeDomain.domain}`

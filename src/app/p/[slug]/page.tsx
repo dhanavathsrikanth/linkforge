@@ -50,7 +50,9 @@ export async function generateMetadata({
   const title = seoTitle ?? displayName ?? `${slug}'s page`;
   const description = seoDescription ?? bio ?? "Check out my links";
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    ?? "https://pivoturl.com";
   const ogImageUrl = `${appUrl}/p/${slug}/opengraph-image`;
 
   return {

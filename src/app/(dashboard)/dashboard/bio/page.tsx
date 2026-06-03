@@ -8,7 +8,9 @@ import { fetchBiosForUser } from "@/lib/bio/page-data";
 export const metadata = { title: "Link in Bio — Pages" };
 
 function getAppDomain(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com";
+  const url = process.env.NEXT_PUBLIC_APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    ?? "https://pivoturl.com";
   try {
     return new URL(url).host;
   } catch {
@@ -25,7 +27,9 @@ export default async function BioListPage() {
 
   const bios = await fetchBiosForUser(dbUser.id);
   const appDomain = getAppDomain();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    ?? "https://pivoturl.com";
 
   if (bios.length === 0) {
     redirect("/dashboard/bio/new");

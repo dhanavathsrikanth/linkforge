@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Responsive as ResponsiveGridLayout } from "react-grid-layout";
 import type { LayoutItem } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
@@ -93,6 +94,13 @@ interface BioPublicPageProps {
 }
 
 export function BioPublicPage({ page }: BioPublicPageProps) {
+  const [appBase, setAppBase] = useState(
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://pivoturl.com"
+  );
+  useEffect(() => {
+    setAppBase(window.location.origin.replace(/\/$/, ""));
+  }, []);
+
   const visibleBlocks = page.blocks.filter((b) => b.visible);
   const hasProfile = page.displayName || page.bio || page.avatarUrl;
 
@@ -136,7 +144,7 @@ export function BioPublicPage({ page }: BioPublicPageProps) {
 
         {/* ── Share bar ─────────────────────────────────────────────── */}
         <BioShareBar
-          url={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}/p/${page.slug}`}
+          url={`${appBase}/p/${page.slug}`}
           displayName={page.displayName}
         />
 
@@ -144,7 +152,7 @@ export function BioPublicPage({ page }: BioPublicPageProps) {
         {page.showBranding && (
           <div className="flex justify-center mt-10">
             <a
-              href={`${process.env.NEXT_PUBLIC_APP_URL ?? "https://pivoturl.com"}?utm_source=bio&utm_medium=branding&utm_campaign=${page.slug}`}
+              href={`${appBase}?utm_source=bio&utm_medium=branding&utm_campaign=${page.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest opacity-40 hover:opacity-70 transition-opacity"

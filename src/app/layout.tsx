@@ -26,7 +26,11 @@ export const metadata: Metadata = {
   keywords: ["link shortener", "branded links", "url shortener", "link analytics", "custom domains"],
   authors: [{ name: "PivotUrl" }],
   creator: "PivotUrl",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    ?? "http://localhost:3000"
+  ),
   openGraph: {
     type: "website",
     locale: "en_US",
