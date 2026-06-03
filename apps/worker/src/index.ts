@@ -568,7 +568,8 @@ export default {
 
     if (!slug) {
       if (hostIsPivotUrl) {
-        return proxyToVercel(pathname, url.search);
+        const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+        return fetch(new Request(originUrl, request), { redirect: 'manual' });
       }
       return new Response(NOT_FOUND_PAGE, {
         status: 404,
@@ -596,7 +597,8 @@ export default {
 
       if (!link) {
         if (hostIsPivotUrl) {
-          return proxyToVercel(pathname, url.search);
+          const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+          return fetch(new Request(originUrl, request), { redirect: 'manual' });
         }
         return new Response(NOT_FOUND_PAGE, {
           status: 404,
