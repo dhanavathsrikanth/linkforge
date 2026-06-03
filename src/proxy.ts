@@ -11,6 +11,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/internal(.*)",
   "/api/ingest(.*)",
   "/api/v2(.*)",           // v2 routes handle auth internally (API keys or Clerk)
+  "/api/bio(.*)",          // Bio page API (reactions, blocks — leaflet-level auth)
   "/api/workspaces/current", // WorkspaceProvider fetches this client-side; route handler does its own auth
   "/docs",                 // Public API documentation
   "/pricing",              // Public pricing page
