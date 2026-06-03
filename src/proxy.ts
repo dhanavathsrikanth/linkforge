@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/s/(.*)",
   "/api/links/resolve(.*)",
   "/api/internal(.*)",
+  "/api/ingest(.*)",
   "/api/v2(.*)",           // v2 routes handle auth internally (API keys or Clerk)
   "/api/workspaces/current", // WorkspaceProvider fetches this client-side; route handler does its own auth
   "/docs",                 // Public API documentation
