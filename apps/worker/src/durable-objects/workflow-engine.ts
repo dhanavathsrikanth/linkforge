@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 type WorkflowStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 interface WorkflowInstance {

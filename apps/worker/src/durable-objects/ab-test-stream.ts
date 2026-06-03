@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface ABTestState {
   testId: string;
   variants: Record<string, { weight: number; clicks: number; conversions: number }>;

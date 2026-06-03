@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface FlagDefinition {
   key: string;
   value: any;

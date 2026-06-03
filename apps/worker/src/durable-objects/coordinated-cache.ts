@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface CacheEntry {
   value: any;
   expiresAt: number;

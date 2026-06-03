@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface SessionData {
   data: any;
   expiresAt: number;

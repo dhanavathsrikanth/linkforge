@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 export class QrStream extends DurableObject {
   private sessions: Map<string, WebSocket> = new Map();
   private subscriptions: Map<string, Set<string>> = new Map();

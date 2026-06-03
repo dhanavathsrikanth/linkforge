@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface AuditEvent {
   id: string;
   workspaceId: string;

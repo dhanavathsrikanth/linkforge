@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 export class DistributedLocker extends DurableObject {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);

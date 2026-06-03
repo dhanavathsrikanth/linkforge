@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 export class AnalyticsWebSocket extends DurableObject {
   private sessions: Map<string, WebSocket> = new Map();
 

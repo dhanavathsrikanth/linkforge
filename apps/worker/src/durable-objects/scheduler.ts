@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 export interface ScheduledTask {
   tag: string;
   action: string;

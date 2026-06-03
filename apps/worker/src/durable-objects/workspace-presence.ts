@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface PresenceState {
   userId: string;
   name: string;

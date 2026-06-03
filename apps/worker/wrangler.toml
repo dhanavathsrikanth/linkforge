@@ -1,6 +1,6 @@
 name = "pivoturl-worker"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-04-01"
 
 # ─── Analytics Engine ──────────────────────────────────────────────────────────
 
@@ -119,11 +119,12 @@ class_name = "FeatureFlags"
 # Initial deployment: all 12 classes created. Increment tag on future changes.
 
 # ─── Vectorize (Semantic Similarity Search) ────────────────────────────────
-# Used for true similarity search with embeddings instead of hash equality
+# Uncomment after creating the index in Cloudflare Dashboard:
+#   npx wrangler vectorize create page-embeddings --dimensions=768 --metric=cosine
 
-[[vectorize]]
-binding = "PAGE_EMBEDDINGS"
-index_name = "page-embeddings"
+# [[vectorize]]
+# binding = "PAGE_EMBEDDINGS"
+# index_name = "page-embeddings"
 
 # ─── Workers AI (Embedding Generation) ──────────────────────────────────────
 # Used to generate embeddings for semantic similarity search
@@ -147,7 +148,7 @@ crons = ["0 3 * * *"]  # Daily at 03:00 UTC - URL scanner retention
 
 [[migrations]]
 tag = "v1"
-new_classes = [
+new_sqlite_classes = [
   "AnalyticsWebSocket",
   "DistributedLocker",
   "Scheduler",

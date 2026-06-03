@@ -688,3 +688,6 @@ async function handleUrlScannerRetention(env: Env): Promise<void> {
     console.error('[cron] URL scanner retention error:', err);
   }
 }
+
+export { AnalyticsWebSocket, DistributedLocker, Scheduler, CoordinatedCache, WorkspacePresence, WorkflowEngine, QrStream, WebhookDeliverer, SessionStore, EventLog, AbTestStream, FeatureFlags } from './durable-objects';
+

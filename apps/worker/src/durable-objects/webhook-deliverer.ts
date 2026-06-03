@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 interface WebhookDelivery {
   id: string;
   url: string;
