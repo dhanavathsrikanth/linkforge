@@ -277,6 +277,7 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    try {
     const url = new URL(request.url);
     const host = request.headers.get('Host') || '';
     const pathname = url.pathname;
@@ -518,21 +519,17 @@ export default {
     }
 
     // ── Root path — proxy to Next.js origin for marketing landing page ────────
-    // Build a fresh request without the original Host header so Vercel doesn't
-    // see a domain mismatch and redirect to the vercel.app URL.
+    // Uses minimal headers — no Cookie, no browser User-Agent — so Vercel sees
+    // a clean request and doesn't redirect to Clerk or other auth flows.
 
     if (pathname === '/') {
       const originUrl = `https://pivoturl.vercel.app/`;
-      const headers = new Headers();
-      for (const h of ['Accept', 'Accept-Encoding', 'Accept-Language', 'User-Agent', 'Cookie', 'CF-Connecting-IP', 'X-Forwarded-For']) {
-        const v = request.headers.get(h);
-        if (v) headers.set(h, v);
-      }
-      const originRes = await fetch(originUrl, { method: request.method, headers, redirect: 'follow' });
-      if (originRes.ok || originRes.status === 404) {
+      const originRes = await fetch(originUrl, { method: 'GET', redirect: 'manual' });
+      const status = originRes.status;
+      if ((status >= 200 && status < 300) || status === 404 || status === 304) {
         const body = await originRes.text();
         return new Response(body, {
-          status: originRes.status,
+          status,
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
             'Cache-Control': 'public, max-age=300, s-maxage=60',
@@ -639,6 +636,13 @@ export default {
       return new Response(NOT_FOUND_PAGE, {
         status: 500,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    } catch (error) {
+      console.error('[worker] Unhandled fetch error:', error);
+      return new Response('Internal Server Error', {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       });
     }
   },
