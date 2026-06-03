@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/v2(.*)",           // v2 routes handle auth internally (API keys or Clerk)
   "/api/v1(.*)",           // v1 routes handle auth internally (API keys or Clerk)
   "/api/bio/(.*)",         // Bio reactions, analytics track, public data — handlers do their own auth
+  "/api/gallery/assets/(.*)", // Gallery asset images served on bio pages (public, no auth)
   "/api/workspaces/current", // WorkspaceProvider fetches this client-side; route handler does its own auth
   "/docs",                 // Public API documentation
   "/pricing",              // Public pricing page
