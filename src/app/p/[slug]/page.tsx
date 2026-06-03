@@ -13,6 +13,8 @@ import {
 } from "@/lib/bio/theme";
 import { getGoogleFontUrl } from "@/lib/bio/fonts";
 import type { PublishedSnapshot } from "@/types/gallery";
+import { recordBioPageView } from "@/lib/bio/track-view";
+import { headers } from "next/headers";
 
 // ─── Caching strategy ─────────────────────────────────────────────────────────
 // We render the page from the `published_snapshot` JSON column, which is
@@ -269,14 +271,20 @@ export default async function PublishedBioPage({
   // Fire to PostHog for product analytics
   await trackBioPageViewed({ galleryId: gallery.id }).catch(() => {});
 
-  // Fire to our own analytics table directly (page-level view event)
-  // We use a synthetic blockId = galleryId and blockType = "page"
-  // This is done via the internal analytics endpoint to avoid FK issues
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  fetch(`${appUrl}/api/bio/analytics/track`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ galleryId: gallery.id }),
+  // Record view directly — no HTTP fetch, works in dev and prod.
+  // We read the real visitor headers via next/headers so geo/device are accurate.
+  const reqHeaders = await headers();
+  recordBioPageView({
+    galleryId: gallery.id,
+    ip:
+      reqHeaders.get("cf-connecting-ip") ??
+      reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown",
+    cfCountry: reqHeaders.get("cf-ipcountry"),
+    vercelCountry: reqHeaders.get("x-vercel-ip-country"),
+    deviceTypeHeader: reqHeaders.get("x-device-type"),
+    userAgent: reqHeaders.get("user-agent"),
+    referer: reqHeaders.get("referer"),
   }).catch(() => {});
 
   const pageData: BioPublicPageData = {

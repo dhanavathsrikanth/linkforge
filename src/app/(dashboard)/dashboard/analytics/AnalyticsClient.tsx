@@ -17,15 +17,19 @@ import { TopCountries } from "@/components/analytics/TopCountries";
 import { DonutChart } from "@/components/analytics/DonutChart";
 import { TopReferrers } from "@/components/analytics/TopReferrers";
 import { TopLinksTable } from "@/components/analytics/TopLinksTable";
-import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick, Sparkles } from "lucide-react";
+import { BioAnalyticsSection } from "@/components/analytics/BioAnalyticsSection";
+import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick, Sparkles, Link2, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AnalyticsClientProps {
   workspaceId: string;
 }
 
+type Tab = "links" | "bio";
+
 export function AnalyticsClient({ workspaceId }: AnalyticsClientProps) {
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>("links");
   const [range, setRange] = useState<DateRange>("30d");
   const [from, setFrom] = useState<string | undefined>();
   const [to, setTo] = useState<string | undefined>();
