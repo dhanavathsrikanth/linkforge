@@ -1,6 +1,6 @@
 import { eq, sql, and, gte, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { workspaces, usageOverrides, domains, workspaceMembers, linkGallery, clickStats } from "@/lib/db/schema";
+import { workspaces, usageOverrides, domains, workspaceMembers, linkGallery } from "@/lib/db/schema";
 import { redis } from "@/lib/redis";
 import { PLANS, PlanKey, PlanLimits, LimitKey } from "./plans";
 
@@ -77,7 +77,7 @@ async function syncCounterToDB(workspaceId: string, type: CounterType): Promise<
 
   // Set counter with TTL of 1 hour (refreshes on each check)
   const counterKey = getCounterKey(workspaceId, type);
-  await redis.set(counterKey, count, { EX: 3600 });
+  await redis.set(counterKey, count, { ex: 3600 });
   
   // Register key for deterministic cleanup (no SCAN needed)
   await addUsageKey(workspaceId, counterKey);
@@ -124,7 +124,7 @@ async function decrementCounter(workspaceId: string, type: CounterType, count: n
   
   // Don't allow negative counters
   if (newVal < 0) {
-    await redis.set(key, 0, { EX: 3600 });
+    await redis.set(key, 0, { ex: 3600 });
     return 0;
   }
   

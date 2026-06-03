@@ -17,9 +17,9 @@ import { TopCountries } from "@/components/analytics/TopCountries";
 import { DonutChart } from "@/components/analytics/DonutChart";
 import { TopReferrers } from "@/components/analytics/TopReferrers";
 import { TopLinksTable } from "@/components/analytics/TopLinksTable";
-import { BioAnalyticsSection } from "@/components/analytics/BioAnalyticsSection";
-import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick, Sparkles, Link2, LayoutGrid } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick, Sparkles } from "lucide-react";
+
 
 interface AnalyticsClientProps {
   workspaceId: string;
