@@ -517,6 +517,13 @@ export default {
       if (bioResponse) return bioResponse;
     }
 
+    // ── Root path — proxy to Next.js origin for marketing landing page ────────
+
+    if (pathname === '/') {
+      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+      return fetch(new Request(originUrl, request));
+    }
+
     // ── Short link redirect ───────────────────────────────────────────────────
 
     const domain = host;
