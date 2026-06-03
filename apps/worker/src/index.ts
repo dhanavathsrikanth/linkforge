@@ -1,6 +1,6 @@
 import type { Env, Link, RequestContext, ClickQueueMessage, DomainConfig } from './types';
 import { handleBioRequest, handleBioPurge, handleBioDomainMapping, handleOgPregenerate } from './bio';
-import { resolveRoute } from './domain-routing';
+import { resolveRoute, isSystemPath } from './domain-routing';
 import { handleQueue } from './queue-handler';
 import { checkRateLimitEdge } from './rate-limiter';
 import { handlePasswordChallenge, handlePasswordVerify } from './password-challenge';
@@ -108,6 +108,30 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html>
 </html>`;
 
 // ─── Helpers ───────────────────────────────────────────────────────
+
+async function proxyToVercel(pathname: string, search: string): Promise<Response> {
+  const originUrl = `https://pivoturl.vercel.app${pathname}${search}`;
+  const originRes = await fetch(originUrl, { method: 'GET', redirect: 'manual' });
+  const status = originRes.status;
+  if ((status >= 200 && status < 300) || status === 404 || status === 304) {
+    const body = await originRes.text();
+    return new Response(body, {
+      status,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'public, max-age=300, s-maxage=60',
+      },
+    });
+  }
+  return new Response(NOT_FOUND_PAGE, {
+    status: 502,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
+
+function isPivotUrlHost(host: string): boolean {
+  return host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
+}
 
 function detectDevice(userAgent: string): 'mobile' | 'desktop' | 'tablet' | 'bot' {
   const ua = userAgent.toLowerCase();
@@ -472,9 +496,18 @@ export default {
       }
     }
 
+    // ── System/static passthrough (pivoturl.com domains) ─────────────────────────
+    // favicon.ico, robots.txt, _next/static, .well-known — proxy to Vercel.
+    // Custom domains handle this via resolveRoute → system-passthrough below.
+    if (isSystemPath(pathname)) {
+      if (isPivotUrlHost(host)) {
+        return proxyToVercel(pathname, url.search);
+      }
+    }
+
     // ── Custom-domain routing ─────────────────────────────────────────────────
     {
-      const isPivotUrl = host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
+      const isPivotUrl = isPivotUrlHost(host);
       if (!isPivotUrl) {
         const cfg = await getDomainConfig(host, env);
         if (cfg) {
@@ -508,7 +541,7 @@ export default {
 
     // ── Bio page routing ──────────────────────────────────────────────────────
 
-    const isPivotUrlDomain = host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
+    const isPivotUrlDomain = isPivotUrlHost(host);
     const isBioPath = pathname.startsWith('/p/');
     const isReactionPost = request.method === 'POST' && pathname === '/api/bio/reactions';
     const isCustomDomain = !isPivotUrlDomain;
@@ -523,23 +556,7 @@ export default {
     // a clean request and doesn't redirect to Clerk or other auth flows.
 
     if (pathname === '/') {
-      const originUrl = `https://pivoturl.vercel.app/`;
-      const originRes = await fetch(originUrl, { method: 'GET', redirect: 'manual' });
-      const status = originRes.status;
-      if ((status >= 200 && status < 300) || status === 404 || status === 304) {
-        const body = await originRes.text();
-        return new Response(body, {
-          status,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'public, max-age=300, s-maxage=60',
-          },
-        });
-      }
-      return new Response(NOT_FOUND_PAGE, {
-        status: 502,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+      return proxyToVercel('/', url.search);
     }
 
     // ── Short link redirect ───────────────────────────────────────────────────
@@ -547,7 +564,12 @@ export default {
     const domain = host;
     const slug = pathname.startsWith('/') ? pathname.slice(1) : pathname;
 
+    const hostIsPivotUrl = isPivotUrlHost(host);
+
     if (!slug) {
+      if (hostIsPivotUrl) {
+        return proxyToVercel(pathname, url.search);
+      }
       return new Response(NOT_FOUND_PAGE, {
         status: 404,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -573,6 +595,9 @@ export default {
       }
 
       if (!link) {
+        if (hostIsPivotUrl) {
+          return proxyToVercel(pathname, url.search);
+        }
         return new Response(NOT_FOUND_PAGE, {
           status: 404,
           headers: { 'Content-Type': 'text/html; charset=utf-8' },

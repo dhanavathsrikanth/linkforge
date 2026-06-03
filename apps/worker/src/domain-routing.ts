@@ -24,12 +24,13 @@ export type RouteResult =
   | { kind: 'link'; slug: string }
   | { kind: 'not-found' };
 
-/** System files browsers/crawlers request at a host root. */
+/** Paths and files that should always pass through to origin. */
 const SYSTEM_FILES = new Set([
   'favicon.ico',
   'robots.txt',
   'sitemap.xml',
   'manifest.json',
+  '_next',
 ]);
 
 /** Returns the first path segment (no leading slash, lowercased). */
@@ -37,7 +38,7 @@ export function firstSegment(path: string): string {
   return path.replace(/^\/+/, '').split('/')[0]?.toLowerCase() ?? '';
 }
 
-function isSystemPath(path: string): boolean {
+export function isSystemPath(path: string): boolean {
   const seg = firstSegment(path);
   if (seg === '') return false;
   if (SYSTEM_FILES.has(seg)) return true;
