@@ -518,10 +518,31 @@ export default {
     }
 
     // ── Root path — proxy to Next.js origin for marketing landing page ────────
+    // Build a fresh request without the original Host header so Vercel doesn't
+    // see a domain mismatch and redirect to the vercel.app URL.
 
     if (pathname === '/') {
-      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
-      return fetch(new Request(originUrl, request));
+      const originUrl = `https://pivoturl.vercel.app/`;
+      const headers = new Headers();
+      for (const h of ['Accept', 'Accept-Encoding', 'Accept-Language', 'User-Agent', 'Cookie', 'CF-Connecting-IP', 'X-Forwarded-For']) {
+        const v = request.headers.get(h);
+        if (v) headers.set(h, v);
+      }
+      const originRes = await fetch(originUrl, { method: request.method, headers, redirect: 'follow' });
+      if (originRes.ok || originRes.status === 404) {
+        const body = await originRes.text();
+        return new Response(body, {
+          status: originRes.status,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'public, max-age=300, s-maxage=60',
+          },
+        });
+      }
+      return new Response(NOT_FOUND_PAGE, {
+        status: 502,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
     }
 
     // ── Short link redirect ───────────────────────────────────────────────────
