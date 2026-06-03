@@ -133,21 +133,6 @@ function isPivotUrlHost(host: string): boolean {
   return host === 'pivoturl.com' || host.endsWith('.pivoturl.com');
 }
 
-/** Forward a request to Vercel with the original Host header so Clerk/Next.js
- *  construct correct redirect URLs (avoids shifting to pivoturl.vercel.app). */
-function vercelFetch(pathname: string, search: string, request: Request): Promise<Response> {
-  const originUrl = `https://pivoturl.vercel.app${pathname}${search}`;
-  const headers = new Headers(request.headers);
-  headers.set('X-Forwarded-Host', request.headers.get('Host') || 'pivoturl.com');
-  headers.set('X-Forwarded-Proto', 'https');
-  const proxyReq = new Request(originUrl, {
-    method: request.method,
-    headers,
-    body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
-  });
-  return fetch(proxyReq, { redirect: 'manual' });
-}
-
 function detectDevice(userAgent: string): 'mobile' | 'desktop' | 'tablet' | 'bot' {
   const ua = userAgent.toLowerCase();
   const botPatterns = [
@@ -413,7 +398,8 @@ export default {
     // ── Passthrough for Next.js API routes ───────────────────────────────────
     // Forward to Vercel origin directly to avoid circular worker invocation.
     if (pathname.startsWith('/api/')) {
-      return vercelFetch(pathname, url.search, request);
+      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+      return fetch(new Request(originUrl, request));
     }
 
     // ── Internal worker management endpoints ──────────────────────────────────
@@ -582,7 +568,8 @@ export default {
 
     if (!slug) {
       if (hostIsPivotUrl) {
-        return vercelFetch(pathname, url.search, request);
+        const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+        return fetch(new Request(originUrl, request), { redirect: 'manual' });
       }
       return new Response(NOT_FOUND_PAGE, {
         status: 404,
@@ -610,7 +597,8 @@ export default {
 
       if (!link) {
         if (hostIsPivotUrl) {
-          return vercelFetch(pathname, url.search, request);
+          const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+          return fetch(new Request(originUrl, request), { redirect: 'manual' });
         }
         return new Response(NOT_FOUND_PAGE, {
           status: 404,
