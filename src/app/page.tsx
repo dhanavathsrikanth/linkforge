@@ -331,21 +331,6 @@ export default function LandingPage() {
 
             {/* Showcase card with border beam */}
             <div className="relative rounded-2xl border border-[var(--ds-border)] bg-white p-5 shadow-sm overflow-hidden">
-              <BorderBeam
-                size={250}
-                duration={12}
-                delay={0}
-                colorFrom="#433BFF"
-                colorTo="#7c3aed"
-              />
-              <BorderBeam
-                size={250}
-                duration={12}
-                delay={6}
-                anchor={180}
-                colorFrom="#7c3aed"
-                colorTo="#ec4899"
-              />
               <div className="relative z-10">
                 <HeroProductCard tab={activeTab} />
                 <div className="mt-4 pt-4 border-t border-[var(--ds-border)] flex items-center justify-between">
@@ -360,6 +345,18 @@ export default function LandingPage() {
                   </Link>
                 </div>
               </div>
+              <BorderBeam
+                duration={6}
+                size={400}
+                className="from-transparent via-violet-500 to-transparent"
+              />
+              <BorderBeam
+                duration={6}
+                delay={3}
+                size={400}
+                borderWidth={2}
+                className="from-transparent via-fuchsia-500 to-transparent"
+              />
             </div>
           </motion.div>
         </div>
