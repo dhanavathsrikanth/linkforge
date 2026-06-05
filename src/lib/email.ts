@@ -39,6 +39,17 @@ async function renderMonthlyReport(props: {
   return render(MonthlyReport(props));
 }
 
+async function renderDomainVerified(props: {
+  name: string;
+  domain: string;
+  dashboardUrl: string;
+  isDefault: boolean;
+  role: string;
+}) {
+  const { default: DomainVerified } = await import("../../emails/DomainVerified");
+  return render(DomainVerified(props));
+}
+
 async function renderClickAlert(props: {
   linkTitle: string;
   linkSlug: string;
@@ -65,19 +76,6 @@ async function renderWeeklyDigest(props: {
 }) {
   const { default: WeeklyDigest } = await import("../../emails/WeeklyDigest");
   return render(WeeklyDigest(props));
-}
-
-async function renderTeamInvite(props: {
-  inviterName: string;
-  inviterEmail: string;
-  workspaceName: string;
-  role: string;
-  inviteToken: string;
-  recipientEmail: string;
-  expiresInDays?: number;
-}) {
-  const { default: TeamInvite } = await import("../../emails/TeamInvite");
-  return render(TeamInvite(props));
 }
 
 async function renderPlanUpgraded(props: {
@@ -228,30 +226,29 @@ export async function sendMonthlyReport(
 }
 
 /**
- * Fires when a workspace member is invited.
+ * Fires when a custom domain passes DNS verification and goes live.
  */
-export async function sendTeamInviteEmail(
+export async function sendDomainVerifiedEmail(
   to: string,
   props: {
-    inviterName: string;
-    inviterEmail: string;
-    workspaceName: string;
+    name: string;
+    domain: string;
+    dashboardUrl: string;
+    isDefault: boolean;
     role: string;
-    inviteToken: string;
-    expiresInDays?: number;
   }
 ) {
   try {
-    const html = await renderTeamInvite({ ...props, recipientEmail: to });
+    const html = await renderDomainVerified(props);
     await resend.emails.send({
       from: FROM,
       replyTo: REPLY_TO,
       to,
-      subject: `${props.inviterName} invited you to join ${props.workspaceName} on PivotUrl`,
+      subject: `🎉 ${props.domain} is now live on PivotUrl!`,
       html,
     });
   } catch (err) {
-    console.error("[email] sendTeamInviteEmail failed:", err);
+    console.error("[email] sendDomainVerifiedEmail failed:", err);
   }
 }
 

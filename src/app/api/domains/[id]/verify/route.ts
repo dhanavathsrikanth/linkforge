@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { domains, cfHostnameStatusEnum, cfSslStatusEnum } from "@/lib/db/schema";
+import { domains, users, cfHostnameStatusEnum, cfSslStatusEnum } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
+import { sendDomainVerifiedEmail } from "@/lib/email";
 import {
   cloudflareCustomHostnames,
   type CfHostnameStatus,
@@ -130,6 +131,27 @@ export async function POST(
           verified: true,
           updatedAt: new Date(),
         }).where(eq(domains.id, id));
+        // Notify workspace owner
+        (async () => {
+          try {
+            const owner = await db
+              .select({ email: users.email, name: users.name })
+              .from(users)
+              .where(eq(users.id, domainRecord.workspace.ownerId))
+              .limit(1);
+            if (owner[0]?.email) {
+              await sendDomainVerifiedEmail(owner[0].email, {
+                name: owner[0].name || owner[0].email,
+                domain: domainRecord.domain,
+                dashboardUrl: `https://pivoturl.com/dashboard/domain`,
+                isDefault: domainRecord.isDefault ?? false,
+                role: domainRecord.role ?? "links",
+              });
+            }
+          } catch (e) {
+            console.error("Domain verified notification failed:", e);
+          }
+        })();
       }
       userMessage = "Domain verified successfully! SSL is active and ready.";
 
@@ -204,6 +226,27 @@ export async function POST(
           verified: true,
           updatedAt: new Date(),
         }).where(eq(domains.id, id));
+        // Notify workspace owner
+        (async () => {
+          try {
+            const owner = await db
+              .select({ email: users.email, name: users.name })
+              .from(users)
+              .where(eq(users.id, domainRecord.workspace.ownerId))
+              .limit(1);
+            if (owner[0]?.email) {
+              await sendDomainVerifiedEmail(owner[0].email, {
+                name: owner[0].name || owner[0].email,
+                domain: domainRecord.domain,
+                dashboardUrl: `https://pivoturl.com/dashboard/domain`,
+                isDefault: domainRecord.isDefault ?? false,
+                role: domainRecord.role ?? "links",
+              });
+            }
+          } catch (e) {
+            console.error("Domain verified notification failed:", e);
+          }
+        })();
       }
     }
 

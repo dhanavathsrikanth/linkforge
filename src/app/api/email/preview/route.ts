@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { render } from "@react-email/render";
 
-const TEMPLATES = ["WelcomeEmail", "LinkClickAlert", "WeeklyDigest", "TeamInvite", "PlanUpgraded"] as const;
+const TEMPLATES = ["WelcomeEmail", "LinkClickAlert", "WeeklyDigest", "FirstClickAlert", "MonthlyReport", "DomainVerified", "PlanUpgraded"] as const;
 type TemplateName = typeof TEMPLATES[number];
 
 /** Sample props for each template so preview renders with real-looking data */
@@ -31,14 +31,37 @@ const SAMPLE_PROPS: Record<TemplateName, object> = {
     ],
     recommendation: "Your top link is 3x more popular on mobile — try enabling mobile-specific routing for better conversions.",
   },
-  TeamInvite: {
-    inviterName: "Srikanth Dhanavath",
-    inviterEmail: "srikanth@example.com",
-    workspaceName: "Acme Corp",
-    role: "editor",
-    inviteToken: "preview-token-abc123",
-    recipientEmail: "teammate@example.com",
-    expiresInDays: 7,
+  FirstClickAlert: {
+    name: "Srikanth Dhanavath",
+    linkTitle: "My Awesome Campaign",
+    linkSlug: "awesome",
+    linkUrl: "https://pivoturl.com/s/awesome",
+    workspaceId: "00000000-0000-0000-0000-000000000001",
+  },
+  MonthlyReport: {
+    name: "Srikanth Dhanavath",
+    email: "srikanth@example.com",
+    monthLabel: "May 2026",
+    totalClicks: 15230,
+    prevTotalClicks: 12400,
+    totalLinks: 47,
+    newLinks: 12,
+    topLinks: [
+      { title: "Product Hunt Launch", slug: "ph-launch", clicks: 4200, prevClicks: 3400 },
+      { title: "Twitter Bio Link", slug: "twitter-bio", clicks: 3100, prevClicks: 2800 },
+      { title: "Newsletter CTA", slug: "nl-cta", clicks: 2100, prevClicks: 1800 },
+      { title: "YouTube Description", slug: "yt-desc", clicks: 1500, prevClicks: 1200 },
+      { title: "LinkedIn Campaign", slug: "li-campaign", clicks: 900, prevClicks: 700 },
+    ],
+    topCountry: "India",
+    topDevice: "Mobile",
+  },
+  DomainVerified: {
+    name: "Srikanth Dhanavath",
+    domain: "go.acmecorp.com",
+    dashboardUrl: "https://pivoturl.com/dashboard/domain",
+    isDefault: true,
+    role: "links",
   },
   PlanUpgraded: {
     name: "Srikanth Dhanavath",
