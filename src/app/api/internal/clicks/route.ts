@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { clicks, links } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
@@ -91,6 +94,36 @@ export async function POST(req: Request) {
         redis.incr(`stats:clicks:daily:${today}`),
         redis.incr(`stats:clicks:total`),
       ]);
+    }
+
+    // Persist click to PostgreSQL for analytics dashboard & link counters
+    await db.insert(clicks).values({
+      linkId,
+      workspaceId,
+      ip: ipHash,
+      country: country ?? null,
+      city: body.city ?? null,
+      region: body.region ?? null,
+      device: device === "bot" ? "unknown" : (device as "desktop" | "mobile" | "tablet" | "unknown"),
+      browser: browser ?? null,
+      os: os ?? null,
+      referrer: referrer ?? null,
+      referrerDomain: referrerDomain ?? null,
+      isQrScan: isQrScan ?? false,
+      isDeepLink: isDeepLink ?? false,
+      abVariant: variant ?? null,
+    }).catch((e) => console.error("[internal/clicks] DB insert failed", e));
+
+    await db.update(links)
+      .set({ totalClicks: sql`total_clicks + 1` })
+      .where(eq(links.id, linkId))
+      .catch((e) => console.error("[internal/clicks] totalClicks update failed", e));
+
+    if (isUnique) {
+      await db.update(links)
+        .set({ uniqueClicks: sql`unique_clicks + 1` })
+        .where(eq(links.id, linkId))
+        .catch((e) => console.error("[internal/clicks] uniqueClicks update failed", e));
     }
 
     // Track click event in PostHog

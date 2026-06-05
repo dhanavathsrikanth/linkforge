@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { links, workspaces, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { clicks, links, workspaces, users } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
@@ -320,6 +320,36 @@ export async function GET(
             if (r.status === "rejected") {
               console.error("[trackClick] A tracking op failed", r.reason);
             }
+          }
+
+          // Persist click to PostgreSQL for analytics dashboard & link counters
+          await db.insert(clicks).values({
+            linkId: link.id,
+            workspaceId: link.workspaceId,
+            ip: ipHash,
+            country,
+            city,
+            region,
+            device: device as "desktop" | "mobile" | "tablet" | "unknown",
+            browser,
+            os,
+            referrer: referrer || null,
+            referrerDomain,
+            isQrScan: isQrScan ?? false,
+            isDeepLink: isDeepLink ?? false,
+            abVariant: selectedAbVariant || null,
+          }).catch((e) => console.error("[trackClick] DB insert failed", e));
+
+          await db.update(links)
+            .set({ totalClicks: sql`total_clicks + 1` })
+            .where(eq(links.id, link.id))
+            .catch((e) => console.error("[trackClick] totalClicks update failed", e));
+
+          if (isUnique) {
+            await db.update(links)
+              .set({ uniqueClicks: sql`unique_clicks + 1` })
+              .where(eq(links.id, link.id))
+              .catch((e) => console.error("[trackClick] uniqueClicks update failed", e));
           }
 
           await trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() }).catch(() => {});
