@@ -2,8 +2,13 @@ import { OrganizationProfile } from "@clerk/nextjs";
 
 export default function OrganizationProfilePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FBFBFE] p-8">
-      <OrganizationProfile />
-    </div>
+    <OrganizationProfile
+      appearance={{
+        elements: {
+          rootBox: "w-full",
+          card: "shadow-sm border border-border bg-card",
+        },
+      }}
+    />
   );
 }
