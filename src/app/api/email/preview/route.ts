@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { render } from "@react-email/render";
 
-const TEMPLATES = ["WelcomeEmail", "LinkClickAlert", "WeeklyDigest", "FirstClickAlert", "MonthlyReport", "DomainVerified", "FirstLinkCreated", "InactiveUser", "PlanUpgraded"] as const;
+const TEMPLATES = ["WelcomeEmail", "LinkClickAlert", "WeeklyDigest", "FirstClickAlert", "MonthlyReport", "DomainVerified", "FirstLinkCreated", "InactiveUser", "BioPublished", "PlanUpgraded"] as const;
 type TemplateName = typeof TEMPLATES[number];
 
 /** Sample props for each template so preview renders with real-looking data */
@@ -79,6 +79,13 @@ const SAMPLE_PROPS: Record<TemplateName, object> = {
     topLinkTitle: "Product Hunt Launch",
     topLinkClicks: 1240,
     dashboardUrl: "https://pivoturl.com/dashboard",
+  },
+  BioPublished: {
+    name: "Srikanth Dhanavath",
+    pageName: "My Links",
+    pageUrl: "https://pivoturl.com/p/my-links",
+    dashboardUrl: "https://pivoturl.com/dashboard/bio",
+    hasCustomDomain: false,
   },
   PlanUpgraded: {
     name: "Srikanth Dhanavath",

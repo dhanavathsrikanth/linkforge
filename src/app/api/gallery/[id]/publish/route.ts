@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { linkGallery } from "@/lib/db";
+import { linkGallery, domains } from "@/lib/db";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
 import { buildPublishedSnapshot } from "@/lib/bio/publish-snapshot";
+import { sendBioPublishedEmail } from "@/lib/email";
 
 // ─── CF KV cache invalidation helper ─────────────────────────────────────────
 // Mirrors the helper in /api/gallery/route.ts. Kept local to avoid pulling
@@ -93,6 +94,24 @@ export async function POST(
       revalidatePath(`/p/${updated.slug}`);
     } catch (err) {
       console.warn("[POST /api/gallery/[id]/publish] revalidatePath failed:", err);
+    }
+
+    // ── Notification ───────────────────────────────────────────────────────
+    if (willBePublished && dbUser?.email) {
+      const domainName = updated.customDomainId
+        ? await db.query.domains.findFirst({
+            where: (d, { eq }) => eq(d.id, updated.customDomainId!),
+          }).then((d) => d?.domain ?? null)
+        : null;
+      sendBioPublishedEmail(dbUser.email, {
+        name: dbUser.name || dbUser.email,
+        pageName: updated.displayName || updated.slug,
+        pageUrl: domainName
+          ? `https://${domainName}`
+          : `https://pivoturl.com/p/${updated.slug}`,
+        dashboardUrl: `https://pivoturl.com/dashboard/bio/${updated.id}/edit`,
+        hasCustomDomain: !!domainName,
+      }).catch(() => {});
     }
 
     return NextResponse.json({ gallery: updated });

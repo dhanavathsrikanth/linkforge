@@ -113,6 +113,17 @@ async function renderInactiveUser(props: {
   return render(InactiveUser(props));
 }
 
+async function renderBioPublished(props: {
+  name: string;
+  pageName: string;
+  pageUrl: string;
+  dashboardUrl: string;
+  hasCustomDomain: boolean;
+}) {
+  const { default: BioPublished } = await import("../../emails/BioPublished");
+  return render(BioPublished(props));
+}
+
 // ── Send helpers ───────────────────────────────────────────────────────────────
 
 /**
@@ -330,6 +341,33 @@ export async function sendInactiveUserEmail(
     });
   } catch (err) {
     console.error("[email] sendInactiveUserEmail failed:", err);
+  }
+}
+
+/**
+ * Fires when a bio page is published (draft → live).
+ */
+export async function sendBioPublishedEmail(
+  to: string,
+  props: {
+    name: string;
+    pageName: string;
+    pageUrl: string;
+    dashboardUrl: string;
+    hasCustomDomain: boolean;
+  }
+) {
+  try {
+    const html = await renderBioPublished(props);
+    await resend.emails.send({
+      from: FROM,
+      replyTo: REPLY_TO,
+      to,
+      subject: `🎉 Your bio page "${props.pageName}" is live!`,
+      html,
+    });
+  } catch (err) {
+    console.error("[email] sendBioPublishedEmail failed:", err);
   }
 }
 
