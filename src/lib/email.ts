@@ -88,6 +88,31 @@ async function renderPlanUpgraded(props: {
   return render(PlanUpgraded(props));
 }
 
+async function renderFirstLinkCreated(props: {
+  name: string;
+  linkTitle: string;
+  linkSlug: string;
+  dashboardUrl: string;
+}) {
+  const { default: FirstLinkCreated } = await import("../../emails/FirstLinkCreated");
+  return render(FirstLinkCreated(props));
+}
+
+async function renderInactiveUser(props: {
+  name: string;
+  email: string;
+  lastSeenDays: number;
+  totalLinks: number;
+  totalClicks: number;
+  totalClicksChange: number;
+  topLinkTitle: string;
+  topLinkClicks: number;
+  dashboardUrl: string;
+}) {
+  const { default: InactiveUser } = await import("../../emails/InactiveUser");
+  return render(InactiveUser(props));
+}
+
 // ── Send helpers ───────────────────────────────────────────────────────────────
 
 /**
@@ -249,6 +274,62 @@ export async function sendDomainVerifiedEmail(
     });
   } catch (err) {
     console.error("[email] sendDomainVerifiedEmail failed:", err);
+  }
+}
+
+/**
+ * Fires after a user creates their very first link.
+ */
+export async function sendFirstLinkCreatedEmail(
+  to: string,
+  props: {
+    name: string;
+    linkTitle: string;
+    linkSlug: string;
+    dashboardUrl: string;
+  }
+) {
+  try {
+    const html = await renderFirstLinkCreated(props);
+    await resend.emails.send({
+      from: FROM,
+      replyTo: REPLY_TO,
+      to,
+      subject: `🚀 You created your first link on PivotUrl!`,
+      html,
+    });
+  } catch (err) {
+    console.error("[email] sendFirstLinkCreatedEmail failed:", err);
+  }
+}
+
+/**
+ * Fires for users who haven't visited in 30+ days but have links getting clicks.
+ */
+export async function sendInactiveUserEmail(
+  to: string,
+  props: {
+    name: string;
+    lastSeenDays: number;
+    totalLinks: number;
+    totalClicks: number;
+    totalClicksChange: number;
+    topLinkTitle: string;
+    topLinkClicks: number;
+    dashboardUrl: string;
+  }
+) {
+  try {
+    const html = await renderInactiveUser({ ...props, email: to });
+    await resend.emails.send({
+      from: FROM,
+      replyTo: REPLY_TO,
+      to,
+      subject: `👋 We've missed you! Your links got ${props.totalClicks.toLocaleString()} clicks`,
+      html,
+    });
+  } catch (err) {
+    console.error("[email] sendInactiveUserEmail failed:", err);
   }
 }
 

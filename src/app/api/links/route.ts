@@ -17,8 +17,9 @@ import { rateLimitByUser } from "@/lib/rate-limiter";
 import { sendWebhookEvent } from "@/lib/svix/send";
 import { startSafetyScan } from "@/lib/cloudflare/link-safety";
 import { isReservedSlug } from "@/lib/reserved-slugs";
-import { domains } from "@/lib/db/schema";
-import { eq, sql, and, isNull, ilike, or, desc } from "drizzle-orm";
+import { domains, users } from "@/lib/db/schema";
+import { sendFirstLinkCreatedEmail } from "@/lib/email";
+import { eq, sql, and, isNull, ilike, or, desc, count } from "drizzle-orm";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
   slug: z.string().min(2).max(64).optional().or(z.literal("")),
@@ -375,6 +376,22 @@ export async function POST(req: Request) {
       actorId: dbUser.id,
       idempotencyKey: `link.created-${link.id}`,
     });
+
+    // ── First link celebration ─────────────────────────────────────────────
+    if (dbUser?.email) {
+      const linkCount = await db
+        .select({ count: count() })
+        .from(links)
+        .where(eq(links.workspaceId, v.workspaceId));
+      if (Number(linkCount[0]?.count ?? 0) === 1) {
+        sendFirstLinkCreatedEmail(dbUser.email, {
+          name: dbUser.name || dbUser.email,
+          linkTitle: v.title || slug,
+          linkSlug: slug,
+          dashboardUrl: `https://pivoturl.com/dashboard/links`,
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({ link }, { status: 201 });
   } catch (err) {
