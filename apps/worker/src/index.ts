@@ -115,10 +115,11 @@ async function proxyToVercel(pathname: string, search: string): Promise<Response
   const status = originRes.status;
   if ((status >= 200 && status < 300) || status === 404 || status === 304) {
     const body = await originRes.text();
+    const originType = originRes.headers.get('Content-Type') ?? 'text/html; charset=utf-8';
     return new Response(body, {
       status,
       headers: {
-        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Type': originType,
         'Cache-Control': 'public, max-age=300, s-maxage=60',
       },
     });
