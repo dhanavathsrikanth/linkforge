@@ -223,7 +223,7 @@ export default function PricingPage() {
           <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
             Get dedicated support, custom SLAs, unlimited usage overrides, and SSO integration for large organizations.
           </p>
-          <a href="mailto:enterprise@pivoturl.com" className="inline-flex items-center gap-2 bg-foreground text-background font-medium px-6 py-3 rounded-lg hover:bg-foreground/90 transition-colors">
+          <a href="mailto:support@pivoturl.com" className="inline-flex items-center gap-2 bg-foreground text-background font-medium px-6 py-3 rounded-lg hover:bg-foreground/90 transition-colors">
             Talk to sales
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           </a>
