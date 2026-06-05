@@ -1,0 +1,25 @@
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.228.84.152:3000
+- Environments: .env.local
+✓ Ready in 1422ms
+- Experiments (use with caution):
+  · clientTraceMetadata
+
+○ Compiling /dashboard/links ...
+ GET /dashboard/links 200 in 18.4s (next.js: 15.2s, proxy.ts: 32ms, application-code: 3.2s)
+ GET /api/billing/workspace-limit 200 in 5.7s (next.js: 2.1s, proxy.ts: 76ms, application-code: 3.5s)
+ GET /api/workspaces/current?orgId=org_3DzxHYQkEmD3SQnX5ROPVznwAcX 200 in 6.4s (next.js: 2.3s, proxy.ts: 75ms, application-code: 4.0s)
+✅ Redis connection established
+ GET /api/folders?workspaceId=b14e94c3-7cf7-4a30-abae-642d8b1bf865 200 in 4.9s (next.js: 1893ms, proxy.ts: 65ms, application-code: 3.0s)
+ GET /api/links?workspaceId=b14e94c3-7cf7-4a30-abae-642d8b1bf865 200 in 5.0s (next.js: 2.7s, proxy.ts: 68ms, application-code: 2.3s)
+ GET /api/links?workspaceId=b14e94c3-7cf7-4a30-abae-642d8b1bf865&page=1&limit=20 200 in 2.3s (next.js: 39ms, proxy.ts: 36ms, application-code: 2.2s)
+○ Compiling /dashboard/link-safety ...
+ GET /dashboard/link-safety 200 in 3.5s (next.js: 3.2s, proxy.ts: 59ms, application-code: 172ms)
+ GET /api/url-scanner/links?workspaceId=b14e94c3-7cf7-4a30-abae-642d8b1bf865 200 in 4.4s (next.js: 654ms, proxy.ts: 63ms, application-code: 3.7s)
+✅ Redis connection established
+ POST /api/url-scanner/refresh/af0c0b6d-663d-4e89-8d02-79bd28cd4f1a 200 in 14.5s (next.js: 8.7s, proxy.ts: 130ms, application-code: 5.7s)
+ GET /api/url-scanner/links?workspaceId=b14e94c3-7cf7-4a30-abae-642d8b1bf865 200 in 2.4s (next.js: 31ms, proxy.ts: 41ms, application-code: 2.3s)
+✅ Redis connection established
+ POST /api/url-scanner/refresh/af0c0b6d-663d-4e89-8d02-79bd28cd4f1a 500 in 3.3s (next.js: 74ms, proxy.ts: 41ms, application-code: 3.2s)
+[?25h

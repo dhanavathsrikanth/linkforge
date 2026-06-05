@@ -1,0 +1,21 @@
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\ratho\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\ratho\OneDrive\Desktop\linkforge\pnpm-lock.yaml
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+[browser] Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview (https://sacred-wildcat-38.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js:12:3216)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+[POST /api/url-scanner/refresh/[linkId]] TypeError: (meta.wappa ?? []).map is not a function
+    at getScanResult (src\lib\cloudflare\url-scanner.ts:309:5)
+    at async refreshSafetyVerdict (src\lib\cloudflare\link-safety.ts:174:18)
+    at async POST (src\app\api\url-scanner\refresh\[linkId]\route.ts:84:20)
+  307 |   const technologies: ScanTechnology[] = (
+  308 |     (meta.wappa as Array<Record<string, unknown>>) ?? []
+> 309 |   ).map((t) => ({
+      |     ^
+  310 |     name: String(t.app ?? ""),
+  311 |     categories: (t.categories as string[]) ?? [],
+  312 |     confidence: typeof t.confidence === "number" ? t.confidence : 0,

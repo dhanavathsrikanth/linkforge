@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { db, links } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace } from "@/lib/db/workspace";
-import { refreshSafetyVerdict } from "@/lib/cloudflare/link-safety";
+import { refreshSafetyVerdict, isUrlScannerConfigured } from "@/lib/cloudflare/link-safety";
 
 /**
  * POST /api/url-scanner/refresh/[linkId]
@@ -37,7 +38,7 @@ export async function POST(
     // Verify the caller actually owns the workspace this link belongs to.
     const link = await db.query.links.findFirst({
       where: (l, { eq }) => eq(l.id, linkId),
-      columns: { id: true, workspaceId: true, safetyScanId: true },
+      columns: { id: true, workspaceId: true, safetyScanId: true, safetyScannedAt: true },
     });
     if (!link) {
       return NextResponse.json({ error: "Link not found" }, { status: 404 });
@@ -53,6 +54,31 @@ export async function POST(
         { error: "No scan in progress for this link" },
         { status: 404 }
       );
+    }
+
+    if (!isUrlScannerConfigured()) {
+      return NextResponse.json(
+        { error: "URL Scanner not configured" },
+        { status: 503 }
+      );
+    }
+
+    // Timeout: if the scan has been pending for > 5 minutes, mark as error
+    if (link.safetyScannedAt) {
+      const ageMs = Date.now() - new Date(link.safetyScannedAt).getTime();
+      if (ageMs > 300_000) {
+        await db
+          .update(links)
+          .set({ safetyStatus: "error", safetyScannedAt: new Date() })
+          .where(eq(links.id, linkId));
+        return NextResponse.json({
+          status: "error",
+          linkId,
+          trustScore: 0,
+          trustBand: "unknown",
+          timedOut: true,
+        });
+      }
     }
 
     const result = await refreshSafetyVerdict(linkId);
