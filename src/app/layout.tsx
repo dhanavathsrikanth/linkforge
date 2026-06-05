@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { RouteProvider } from "@/providers/route-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +77,7 @@ export default function RootLayout({
             <ThemeProvider>
               <Providers>
                 {children}
+                <Toaster richColors closeButton />
               </Providers>
             </ThemeProvider>
           </RouteProvider>

@@ -6,13 +6,14 @@ import { motion } from "framer-motion";
 import {
   Link2, ChartLine, Sparkles, ArrowRight, ShieldCheck, Globe2,
   QrCode, Smartphone, TestTubes, Lock, Star,
-  Layers, BarChart3, Users, Shield, Zap,
+  Layers, Users, Shield, Zap,
   Brain, Command, RefreshCw, CheckCircle2, Building2,
-  Infinity, MapPin, KeyRound, Webhook, GitMerge, Palette,
+  Infinity, MapPin, KeyRound, Webhook, GitMerge,
 } from "lucide-react";
 import { Header } from "@/components/marketing/Header";
 import { AccordionFeatures } from "@/components/marketing/AccordionFeatures";
 import { BorderBeam } from "@/components/ui/border-beam";
+import { Globe } from "@/components/ui/globe";
 import { Footer } from "@/components/marketing/Footer";
 
 const fadeUp = {
@@ -131,104 +132,53 @@ const plans = [
   },
 ];
 
-const TABS = [
-  { id: "links", label: "Smart Links", icon: Link2 },
-  { id: "bio", label: "Bio Pages", icon: Layers },
-  { id: "qr", label: "QR Codes", icon: QrCode },
-] as const;
+function HeroProductCard() {
+  const [url, setUrl] = useState("");
+  const [slug, setSlug] = useState("");
 
-type TabId = (typeof TABS)[number]["id"];
-
-function HeroProductCard({ tab }: { tab: TabId }) {
-  switch (tab) {
-    case "links":
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[var(--ds-border)]">
-            <Link2 className="w-4 h-4 text-[var(--ds-text-secondary)]" />
-            <input
-              type="text"
-              placeholder="Paste a long URL to shorten..."
-              className="flex-1 bg-transparent text-sm text-[var(--ds-text-primary)] placeholder:text-[var(--ds-text-secondary)] focus:outline-none"
-            />
-          </div>
-          <div className="p-0">
-            <div className="flex items-center gap-2 rounded-xl border border-[var(--ds-border)] p-1.5 bg-neutral-50/50">
-              <span className="px-2 text-sm text-[var(--ds-text-secondary)] font-medium font-mono">pivot.url/</span>
-              <input
-                type="text"
-                placeholder="your-link"
-                className="flex-1 text-sm font-semibold text-[var(--ds-text-primary)] bg-transparent focus:outline-none placeholder:text-neutral-300"
-              />
-              <button className="inline-flex h-8 items-center justify-center rounded-lg bg-[var(--ds-primary)] px-4 text-xs font-semibold text-white hover:bg-[var(--ds-primary-dark)] transition-colors shrink-0">
-                Shorten
-              </button>
-            </div>
-            <div className="mt-3 px-1 flex items-center gap-4 text-xs text-[var(--ds-text-secondary)]">
-              <span className="flex items-center gap-1.5"><ChartLine className="w-3.5 h-3.5" /> Free analytics</span>
-              <span className="flex items-center gap-1.5"><Globe2 className="w-3.5 h-3.5" /> Custom domains</span>
-              <span className="flex items-center gap-1.5"><TestTubes className="w-3.5 h-3.5" /> A/B testing</span>
-            </div>
-          </div>
-        </div>
-      );
-    case "bio":
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
-              P
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-[var(--ds-text-primary)]">pivot.url/@username</p>
-              <p className="text-xs text-[var(--ds-text-secondary)]">Your bio page &mdash; always live</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {["Link in bio", "Featured post", "Newsletter", "Shop"].map((label) => (
-              <div key={label} className="rounded-lg border border-[var(--ds-border)] bg-neutral-50/50 px-3 py-2 text-xs font-medium text-[var(--ds-text-primary)]">
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-[var(--ds-text-secondary)]">
-            <Palette className="w-3.5 h-3.5" /> 19 block types &bull; Custom themes &bull; Drag-and-drop
-          </div>
-        </div>
-      );
-    case "qr":
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-center">
-            <div className="relative w-32 h-32 bg-white rounded-xl border border-[var(--ds-border)] p-2 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full">
-                <rect x="10" y="10" width="30" height="30" rx="3" fill="var(--ds-text-primary)" />
-                <rect x="15" y="15" width="20" height="20" fill="white" />
-                <rect x="60" y="10" width="30" height="30" rx="3" fill="var(--ds-text-primary)" />
-                <rect x="65" y="15" width="20" height="20" fill="white" />
-                <rect x="10" y="60" width="30" height="30" rx="3" fill="var(--ds-text-primary)" />
-                <rect x="15" y="65" width="20" height="20" fill="white" />
-                <rect x="50" y="50" width="8" height="8" fill="var(--ds-text-primary)" />
-                <rect x="62" y="50" width="6" height="6" fill="var(--ds-text-primary)" />
-                <rect x="72" y="50" width="6" height="12" fill="var(--ds-text-primary)" />
-                <rect x="50" y="62" width="6" height="6" fill="var(--ds-text-primary)" />
-                <rect x="60" y="62" width="12" height="6" fill="var(--ds-text-primary)" />
-                <rect x="50" y="72" width="16" height="6" fill="var(--ds-text-primary)" />
-                <rect x="70" y="72" width="6" height="6" fill="var(--ds-text-primary)" />
-              </svg>
-            </div>
-          </div>
-          <div className="flex items-center justify-center gap-3 text-xs text-[var(--ds-text-secondary)]">
-            <span className="flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Custom colors &amp; logo</span>
-            <span className="flex items-center gap-1.5"><RefreshCw className="w-3.5 h-3.5" /> Edit without reprinting</span>
-          </div>
-        </div>
-      );
+  function submit() {
+    if (!url.trim()) return;
+    sessionStorage.setItem("pendingLinkDestination", url.trim());
+    if (slug.trim()) sessionStorage.setItem("pendingLinkSlug", slug.trim());
+    window.location.href = "/sign-up?pendingLink=1";
   }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-1 items-center rounded-xl border border-[var(--ds-border)] bg-white px-3 focus-within:border-[var(--ds-primary)]/50 focus-within:ring-2 focus-within:ring-[var(--ds-primary)]/10 transition-all shadow-sm">
+          <Link2 className="w-4 h-4 text-[var(--ds-text-secondary)]/60 shrink-0" />
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            placeholder="Paste a URL to shorten…"
+            className="flex-1 border-0 bg-transparent px-2.5 py-2.5 text-sm outline-none placeholder:text-[var(--ds-text-secondary)]/40"
+          />
+        </div>
+        <input
+          type="text"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+          placeholder="Custom slug (optional)"
+          className="w-full sm:w-40 rounded-xl border border-[var(--ds-border)] bg-white px-3 py-2.5 text-sm outline-none placeholder:text-[var(--ds-text-secondary)]/40 focus:border-[var(--ds-primary)]/50 focus:ring-2 focus:ring-[var(--ds-primary)]/10 transition-all font-mono"
+        />
+        <button
+          onClick={submit}
+          disabled={!url.trim()}
+          className="inline-flex h-[42px] items-center justify-center gap-2 rounded-xl bg-[var(--ds-primary)] px-5 text-sm font-semibold text-white hover:bg-[var(--ds-primary-dark)] disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+        >
+          <Sparkles className="w-4 h-4" />
+          Shorten
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function LandingPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("links");
   const [shortUrlInput, setShortUrlInput] = useState("");
 
   return (
@@ -237,8 +187,14 @@ export default function LandingPage() {
 
       {/* ═══════════ 1. HERO ═══════════ */}
       <section className="relative pt-20 pb-16 sm:pt-28 sm:pb-20 overflow-hidden">
+        {/* Globe background */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 opacity-[0.06]">
+            <Globe />
+          </div>
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--ds-primary)]/[0.03] to-transparent pointer-events-none" />
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 relative">
           <div className="max-w-3xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -246,8 +202,8 @@ export default function LandingPage() {
               transition={{ duration: 0.4 }}
             >
               <SectionLabel>
-                <Sparkles className="w-3 h-3" />
-                Link management platform
+                <Zap className="w-3 h-3" />
+                The edit-anywhere link platform
               </SectionLabel>
             </motion.div>
 
@@ -257,9 +213,11 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[var(--ds-text-primary)] leading-[1.08]"
             >
-              Links you can edit.
+              Publish once.
               <br />
-              <span className="text-[var(--ds-primary)]">Pages that perform.</span>
+              <span className="text-[var(--ds-primary)]">Update forever.</span>
+              <br />
+              Nothing breaks.
             </motion.h1>
 
             <motion.p
@@ -268,8 +226,9 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mt-5 text-base sm:text-lg text-[var(--ds-text-secondary)] max-w-lg mx-auto leading-relaxed"
             >
-              Short links, bio pages, and QR codes that you can update anytime &mdash;
-              without breaking what you&apos;ve already published.
+              Short links you can change anytime &mdash;
+              without breaking what&apos;s already out there.
+              Your redirects, embeds, and printed codes keep working.
             </motion.p>
 
             <motion.div
@@ -285,10 +244,10 @@ export default function LandingPage() {
                 Start for free <ArrowRight className="w-4 h-4 ml-1.5" />
               </Link>
               <a
-                href="#features"
+                href="#how-it-works"
                 className="inline-flex h-11 items-center justify-center rounded-xl border border-[var(--ds-border)] bg-white px-6 text-sm font-semibold text-[var(--ds-text-secondary)] transition-all hover:border-[var(--ds-primary)]/30 hover:text-[var(--ds-text-primary)]"
               >
-                See features
+                See how it works
               </a>
             </motion.div>
 
@@ -299,8 +258,8 @@ export default function LandingPage() {
               className="mt-4 flex items-center justify-center gap-4 text-xs text-[var(--ds-text-secondary)]"
             >
               <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-[var(--ds-accent)]" /> No credit card</span>
-              <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-[var(--ds-accent)]" /> Setup in 30s</span>
-              <span className="flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-[var(--ds-accent)]" /> Edit anytime</span>
+              <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-[var(--ds-accent)]" /> 30-second setup</span>
+              <span className="flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-[var(--ds-accent)]" /> Edit without breaking</span>
             </motion.div>
           </div>
 
@@ -311,31 +270,13 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.45 }}
             className="mt-12 sm:mt-16 max-w-2xl mx-auto"
           >
-            {/* Tab bar */}
-            <div className="flex items-center justify-center rounded-xl bg-[#F8FAFC] border border-[var(--ds-border)] p-1 mb-5">
-              {TABS.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    activeTab === id
-                      ? "bg-white text-[var(--ds-text-primary)] shadow-sm border border-[var(--ds-border)]"
-                      : "text-[var(--ds-text-secondary)] hover:text-[var(--ds-text-primary)]"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Showcase card with border beam */}
+            {/* Showcase card */}
             <div className="relative rounded-2xl border border-[var(--ds-border)] bg-white p-5 shadow-sm overflow-hidden">
               <div className="relative z-10">
-                <HeroProductCard tab={activeTab} />
+                <HeroProductCard />
                 <div className="mt-4 pt-4 border-t border-[var(--ds-border)] flex items-center justify-between">
                   <span className="text-xs text-[var(--ds-text-secondary)]">
-                    <span className="font-semibold text-[var(--ds-primary)]">Free</span> &mdash; 50 links, 1 bio page, 50 QR codes
+                    <span className="font-semibold text-[var(--ds-primary)]">Free</span> &mdash; 50 links
                   </span>
                   <Link
                     href="/sign-up"
@@ -378,7 +319,82 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════════ 3. THE WEDGE — EDIT ANYTIME ═══════════ */}
+      {/* ═══════════ 3. HOW IT WORKS ═══════════ */}
+      <section id="how-it-works" className="relative py-20 sm:py-24 border-t border-[var(--ds-border)] bg-[#F8FAFC] overflow-hidden">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-14"
+          >
+            <SectionLabel>
+              <Zap className="w-3 h-3" />
+              Your journey in four steps
+            </SectionLabel>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--ds-text-primary)]">
+              From first click to <span className="text-[var(--ds-primary)]">full control</span>
+            </h2>
+            <p className="mt-3 text-base text-[var(--ds-text-secondary)] max-w-lg mx-auto">
+              Create a link, share it everywhere, track every click, and change anything &mdash; all from one platform.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-4 gap-6 relative">
+            {[
+              {
+                step: "01", title: "Create", icon: Link2,
+                desc: "Shorten a long URL or build a bio page in one click. Add custom slugs, UTM tags, and password protection.",
+              },
+              {
+                step: "02", title: "Share", icon: Globe2,
+                desc: "Deploy across social, email, SMS, and print. Generate QR codes that match your brand colors and logo.",
+              },
+              {
+                step: "03", title: "Track", icon: ChartLine,
+                desc: "Real-time analytics on clicks, scans, devices, locations, and referrers. AI-powered insights spot every trend.",
+              },
+              {
+                step: "04", title: "Update", icon: RefreshCw,
+                desc: "Change any destination, swap bio blocks, or retarget a QR code. Every published link, page, and code keeps working.",
+              },
+            ].map(({ step, title, icon: Icon, desc }, i) => (
+              <motion.div
+                key={title}
+                variants={fadeUp}
+                className="relative"
+              >
+                {/* Connector line */}
+                {i < 3 && (
+                  <div className="hidden md:block absolute top-8 left-[60%] w-[75%] h-px border-t-2 border-dashed border-[var(--ds-primary)]/20" />
+                )}
+                <div className="relative rounded-2xl border border-[var(--ds-border)] bg-white p-6 hover:shadow-lg hover:shadow-[var(--ds-primary)]/5 transition-all duration-300 h-full">
+                  <div className="text-3xl font-bold text-[var(--ds-primary)]/15 mb-3">{step}</div>
+                  <div className="w-10 h-10 rounded-xl bg-[var(--ds-primary)]/10 flex items-center justify-center mb-3">
+                    <Icon className="w-5 h-5 text-[var(--ds-primary)]" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[var(--ds-text-primary)] mb-2">{title}</h3>
+                  <p className="text-sm text-[var(--ds-text-secondary)] leading-relaxed">{desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            variants={fadeUp}
+            className="text-center mt-10"
+          >
+            <Link
+              href="/sign-up"
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--ds-primary)] px-6 text-sm font-semibold text-white transition-all hover:bg-[var(--ds-primary-dark)] active:scale-[0.98] shadow-lg shadow-[var(--ds-primary)]/25"
+            >
+              Start your journey <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════ 4. THE WEDGE — EDIT ANYTIME ═══════════ */}
       <section id="features" className="relative py-20 sm:py-24 border-t border-[var(--ds-border)] bg-white overflow-hidden">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-[var(--ds-primary)]/[0.04] to-transparent rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-[var(--ds-primary)]/[0.03] to-transparent rounded-full blur-3xl pointer-events-none" />
@@ -403,8 +419,8 @@ export default function LandingPage() {
               {
                 icon: Link2, title: "Short Links",
                 steps: [
-                  { label: "Published", value: "pivot.url/sale2024" },
-                  { label: "Edited", value: "→ pivot.url/sale2025", highlight: true },
+                  { label: "Published", value: "pivoturl.com/sale2024" },
+                  { label: "Edited", value: "→ pivoturl.com/sale2025", highlight: true },
                 ],
                 desc: "Campaign ended? Change the destination. Every existing redirect, QR code, and embed keeps working.",
                 accent: "from-blue-500/20 to-indigo-500/10",
@@ -412,7 +428,7 @@ export default function LandingPage() {
               {
                 icon: Layers, title: "Bio Pages",
                 steps: [
-                  { label: "Published", value: "pivot.url/@username" },
+                  { label: "Published", value: "pivoturl.com/@username" },
                   { label: "Edited", value: "→ new blocks, new theme", highlight: true },
                 ],
                 desc: "Swap blocks, change themes, update links. Your published URL never changes. Followers always see the latest.",
@@ -652,86 +668,9 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="rounded-2xl border border-[var(--ds-border)] bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--ds-border)]">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[var(--ds-primary)]/10 flex items-center justify-center">
-                    <BarChart3 className="w-4 h-4 text-[var(--ds-primary)]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--ds-text-primary)]">Campaign Performance</p>
-                    <p className="text-xs text-[var(--ds-text-secondary)]">Last 30 days</p>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-[var(--ds-accent)] bg-green-50 px-2 py-0.5 rounded-full">+12.5%</span>
-              </div>
-
-              <div className="h-28 rounded-xl bg-gradient-to-b from-[var(--ds-primary)]/[0.06] to-transparent p-3 mb-5 relative overflow-hidden">
-                <svg viewBox="0 0 400 80" className="w-full h-full" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="chartGrad" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#433BFF" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#433BFF" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <motion.path
-                    initial={{ pathLength: 0 }}
-                    whileInView={{ pathLength: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1.5 }}
-                    d="M0,65 Q30,55 60,50 T120,35 T180,45 T240,25 T300,30 T400,10"
-                    fill="none"
-                    stroke="#433BFF"
-                    strokeWidth="2.5"
-                  />
-                  <motion.path
-                    initial={{ pathLength: 0 }}
-                    whileInView={{ pathLength: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1.5 }}
-                    d="M0,65 Q30,55 60,50 T120,35 T180,45 T240,25 T300,30 T400,10 L400,80 L0,80 Z"
-                    fill="url(#chartGrad)"
-                  />
-                </svg>
-                <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-md border border-[var(--ds-border)] px-2 py-1">
-                  <p className="text-xs font-semibold text-[var(--ds-text-primary)]">2,481 clicks</p>
-                </div>
-              </div>
-
-              <div className="space-y-2.5">
-                {[
-                  { label: "Mobile", pct: 65, color: "bg-[var(--ds-primary)]" },
-                  { label: "Desktop", pct: 28, color: "bg-[var(--ds-primary)]/60" },
-                  { label: "Tablet", pct: 7, color: "bg-[var(--ds-primary)]/30" },
-                ].map(({ label, pct, color }) => (
-                  <div key={label} className="flex items-center gap-3">
-                    <span className="text-xs text-[var(--ds-text-secondary)] w-14">{label}</span>
-                    <div className="flex-1 h-2 rounded-full bg-neutral-100 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${pct}%` }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8, delay: 0.3 }}
-                        className={`h-full rounded-full ${color}`}
-                      />
-                    </div>
-                    <span className="text-xs font-semibold text-[var(--ds-text-primary)] w-8 text-right">{pct}%</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-[var(--ds-border)] grid grid-cols-3 gap-3 text-center">
-                {[
-                  { label: "Top Country", value: "United States" },
-                  { label: "Top Device", value: "iPhone" },
-                  { label: "Top Referrer", value: "Twitter" },
-                ].map(({ label, value }) => (
-                  <div key={label}>
-                    <p className="text-xs text-[var(--ds-text-secondary)]">{label}</p>
-                    <p className="text-xs font-semibold text-[var(--ds-text-primary)] mt-0.5">{value}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="relative rounded-2xl border border-[var(--ds-border)] bg-white overflow-hidden aspect-square max-w-lg w-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--ds-primary)]/[0.03] to-transparent pointer-events-none z-10" />
+              <Globe />
             </div>
           </motion.div>
         </div>

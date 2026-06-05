@@ -1,6 +1,12 @@
+"use client";
+
 import { SignUp } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 
 export default function SignUpPage() {
+  const searchParams = useSearchParams();
+  const pendingLink = searchParams.get("pendingLink");
+
   return (
     <SignUp
       appearance={{
@@ -9,7 +15,7 @@ export default function SignUpPage() {
           card: "shadow-sm border border-border bg-card",
         },
       }}
-      forceRedirectUrl="/dashboard"
+      forceRedirectUrl={pendingLink ? "/dashboard/links" : "/dashboard"}
       signInUrl="/sign-in"
     />
   );

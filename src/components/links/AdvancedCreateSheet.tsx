@@ -11,7 +11,6 @@ import {
   EyeOff,
   Copy,
   Check,
-  Calendar,
   Tag,
   Sparkles,
   Plus,
@@ -20,6 +19,7 @@ import {
   ChevronDown,
   CircleCheck,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn, getShortLinkBase } from "@/lib/utils";
@@ -83,7 +83,6 @@ const initialState = {
   iosDestination: "",
   androidDestination: "",
   password: "",
-  showPassword: false,
   expirationMode: "date" as "date" | "clicks",
   expiresAt: "",
   clickLimit: "",
@@ -125,6 +124,8 @@ export function AdvancedCreateSheet({
   const [tagInput, setTagInput] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const [aiEnrichLoading, setAiEnrichLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
   const isMobile = useMediaQuery("(max-width: 640px)");
@@ -171,7 +172,6 @@ export function AdvancedCreateSheet({
               appLinksEnabled: d.appLinksEnabled ?? false,
               deepLinkEnabled: !!(d.uriScheme || d.iosAppStoreId || d.androidPlayStoreId),
               password: "",
-              showPassword: false,
               expirationMode: d.expiresAt ? "date" : d.clickLimit ? "clicks" : "date",
               expiresAt: d.expiresAt ? d.expiresAt.slice(0, 10) : "",
               clickLimit: d.clickLimit ?? "",
@@ -329,8 +329,10 @@ export function AdvancedCreateSheet({
         setError(typeof data?.error === "string" ? data.error : "Failed to save link");
         return;
       }
-      onCreated?.(data.link ?? data.data ?? data);
+      const link = data.link ?? data.data ?? data;
       onOpenChange(false);
+      onCreated?.(link);
+      toast.success(isEdit ? "Link updated" : "Link created");
     } catch (e: any) {
       setError(e?.message || "Network error");
     } finally {
@@ -416,21 +418,29 @@ export function AdvancedCreateSheet({
                               {form.destination && (
                                 <button
                                   type="button"
+                                  disabled={aiSuggestLoading}
                                   onClick={async () => {
+                                    setAiSuggestLoading(true);
                                     try {
                                       const res = await fetch("/api/ai/suggest-slug", {
                                         method: "POST",
                                         headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({ url: form.destination, workspaceId }),
                                       });
+                                      if (!res.ok) {
+                                        const err = await res.json().catch(() => ({}));
+                                        throw new Error(err.error || `Server error (${res.status})`);
+                                      }
                                       const data = await res.json();
                                       if (data.slug) update("slug", data.slug);
                                       if (data.title) update("title", data.title);
                                       if (data.description) update("ogDescription", data.description);
                                       // Merge AI suggested tags (deduplicate)
                                       if (Array.isArray(data.suggestedTags) && data.suggestedTags.length > 0) {
-                                        const merged = [...new Set([...form.tags, ...data.suggestedTags])];
-                                        update("tags", merged);
+                                        setForm((prev) => ({
+                                          ...prev,
+                                          tags: [...new Set([...prev.tags, ...data.suggestedTags])],
+                                        }));
                                       }
                                       // Map AI folder name to existing folder ID
                                       if (data.suggestedFolder) {
@@ -439,11 +449,21 @@ export function AdvancedCreateSheet({
                                         );
                                         if (match) update("folderId", match.id);
                                       }
-                                    } catch {}
+                                      toast.success("Fields auto-filled from AI");
+                                    } catch (e) {
+                                      console.error("AI suggest failed:", e);
+                                      toast.error("AI suggest failed. Check console for details.");
+                                    } finally {
+                                      setAiSuggestLoading(false);
+                                    }
                                   }}
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <Sparkles className="h-3 w-3" />
+                                  {aiSuggestLoading ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Sparkles className="h-3 w-3" />
+                                  )}
                                   AI Suggest
                                 </button>
                               )}
@@ -475,22 +495,40 @@ export function AdvancedCreateSheet({
                         form.destination && (
                           <button
                             type="button"
+                            disabled={aiEnrichLoading}
                             onClick={async () => {
+                              setAiEnrichLoading(true);
                               try {
                                 const res = await fetch("/api/ai/enrich-link", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({ url: form.destination }),
                                 });
+                                if (!res.ok) {
+                                  const err = await res.json().catch(() => ({}));
+                                  throw new Error(err.error || `Server error (${res.status})`);
+                                }
                                 const data = await res.json();
-                                if (data.title) update("title", data.title);
-                                if (data.description) update("ogDescription", data.description);
-                                if (data.ogImage) update("ogImage", data.ogImage);
-                              } catch {}
+                                let filled = 0;
+                                if (data.title) { update("title", data.title); filled++; }
+                                if (data.description) { update("ogDescription", data.description); filled++; }
+                                if (data.ogImage) { update("ogImage", data.ogImage); filled++; }
+                                if (filled) toast.success(`Auto-filled ${filled} field${filled > 1 ? "s" : ""}`);
+                                else toast.error("Could not auto-fill — page unreachable or no metadata found");
+                              } catch (e) {
+                                console.error("Auto-fill failed:", e);
+                                toast.error("Auto-fill failed. Check console for details.");
+                              } finally {
+                                setAiEnrichLoading(false);
+                              }
                             }}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Sparkles className="h-3 w-3" />
+                            {aiEnrichLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3 w-3" />
+                            )}
                             Auto-fill
                           </button>
                         )
@@ -920,15 +958,7 @@ export function AdvancedCreateSheet({
                         <span className="text-sm font-medium">Schedule for later</span>
                       </label>
                       {form.scheduleMode && (
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <input
-                            type="datetime-local"
-                            value={form.scheduledAt}
-                            onChange={(e) => update("scheduledAt", e.target.value)}
-                            className={cn(inputCls, "pl-9")}
-                          />
-                        </div>
+                        <DatePicker value={form.scheduledAt} onChange={(v) => update("scheduledAt", v)} minDate={new Date()} />
                       )}
                     </div>
 
@@ -952,15 +982,7 @@ export function AdvancedCreateSheet({
                         ))}
                       </div>
                       {form.expirationMode === "date" ? (
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <input
-                            type="datetime-local"
-                            value={form.expiresAt}
-                            onChange={(e) => update("expiresAt", e.target.value)}
-                            className={cn(inputCls, "pl-9")}
-                          />
-                        </div>
+                        <DatePicker value={form.expiresAt} onChange={(v) => update("expiresAt", v)} minDate={new Date()} />
                       ) : (
                         <input
                           type="number"

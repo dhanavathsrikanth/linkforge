@@ -18,9 +18,14 @@ const QRSettingsSchema = z.object({
   errorLevel: z.enum(["L", "M", "Q", "H"]).default("M"),
   size: z.number().int().min(128).max(1024).default(256),
   logoUrl: z.string().max(70_000).optional(),
+  logoSize: z.enum(["small", "medium", "large"]).optional(),
+  logoOpacity: z.number().min(0).max(1).optional(),
   rounded: z.boolean().default(false),
   frameStyle: z.enum(["none", "scan-me"]).default("none"),
   frameText: z.string().max(80).optional(),
+  marginSize: z.number().int().min(0).max(8).optional(),
+  boostLevel: z.boolean().optional(),
+  minVersion: z.number().int().min(1).max(40).optional(),
 });
 
 export async function PATCH(

@@ -90,6 +90,7 @@ export function QRCustomizePanel({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  const [logoDirty, setLogoDirty] = useState(false);
 
   const [pngLoading, setPngLoading] = useState(false);
   const [svgLoading, setSvgLoading] = useState(false);
@@ -112,6 +113,7 @@ export function QRCustomizePanel({
       return;
     }
     setActionError(null);
+    setLogoDirty(true);
     const reader = new FileReader();
     reader.onload = () => {
       setLogoUrl(reader.result as string);
@@ -125,17 +127,20 @@ export function QRCustomizePanel({
     setSaveError(null);
     setSaveOk(false);
     try {
+      const payload = { ...options };
+      if (!logoDirty) delete payload.logoUrl;
       const res = await fetch(`/api/links/${linkId}/qr`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(options),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Save failed");
       }
+      setLogoDirty(false);
       setSaveOk(true);
-      onSaved?.(options);
+      onSaved?.(payload);
       setTimeout(() => setSaveOk(false), 3000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Unknown error");
@@ -278,6 +283,49 @@ export function QRCustomizePanel({
             </div>
           </div>
 
+          {/* ── Logo Section ── */}
+          <div>
+            <p className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider flex items-center gap-1 mb-3">
+              <ImageIcon className="h-3 w-3" />
+              Logo
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                {options.logoUrl && (
+                  <img src={options.logoUrl} alt="" className="h-8 w-8 rounded object-contain border border-border shrink-0" />
+                )}
+                <label className="flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  {options.logoUrl ? "Change" : "Upload"}
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="sr-only" onChange={handleLogoUpload} />
+                </label>
+                {options.logoUrl && (
+                  <button type="button" onClick={() => { setLogoUrl(undefined); setLogoDirty(true); }} className="text-xs text-destructive hover:underline shrink-0">
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {LOGO_SIZES.map(({ value, label }) => (
+                  <button key={value} type="button" onClick={() => setLogoSize(value)}
+                    className={cn("rounded-md border px-2 py-1 text-[10px] font-medium transition-colors flex-1",
+                      options.logoSize === value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40")}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="col-span-2 flex items-center gap-3">
+                <p className="text-xs text-muted-foreground shrink-0">Opacity</p>
+                <input type="range" min={0.1} max={1} step={0.1} value={options.logoOpacity ?? 1}
+                  onChange={(e) => setLogoOpacity(Number(e.target.value))}
+                  className="w-full accent-primary h-1.5" />
+                <code className="text-[10px] text-muted-foreground w-8 text-right">{Math.round((options.logoOpacity ?? 1) * 100)}%</code>
+              </div>
+            </div>
+          </div>
+
           {/* ── Colors ── */}
           <div>
             <p className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider flex items-center gap-1 mb-3">
@@ -404,49 +452,6 @@ export function QRCustomizePanel({
                   className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30" />
               </div>
             )}
-          </div>
-
-          {/* ── Logo Section ── */}
-          <div>
-            <p className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider flex items-center gap-1 mb-3">
-              <ImageIcon className="h-3 w-3" />
-              Logo
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                {options.logoUrl && (
-                  <img src={options.logoUrl} alt="" className="h-8 w-8 rounded object-contain border border-border shrink-0" />
-                )}
-                <label className="flex cursor-pointer items-center gap-1 rounded-md border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
-                  <ImageIcon className="h-3.5 w-3.5" />
-                  {options.logoUrl ? "Change" : "Upload"}
-                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="sr-only" onChange={handleLogoUpload} />
-                </label>
-                {options.logoUrl && (
-                  <button type="button" onClick={() => setLogoUrl(undefined)} className="text-xs text-destructive hover:underline shrink-0">
-                    Remove
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {LOGO_SIZES.map(({ value, label }) => (
-                  <button key={value} type="button" onClick={() => setLogoSize(value)}
-                    className={cn("rounded-md border px-2 py-1 text-[10px] font-medium transition-colors flex-1",
-                      options.logoSize === value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/40")}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="col-span-2 flex items-center gap-3">
-                <p className="text-xs text-muted-foreground shrink-0">Opacity</p>
-                <input type="range" min={0.1} max={1} step={0.1} value={options.logoOpacity ?? 1}
-                  onChange={(e) => setLogoOpacity(Number(e.target.value))}
-                  className="w-full accent-primary h-1.5" />
-                <code className="text-[10px] text-muted-foreground w-8 text-right">{Math.round((options.logoOpacity ?? 1) * 100)}%</code>
-              </div>
-            </div>
           </div>
 
           {/* Action error */}

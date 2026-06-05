@@ -575,6 +575,16 @@ function openAdvanced(prefill: { id?: string; destination?: string; slug?: strin
   setAdvancedOpen(true);
 }
 
+useEffect(() => {
+  const pendingDest = sessionStorage.getItem("pendingLinkDestination");
+  if (pendingDest) {
+    sessionStorage.removeItem("pendingLinkDestination");
+    const pendingSlug = sessionStorage.getItem("pendingLinkSlug");
+    sessionStorage.removeItem("pendingLinkSlug");
+    openAdvanced({ destination: pendingDest, slug: pendingSlug || undefined });
+  }
+}, []);
+
   function handleDelete(linkId: string) {
     startDelete(async () => {
       try {
