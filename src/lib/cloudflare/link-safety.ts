@@ -459,9 +459,15 @@ async function persistFinishedReport(
     inputsFromScanResult(result, flagKinds, similarToMalicious)
   );
 
-  const newStatus: SafetyStatus = result.verdicts.overall.malicious
-    ? "malicious"
-    : "safe";
+  // Suspicious heuristic: not explicitly malicious, but low trust or risk flags present
+  let newStatus: SafetyStatus;
+  if (result.verdicts.overall.malicious) {
+    newStatus = "malicious";
+  } else if (trust.band === "low" || flagKinds.length > 0) {
+    newStatus = "suspicious";
+  } else {
+    newStatus = "safe";
+  }
 
   // ── Upsert the scan_reports row by scan_id ─────────────────────────────
   const [reportRow] = await db

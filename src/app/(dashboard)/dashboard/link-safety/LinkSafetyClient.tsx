@@ -286,7 +286,7 @@ export function LinkSafetyClient() {
   }, [pendingCount, refetch]);
 
   // ── Manual rescan ────────────────────────────────────────────────────────
-  async function handleRescan(linkId: string) {
+  async function handleScan(linkId: string) {
     setRescanIds((s) => new Set(s).add(linkId));
     try {
       const res = await fetch(`/api/url-scanner/rescan/${linkId}`, {
@@ -304,7 +304,7 @@ export function LinkSafetyClient() {
         return;
       }
       await refetch();
-      toast.success("Rescan submitted. Verdict in 10-60s.");
+      toast.success("Scan submitted. Verdict in 10-60s.");
     } catch {
       toast.error("Network error");
     } finally {
@@ -314,6 +314,25 @@ export function LinkSafetyClient() {
         return next;
       });
     }
+  }
+
+  // ── Auto-scan unknown links on load ───────────────────────────────────
+  const hasAutoScannedRef = useRef(false);
+  useEffect(() => {
+    if (!data || hasAutoScannedRef.current) return;
+    const unknownLinks = data.links.filter((l) => l.safetyStatus === "unknown");
+    if (unknownLinks.length === 0) return;
+    hasAutoScannedRef.current = true;
+    // Scan up to 5 unknown links at a time to avoid overwhelming the user
+    const toScan = unknownLinks.slice(0, 5);
+    for (const link of toScan) {
+      handleScan(link.id);
+    }
+  }, [data]);
+
+  // Keep `handleRescan` for legacy/btn calls so nothing breaks
+  function handleRescan(linkId: string) {
+    return handleScan(linkId);
   }
 
   // ── Filtering by search ─────────────────────────────────────────────────
@@ -542,23 +561,43 @@ export function LinkSafetyClient() {
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRescan(link.id);
-                        }}
-                        disabled={isRescanning}
-                        className="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
-                        title="Re-scan with Cloudflare URL Scanner"
-                      >
-                        {isRescanning ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        )}
-                        <span className="hidden md:inline">Rescan</span>
-                      </button>
+                      {link.safetyStatus === "unknown" ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRescan(link.id);
+                          }}
+                          disabled={isRescanning}
+                          className="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                          title="Start a Cloudflare URL Scanner scan"
+                        >
+                          {isRescanning ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                          )}
+                          <span className="hidden md:inline">Scan</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRescan(link.id);
+                          }}
+                          disabled={isRescanning}
+                          className="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                          title="Re-scan with Cloudflare URL Scanner"
+                        >
+                          {isRescanning ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                          <span className="hidden md:inline">Rescan</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 

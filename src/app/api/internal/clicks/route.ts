@@ -112,6 +112,7 @@ export async function POST(req: Request) {
       isQrScan: isQrScan ?? false,
       isDeepLink: isDeepLink ?? false,
       abVariant: variant ?? null,
+      abTestId: null,
     }).catch((e) => console.error("[internal/clicks] DB insert failed", e));
 
     await db.update(links)

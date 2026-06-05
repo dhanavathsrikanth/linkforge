@@ -99,6 +99,23 @@ export async function POST(req: Request) {
     )
     .limit(BATCH_SIZE);
 
+  // ── Candidate set 4: never scanned (`unknown`) ───────────────────────
+  const unscanned = await db
+    .select({
+      linkId: links.id,
+      destination: links.destination,
+      workspaceId: links.workspaceId,
+      scannedAt: links.safetyScannedAt,
+    })
+    .from(links)
+    .where(
+      and(
+        eq(links.safetyStatus, "unknown"),
+        isNull(links.safetyScanId)
+      )
+    )
+    .limit(BATCH_SIZE);
+
   const candidates: RescanCandidate[] = [
     ...stale.map((r) => ({
       linkId: r.linkId,
@@ -113,6 +130,12 @@ export async function POST(req: Request) {
       reason: "age_low" as const,
     })),
     ...stuck.map((r) => ({
+      linkId: r.linkId,
+      destination: r.destination,
+      workspaceId: r.workspaceId,
+      reason: "pending_stuck" as const,
+    })),
+    ...unscanned.map((r) => ({
       linkId: r.linkId,
       destination: r.destination,
       workspaceId: r.workspaceId,

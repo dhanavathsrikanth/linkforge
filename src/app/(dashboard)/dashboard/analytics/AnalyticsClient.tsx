@@ -42,10 +42,10 @@ export function AnalyticsClient({ workspaceId }: AnalyticsClientProps) {
 
   // Fetch all analytics data
   const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview(workspaceId, range, from, to);
-  const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, undefined, range);
-  const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "country");
-  const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "device");
-  const { data: referrers, isLoading: referrersLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "referrer");
+  const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, undefined, range, "day", from, to);
+  const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "country", from, to);
+  const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "device", from, to);
+  const { data: referrers, isLoading: referrersLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "referrer", from, to);
   const { data: topLinks, isLoading: topLinksLoading } = useAnalyticsTopLinks(workspaceId, range, 10, from, to);
 
   const handleLinkClick = (linkId: string) => {

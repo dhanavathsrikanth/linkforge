@@ -65,6 +65,26 @@ async function handleClickBatch(
       }),
     }).catch((err) => console.error('[queue] click forward failed', err));
   }
+
+  // 3. Push to AnalyticsWebSocket DO for live dashboard feed (fire-and-forget)
+  for (const msg of messages) {
+    const stub = env.ANALYTICS_WS.idFromName(`link:${msg.linkId}`);
+    stub.get(stub.idFromName('default')).fetch('http://DO/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: msg.slug,
+        device: msg.device,
+        country: msg.country,
+        city: msg.city,
+        browser: msg.browser,
+        os: msg.os,
+        referrer: msg.referrer ?? null,
+        variant: msg.variant ?? null,
+        timestamp: msg.timestamp,
+      }),
+    }).catch((err) => console.error('[queue] live analytics push failed', err));
+  }
 }
 
 async function handleBioEventBatch(

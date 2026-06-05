@@ -323,6 +323,7 @@ export async function GET(
           }
 
           // Persist click to PostgreSQL for analytics dashboard & link counters
+          // Use sql`` for computed defaults so the DB handles them server-side
           await db.insert(clicks).values({
             linkId: link.id,
             workspaceId: link.workspaceId,
@@ -330,7 +331,7 @@ export async function GET(
             country,
             city,
             region,
-            device: device as "desktop" | "mobile" | "tablet" | "unknown",
+            device: device as DeviceType,
             browser,
             os,
             referrer: referrer || null,
@@ -338,6 +339,7 @@ export async function GET(
             isQrScan: isQrScan ?? false,
             isDeepLink: isDeepLink ?? false,
             abVariant: selectedAbVariant || null,
+            abTestId: null,
           }).catch((e) => console.error("[trackClick] DB insert failed", e));
 
           await db.update(links)
