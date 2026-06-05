@@ -6,6 +6,7 @@ import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { RouteProvider } from "@/providers/route-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +78,7 @@ export default function RootLayout({
             <ThemeProvider>
               <Providers>
                 {children}
+                <Analytics />
                 <Toaster richColors closeButton />
               </Providers>
             </ThemeProvider>
