@@ -247,7 +247,7 @@ export default function LandingPage() {
             >
               <SectionLabel>
                 <Sparkles className="w-3 h-3" />
-                Open-source link management platform
+                Link management platform
               </SectionLabel>
             </motion.div>
 
@@ -337,6 +337,14 @@ export default function LandingPage() {
                 delay={0}
                 colorFrom="#433BFF"
                 colorTo="#7c3aed"
+              />
+              <BorderBeam
+                size={250}
+                duration={12}
+                delay={6}
+                anchor={180}
+                colorFrom="#7c3aed"
+                colorTo="#ec4899"
               />
               <div className="relative z-10">
                 <HeroProductCard tab={activeTab} />

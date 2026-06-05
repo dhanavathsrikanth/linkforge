@@ -35,7 +35,7 @@ export function Footer() {
               <span className="text-base font-bold text-[var(--ds-text-primary)] tracking-tight">pivoturl</span>
             </div>
             <p className="text-xs text-[var(--ds-text-secondary)] leading-relaxed max-w-[200px]">
-              The open-source link management platform for modern marketing teams.
+              The link management platform for modern marketing teams.
             </p>
           </div>
           {Object.entries(FOOTER_LINKS).map(([title, links]) => (
