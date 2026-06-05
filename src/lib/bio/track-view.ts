@@ -1,7 +1,7 @@
 import { redis } from "@/lib/redis";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import UAParser from "ua-parser-js";
+import { UAParser } from "ua-parser-js";
 
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
