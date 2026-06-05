@@ -4,7 +4,7 @@ import type { PlanKey } from "./billing/plans";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const FROM = "PivotUrl <noreply@mail.pivoturl.com>";
-const REPLY_TO = "support@pivoturl.com";
+const REPLY_TO = "support@mail.pivoturl.com";
 
 // ── Lazy template imports (avoids bundling in Edge runtime) ────────────────────
 async function renderWelcome(props: { name: string; email: string }) {
