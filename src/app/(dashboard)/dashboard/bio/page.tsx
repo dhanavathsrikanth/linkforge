@@ -4,19 +4,9 @@ import Link from "next/link";
 import { Plus, Cable, Settings, BarChart3, Pencil, ExternalLink } from "lucide-react";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { fetchBiosForUser } from "@/lib/bio/page-data";
+import { getBioPageUrl, getAppHostname } from "@/lib/bio/url";
 
 export const metadata = { title: "Link in Bio — Pages" };
-
-function getAppDomain(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL
-    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
-    ?? "https://pivoturl.com";
-  try {
-    return new URL(url).host;
-  } catch {
-    return "pivoturl.com";
-  }
-}
 
 export default async function BioListPage() {
   const { userId } = await auth();
@@ -26,10 +16,6 @@ export default async function BioListPage() {
   if (!dbUser) redirect("/sign-in");
 
   const bios = await fetchBiosForUser(dbUser.id);
-  const appDomain = getAppDomain();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
-    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
-    ?? "https://pivoturl.com";
 
   if (bios.length === 0) {
     redirect("/dashboard/bio/new");
@@ -90,12 +76,10 @@ export default async function BioListPage() {
         {/* Rows */}
         <div className="divide-y divide-border">
           {bios.map((bio) => {
-            const liveUrl = bio.customDomain
-              ? `https://${bio.customDomain}`
-              : `${appUrl}/p/${bio.slug}`;
+            const liveUrl = getBioPageUrl(bio.slug, bio.customDomain);
             const shortUrl = bio.customDomain
               ? bio.customDomain
-              : `${appDomain}/p/${bio.slug}`;
+              : `${getAppHostname()}/p/${bio.slug}`;
 
             return (
               <div

@@ -53,15 +53,17 @@ export interface BioAnalyticsResponse {
   locations: { location: string; hits: number; visits: number }[];
   referrers: { referrer: string; hits: number }[];
   devices: { device: string; hits: number }[];
+  browsers: { browser: string; hits: number }[];
+  oss: { os: string; hits: number }[];
+  // Time-of-day heatmap: 7-day x 24-hour matrix of view counts
+  hourly: { date: string; hour: number; hits: number }[];
   topBlocks: {
     blockId: string;
     blockType: string;
     clicks: number;
     submissions: number;
   }[];
-  // New: rich per-block details with inline data
   blockDetails: BlockDetail[];
-  // New: reaction analytics per reaction block
   reactionBlocks: ReactionData[];
 }
 
@@ -84,6 +86,19 @@ function buildDateList(days: number): string[] {
     d.setDate(d.getDate() - (days - 1 - i));
     return dateStr(d);
   });
+}
+
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function toCsv(rows: (string | number | null | undefined)[][]): string {
+  return rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -122,6 +137,7 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const days = Math.min(parseInt(searchParams.get("days") ?? "7", 10), 90);
+  const format = searchParams.get("format") ?? "json";
   const since = daysAgo(days);
   const dates = buildDateList(days);
 
@@ -385,6 +401,70 @@ export async function GET(
     .sort((a, b) => b[1] - a[1])
     .map(([device, hits]) => ({ device, hits }));
 
+  // ── 9. Browser breakdown from Redis ───────────────────────────────────────
+  const browserMap = new Map<string, number>();
+  for (const date of dates) {
+    const pattern = `bio:browser:${galleryId}:${date}:*`;
+    try {
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) {
+        const vals = await redis.mget<(string | null)[]>(...keys);
+        keys.forEach((key, i) => {
+          const browser = key.split(":").pop() ?? "Unknown";
+          const count = parseInt((vals[i] as string | null) ?? "0", 10) || 0;
+          browserMap.set(browser, (browserMap.get(browser) ?? 0) + count);
+        });
+      }
+    } catch {}
+  }
+
+  const browsers = Array.from(browserMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([browser, hits]) => ({ browser, hits }));
+
+  // ── 10. OS breakdown from Redis ───────────────────────────────────────────
+  const osMap = new Map<string, number>();
+  for (const date of dates) {
+    const pattern = `bio:os:${galleryId}:${date}:*`;
+    try {
+      const keys = await redis.keys(pattern);
+      if (keys.length > 0) {
+        const vals = await redis.mget<(string | null)[]>(...keys);
+        keys.forEach((key, i) => {
+          const os = key.split(":").pop() ?? "Unknown";
+          const count = parseInt((vals[i] as string | null) ?? "0", 10) || 0;
+          osMap.set(os, (osMap.get(os) ?? 0) + count);
+        });
+      }
+    } catch {}
+  }
+
+  const oss = Array.from(osMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([os, hits]) => ({ os, hits }));
+
+  // ── 11. Hourly heatmap (per-date, per-hour) ───────────────────────────────
+  const hourlyKeys: { date: string; hour: number; key: string }[] = [];
+  for (const date of dates) {
+    for (let hour = 0; hour < 24; hour++) {
+      hourlyKeys.push({
+        date,
+        hour,
+        key: `bio:hourly:${galleryId}:${date}:${String(hour).padStart(2, "0")}`,
+      });
+    }
+  }
+
+  const hourlyValues = await redis
+    .mget<(string | null)[]>(...hourlyKeys.map((k) => k.key))
+    .catch(() => hourlyKeys.map(() => null));
+
+  const hourly = hourlyKeys.map((k, i) => ({
+    date: k.date,
+    hour: k.hour,
+    hits: parseInt((hourlyValues[i] as string | null) ?? "0", 10) || 0,
+  }));
+
   // ── Response ──────────────────────────────────────────────────────────────
   const response: BioAnalyticsResponse = {
     stats: {
@@ -400,10 +480,83 @@ export async function GET(
     locations,
     referrers,
     devices,
+    browsers,
+    oss,
+    hourly,
     topBlocks,
     blockDetails,
     reactionBlocks,
   };
+
+  // ── CSV export ────────────────────────────────────────────────────────────
+  if (format === "csv") {
+    const sections: string[] = [];
+
+    // Daily views
+    sections.push("# Page views by day");
+    sections.push(toCsv([["Date", "Views", "Unique visitors"], ...dailyData.map((d) => [d.date, d.total_views, d.unique_visitors])]));
+
+    // Audience
+    sections.push("\n\n# Top locations");
+    sections.push(toCsv([["Country", "Hits"], ...locations.map((l) => [l.location, l.hits])]));
+    sections.push("\n\n# Devices");
+    sections.push(toCsv([["Device", "Hits"], ...devices.map((d) => [d.device, d.hits])]));
+    sections.push("\n\n# Browsers");
+    sections.push(toCsv([["Browser", "Hits"], ...browsers.map((b) => [b.browser, b.hits])]));
+    sections.push("\n\n# Operating systems");
+    sections.push(toCsv([["OS", "Hits"], ...oss.map((o) => [o.os, o.hits])]));
+    sections.push("\n\n# Top referrers");
+    sections.push(toCsv([["Referrer", "Hits"], ...referrers.map((r) => [r.referrer, r.hits])]));
+
+    // Blocks
+    sections.push("\n\n# Block interactions");
+    sections.push(toCsv([
+      ["Block ID", "Block name", "Block type", "Clicks", "Submissions", "Reactions", "Total"],
+      ...blockDetails.map((b) => [
+        b.blockId,
+        b.blockName ?? "",
+        b.blockType,
+        b.clicks,
+        b.submissions,
+        b.reactions,
+        b.clicks + b.submissions + b.reactions,
+      ]),
+    ]));
+
+    // Time-of-day
+    sections.push("\n\n# Time of day (per day, per hour UTC)");
+    const hourlyByDate = new Map<string, Map<number, number>>();
+    for (const cell of hourly) {
+      if (!hourlyByDate.has(cell.date)) hourlyByDate.set(cell.date, new Map());
+      hourlyByDate.get(cell.date)!.set(cell.hour, cell.hits);
+    }
+    const heatHeader = ["Date", ...Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`)];
+    const heatRows = Array.from(hourlyByDate.entries()).map(([date, hours]) => [
+      date,
+      ...Array.from({ length: 24 }, (_, h) => hours.get(h) ?? 0),
+    ]);
+    sections.push(toCsv([heatHeader, ...heatRows]));
+
+    // Totals
+    sections.push("\n\n# Summary");
+    sections.push(toCsv([
+      ["Metric", "Value"],
+      ["Total views", totalViews],
+      ["Unique visitors", totalUniqueVisitors],
+      ["Block clicks", totalClicks],
+      ["Signups", totalSubmissions],
+      ["Reactions", totalReactions],
+      ["Days", days],
+    ]));
+
+    const body = sections.join("\r\n");
+    return new NextResponse(body, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="bio-analytics-${galleryId.slice(0, 8)}-${dateStr(new Date())}.csv"`,
+      },
+    });
+  }
 
   return NextResponse.json(response, {
     headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=30" },

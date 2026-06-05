@@ -40,9 +40,18 @@ export async function POST(req: Request) {
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     "unknown";
 
+  // Read visitor ID from cookie (set by BioPublicPage client script)
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const visitorId = cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("_bvid="))
+    ?.slice(6) ?? null;
+
   await recordBioPageView({
     galleryId,
     ip,
+    visitorId,
     cfCountry: req.headers.get("cf-ipcountry"),
     vercelCountry: req.headers.get("x-vercel-ip-country"),
     deviceTypeHeader: req.headers.get("x-device-type"),

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   BarChart3, Eye, Users, MousePointerClick, Heart, Inbox,
   Globe, Smartphone, Monitor, Tablet, ExternalLink, RefreshCw,
-  Download, Mail, Copy, Check,
+  Download, Mail, Copy, Check, Laptop,
 } from "lucide-react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid,
@@ -54,6 +54,64 @@ function KpiCard({
           {value.toLocaleString()}
         </span>
       )}
+    </Card>
+  );
+}
+
+// ─── Conversion funnel ────────────────────────────────────────────────────────
+
+function Funnel({ views, clicks, signups, loading }: {
+  views: number; clicks: number; signups: number; loading: boolean;
+}) {
+  const stages = [
+    { label: "Page views", value: views, color: "hsl(var(--primary))", icon: Eye },
+    { label: "Block clicks", value: clicks, color: "#8b5cf6", icon: MousePointerClick },
+    { label: "Signups", value: signups, color: "#10b981", icon: Inbox },
+  ];
+
+  if (loading) {
+    return <Card><Skeleton className="h-32 w-full" /></Card>;
+  }
+
+  if (views === 0) return null;
+
+  return (
+    <Card>
+      <p className="text-sm font-semibold text-foreground mb-4">Conversion funnel</p>
+      <div className="space-y-3">
+        {stages.map((stage, i) => {
+          const widthPct = views > 0 ? Math.max(8, (stage.value / views) * 100) : 0;
+          const stageConvPct = i === 0 ? 100 : views > 0 ? Math.round((stage.value / views) * 100) : 0;
+          const stepConvPct = i === 0 ? null : stages[i - 1].value > 0
+            ? Math.round((stage.value / stages[i - 1].value) * 100)
+            : 0;
+          return (
+            <div key={stage.label}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5 text-xs text-foreground">
+                  <stage.icon className="w-3.5 h-3.5" style={{ color: stage.color }} />
+                  <span className="font-medium">{stage.label}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs tabular-nums">
+                  <span className="font-semibold text-foreground">{stage.value.toLocaleString()}</span>
+                  <span className="text-muted-foreground">{stageConvPct}%</span>
+                  {stepConvPct !== null && (
+                    <span className="text-[10px] text-muted-foreground/70">
+                      ({stepConvPct}% step)
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="h-7 bg-muted/50 rounded overflow-hidden">
+                <div
+                  className="h-full rounded transition-all duration-500"
+                  style={{ width: `${widthPct}%`, backgroundColor: stage.color, opacity: 0.85 }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </Card>
   );
 }
@@ -263,14 +321,122 @@ function ReactionPanel({ data, loading, days }: { data: ReactionData; loading: b
   );
 }
 
+// ─── Time-of-day heatmap ──────────────────────────────────────────────────────
+
+function HeatmapPanel({ hourly, loading }: {
+  hourly: { date: string; hour: number; hits: number }[]; loading: boolean;
+}) {
+  if (loading) {
+    return <Card><Skeleton className="h-40 w-full" /></Card>;
+  }
+
+  // Group by date
+  const byDate = new Map<string, Map<number, number>>();
+  for (const cell of hourly) {
+    if (!byDate.has(cell.date)) byDate.set(cell.date, new Map());
+    byDate.get(cell.date)!.set(cell.hour, cell.hits);
+  }
+  const dates = Array.from(byDate.keys()).sort();
+  if (dates.length === 0) return null;
+
+  const max = Math.max(...hourly.map((c) => c.hits), 1);
+  const total = hourly.reduce((s, c) => s + c.hits, 0);
+  if (total === 0) return null;
+
+  // Find peak hour across all days
+  const hourTotals = new Map<number, number>();
+  for (const cell of hourly) {
+    hourTotals.set(cell.hour, (hourTotals.get(cell.hour) ?? 0) + cell.hits);
+  }
+  let peakHour = 0;
+  let peakHits = 0;
+  hourTotals.forEach((v, h) => {
+    if (v > peakHits) { peakHits = v; peakHour = h; }
+  });
+
+  const heatColor = (hits: number) => {
+    if (hits === 0) return "hsl(var(--muted) / 0.3)";
+    const intensity = hits / max;
+    // Use primary color with varying opacity
+    return `hsl(var(--primary) / ${0.15 + intensity * 0.7})`;
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-foreground">Time of day</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          Peak: {String(peakHour).padStart(2, "0")}:00 UTC
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-separate border-spacing-0.5 text-[10px]">
+          <thead>
+            <tr>
+              <th className="text-left text-muted-foreground font-medium pb-1 w-12"></th>
+              {Array.from({ length: 24 }, (_, h) => (
+                <th key={h} className="text-muted-foreground font-medium pb-1 text-center tabular-nums" style={{ minWidth: 18 }}>
+                  {h % 6 === 0 ? String(h).padStart(2, "0") : ""}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dates.map((date) => {
+              const hours = byDate.get(date)!;
+              return (
+                <tr key={date}>
+                  <td className="text-muted-foreground pr-1 tabular-nums whitespace-nowrap">
+                    {new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </td>
+                  {Array.from({ length: 24 }, (_, h) => {
+                    const hits = hours.get(h) ?? 0;
+                    return (
+                      <td key={h} className="p-0">
+                        <div
+                          className="rounded-sm aspect-square"
+                          style={{ backgroundColor: heatColor(hits) }}
+                          title={`${date} ${String(h).padStart(2, "0")}:00 — ${hits} view${hits !== 1 ? "s" : ""}`}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+        <span>Less</span>
+        <div className="flex gap-0.5">
+          {[0.15, 0.35, 0.55, 0.75, 0.95].map((o) => (
+            <div key={o} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `hsl(var(--primary) / ${o})` }} />
+          ))}
+        </div>
+        <span>More</span>
+      </div>
+    </Card>
+  );
+}
+
 // ─── Top blocks bar chart ─────────────────────────────────────────────────────
 
-function TopBlocksPanel({ blocks, loading }: { blocks: BlockDetail[]; loading: boolean }) {
+function TopBlocksPanel({ blocks, totalViews, loading }: {
+  blocks: BlockDetail[]; totalViews: number; loading: boolean;
+}) {
   if (!loading && blocks.length === 0) return null;
   const maxInteractions = Math.max(...blocks.map((b) => b.clicks + b.submissions + b.reactions), 1);
   return (
     <Card>
-      <p className="text-sm font-semibold text-foreground mb-3">Block interactions</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-foreground">Block interactions</p>
+        {totalViews > 0 && (
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            CTR = interactions / views
+          </span>
+        )}
+      </div>
       {loading ? (
         <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
       ) : (
@@ -278,13 +444,19 @@ function TopBlocksPanel({ blocks, loading }: { blocks: BlockDetail[]; loading: b
           {blocks.sort((a, b) => (b.clicks + b.submissions + b.reactions) - (a.clicks + a.submissions + a.reactions)).map((b) => {
             const total = b.clicks + b.submissions + b.reactions;
             const pct = Math.round((total / maxInteractions) * 100);
+            const ctr = totalViews > 0 ? Math.min(100, Math.round((total / totalViews) * 100)) : 0;
             const label = (b.blockName ?? b.blockType.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
             return (
               <div key={b.blockId} className="flex items-center gap-3 py-2">
                 <div className="flex-1 relative h-7">
                   <div className="absolute inset-y-0 left-0 bg-primary/10 rounded transition-all" style={{ width: `${pct}%`, minWidth: "4px" }} />
-                  <div className="absolute inset-y-0 left-2 flex items-center">
+                  <div className="absolute inset-y-0 left-2 flex items-center gap-2">
                     <span className="text-xs font-medium text-foreground truncate max-w-[180px]">{label}</span>
+                    {totalViews > 0 && (
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {ctr}% CTR
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
@@ -383,7 +555,7 @@ function ReferrersPanel({ referrers, loading }: {
         <ExternalLink className="w-4 h-4 text-muted-foreground" />
         <p className="text-sm font-semibold text-foreground">Top referrers</p>
       </div>
-      {loading ? <div className="space-y-2">{[1, 2].map((i) => <Skeleton key={i} className="h-7 w-full" />)}</div> : (
+      {loading ? <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}</div> : (
         <div className="divide-y divide-border">
           {referrers.map((ref) => (
             <div key={ref.referrer} className="flex items-center justify-between py-2">
@@ -391,6 +563,62 @@ function ReferrersPanel({ referrers, loading }: {
               <span className="text-xs text-muted-foreground shrink-0 ml-2">{ref.hits.toLocaleString()}</span>
             </div>
           ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function BrowserPanel({ browsers, loading }: {
+  browsers: { browser: string; hits: number }[]; loading: boolean;
+}) {
+  if (!loading && browsers.length === 0) return null;
+  const total = browsers.reduce((s, d) => s + d.hits, 0);
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3">
+        <Globe className="w-4 h-4 text-muted-foreground" />
+        <p className="text-sm font-semibold text-foreground">Browsers</p>
+      </div>
+      {loading ? <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}</div> : (
+        <div className="divide-y divide-border">
+          {browsers.map((b) => {
+            const pct = total > 0 ? Math.round((b.hits / total) * 100) : 0;
+            return (
+              <div key={b.browser} className="flex items-center gap-2 py-2">
+                <span className="text-xs text-foreground capitalize flex-1">{b.browser}</span>
+                <span className="text-xs text-muted-foreground">{pct}% · {b.hits.toLocaleString()}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function OsPanel({ oss, loading }: {
+  oss: { os: string; hits: number }[]; loading: boolean;
+}) {
+  if (!loading && oss.length === 0) return null;
+  const total = oss.reduce((s, d) => s + d.hits, 0);
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-3">
+        <Laptop className="w-4 h-4 text-muted-foreground" />
+        <p className="text-sm font-semibold text-foreground">Operating systems</p>
+      </div>
+      {loading ? <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}</div> : (
+        <div className="divide-y divide-border">
+          {oss.map((o) => {
+            const pct = total > 0 ? Math.round((o.hits / total) * 100) : 0;
+            return (
+              <div key={o.os} className="flex items-center gap-2 py-2">
+                <span className="text-xs text-foreground capitalize flex-1">{o.os}</span>
+                <span className="text-xs text-muted-foreground">{pct}% · {o.hits.toLocaleString()}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </Card>
@@ -471,6 +699,14 @@ export function BioAnalyticsPage({ galleryId, slug, displayName, isPublished }: 
         </div>
         <div className="flex items-center gap-2">
           <DateToggle value={days} onChange={(d) => { setDays(d); fetchData(d); }} />
+          <a
+            href={`/api/bio/analytics/${galleryId}?days=${days}&format=csv`}
+            download
+            className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+            title="Download analytics as CSV"
+          >
+            <Download className="w-4 h-4" />
+          </a>
           <button type="button" onClick={() => fetchData(days)} disabled={loading}
             className="p-2 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors">
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
@@ -487,8 +723,19 @@ export function BioAnalyticsPage({ galleryId, slug, displayName, isPublished }: 
         <KpiCard icon={Heart} label="Reactions" value={totals?.reactions ?? 0} color="text-pink-500" loading={loading} />
       </div>
 
+      {/* ── Funnel ──────────────────────────────────────────────────────── */}
+      <Funnel
+        views={totals?.views ?? 0}
+        clicks={totals?.clicks ?? 0}
+        signups={totals?.submissions ?? 0}
+        loading={loading}
+      />
+
       {/* ── Views chart ─────────────────────────────────────────────────── */}
       <PageViewsChart data={chartData} loading={loading} days={days} />
+
+      {/* ── Time-of-day heatmap ─────────────────────────────────────────── */}
+      <HeatmapPanel hourly={data?.hourly ?? []} loading={loading} />
 
       {/* ── Waitlist signups ─────────────────────────────────────────────── */}
       {(loading || waitlistBlocks.length > 0) && (
@@ -516,7 +763,7 @@ export function BioAnalyticsPage({ galleryId, slug, displayName, isPublished }: 
       {(loading || blockDetails.length > 0) && (
         <div>
           <SectionTitle>Block interactions</SectionTitle>
-          <TopBlocksPanel blocks={blockDetails} loading={loading} />
+          <TopBlocksPanel blocks={blockDetails} totalViews={totals?.views ?? 0} loading={loading} />
         </div>
       )}
 
@@ -526,6 +773,8 @@ export function BioAnalyticsPage({ galleryId, slug, displayName, isPublished }: 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <LocationsPanel locations={data?.locations ?? []} totalViews={totals?.views ?? 0} loading={loading} />
           <DevicesPanel devices={data?.devices ?? []} loading={loading} />
+          <BrowserPanel browsers={data?.browsers ?? []} loading={loading} />
+          <OsPanel oss={data?.oss ?? []} loading={loading} />
           <ReferrersPanel referrers={data?.referrers ?? []} loading={loading} />
         </div>
       </div>

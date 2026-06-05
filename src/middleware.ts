@@ -1,25 +1,27 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/webhooks(.*)",     // Dodo & Clerk webhooks (must stay public)
-  "/p/(.*)",
-  "/s/(.*)",
-  "/api/links/resolve(.*)",
-  "/api/internal(.*)",
-  "/api/v2(.*)",           // v2 routes handle auth internally (API keys or Clerk)
-  "/api/v1(.*)",           // v1 routes handle auth internally (API keys or Clerk)
-  "/api/bio/(.*)",         // Bio reactions, analytics track, public data — handlers do their own auth
-  "/api/gallery/assets/(.*)", // Gallery asset images served on bio pages (public, no auth)
-  "/api/workspaces/current", // WorkspaceProvider fetches this client-side; route handler does its own auth
-  "/docs",                 // Public API documentation
-  "/pricing",              // Public pricing page
-]);
+const PUBLIC_PREFIXES = [
+  "/sign-in",
+  "/sign-up",
+  "/api/webhooks",
+  "/p/",
+  "/s/",
+  "/api/links/resolve",
+  "/api/internal",
+  "/api/v2",
+  "/api/v1",
+  "/api/bio/",
+  "/api/gallery/assets/",
+  "/api/workspaces/current",
+];
+
+function isPublicRoute(pathname: string): boolean {
+  if (pathname === "/" || pathname === "/docs" || pathname === "/pricing") return true;
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isPublicRoute(req)) return;
+  if (isPublicRoute(req.nextUrl.pathname)) return;
 
   const { userId, redirectToSignIn } = await auth();
 

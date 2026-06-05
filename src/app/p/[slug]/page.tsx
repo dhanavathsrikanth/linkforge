@@ -14,7 +14,7 @@ import {
 import { getGoogleFontUrl } from "@/lib/bio/fonts";
 import type { PublishedSnapshot } from "@/types/gallery";
 import { recordBioPageView } from "@/lib/bio/track-view";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 
 // ─── Caching strategy ─────────────────────────────────────────────────────────
 // We render the page from the `published_snapshot` JSON column, which is
@@ -276,12 +276,15 @@ export default async function PublishedBioPage({
   // Record view directly — no HTTP fetch, works in dev and prod.
   // We read the real visitor headers via next/headers so geo/device are accurate.
   const reqHeaders = await headers();
+  const cookieStore = await cookies();
+  const visitorId = cookieStore.get("_bvid")?.value ?? null;
   recordBioPageView({
     galleryId: gallery.id,
     ip:
       reqHeaders.get("cf-connecting-ip") ??
       reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       "unknown",
+    visitorId,
     cfCountry: reqHeaders.get("cf-ipcountry"),
     vercelCountry: reqHeaders.get("x-vercel-ip-country"),
     deviceTypeHeader: reqHeaders.get("x-device-type"),

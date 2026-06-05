@@ -9,6 +9,35 @@ import { BioBlockRenderer } from "@/components/bio/blocks/BioBlockRenderer";
 import { BioShareBar } from "@/components/bio/BioShareBar";
 import type { BioBlock, BioLayoutItem } from "@/components/bio/BioCanvas";
 
+// ─── Visitor ID ───────────────────────────────────────────────────────────────
+// Anonymous random ID used for analytics rate limiting (per-browser dedup).
+// Stored in localStorage + cookie. No PII. Used only for frequency capping.
+
+function getOrCreateVisitorId(): string {
+  const KEY = "_bvid";
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+function setVisitorCookie(id: string) {
+  document.cookie = `_bvid=${id}; path=/; max-age=31536000; samesite=lax`;
+}
+
+function useVisitorId() {
+  useEffect(() => {
+    try {
+      const id = getOrCreateVisitorId();
+      setVisitorCookie(id);
+    } catch {
+      // localStorage unavailable (private browsing restrictions, etc.)
+    }
+  }, []);
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface BioPublicPageData {
@@ -94,6 +123,8 @@ interface BioPublicPageProps {
 }
 
 export function BioPublicPage({ page }: BioPublicPageProps) {
+  useVisitorId();
+
   const [appBase, setAppBase] = useState(
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://pivoturl.com"
   );

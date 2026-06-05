@@ -1,6 +1,7 @@
 import { redis } from "@/lib/redis";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import UAParser from "ua-parser-js";
 
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
@@ -44,6 +45,7 @@ async function resolveCountry(ip: string, cfCountry?: string | null, vercelCount
 export interface TrackViewInput {
   galleryId: string;
   ip: string;
+  visitorId?: string | null;
   cfCountry?: string | null;
   vercelCountry?: string | null;
   deviceTypeHeader?: string | null;
@@ -57,14 +59,18 @@ export interface TrackViewInput {
  * Fire-and-forget safe — swallows all errors.
  */
 export async function recordBioPageView(input: TrackViewInput): Promise<void> {
-  const { galleryId, ip, cfCountry, vercelCountry, deviceTypeHeader, userAgent, referer } = input;
+  const { galleryId, ip, visitorId, cfCountry, vercelCountry, deviceTypeHeader, userAgent, referer } = input;
 
   try {
-    // Rate limit: 1 view per IP per gallery per 30 minutes
-    const rl = await ratelimit.limit(`${ip}:${galleryId}`).catch(() => ({ success: true }));
+    // Rate limit: 1 view per browser (via visitor ID) per gallery per 30 minutes.
+    // Falls back to IP when no visitor ID (bots, curl, JS-disabled clients).
+    const rateLimitKey = (visitorId ?? ip).slice(0, 64);
+    const rl = await ratelimit.limit(`${rateLimitKey}:${galleryId}`).catch(() => ({ success: true }));
     if (!rl.success) return;
 
     const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const hourKey = String(now.getUTCHours()).padStart(2, "0");
     const ipHash = await hashIp(ip);
 
     const country = await resolveCountry(ip, cfCountry, vercelCountry);
@@ -75,6 +81,10 @@ export async function recordBioPageView(input: TrackViewInput): Promise<void> {
       if (/tablet|ipad/i.test(ua)) return "tablet";
       return "desktop";
     })();
+
+    const parsed = userAgent ? new UAParser(userAgent) : null;
+    const browser = parsed?.getBrowser().name?.replace(/ .*$/, "") ?? "Unknown";
+    const os = parsed?.getOS().name?.replace(/ .*$/, "") ?? "Unknown";
 
     let referrerHost = "direct";
     try {
@@ -95,7 +105,28 @@ export async function recordBioPageView(input: TrackViewInput): Promise<void> {
         redis.expire(`bio:device:${galleryId}:${today}:${device}`, TTL)),
       redis.incr(`bio:referrer:${galleryId}:${today}:${referrerHost}`).then(() =>
         redis.expire(`bio:referrer:${galleryId}:${today}:${referrerHost}`, TTL)),
+      redis.incr(`bio:browser:${galleryId}:${today}:${browser}`).then(() =>
+        redis.expire(`bio:browser:${galleryId}:${today}:${browser}`, TTL)),
+      redis.incr(`bio:os:${galleryId}:${today}:${os}`).then(() =>
+        redis.expire(`bio:os:${galleryId}:${today}:${os}`, TTL)),
+      // Per-hour bucket for time-of-day heatmap (00-23 in UTC)
+      redis.incr(`bio:hourly:${galleryId}:${today}:${hourKey}`).then(() =>
+        redis.expire(`bio:hourly:${galleryId}:${today}:${hourKey}`, TTL)),
     ];
+
+    // Real-time presence: sorted set, member = visitor identifier, score = timestamp
+    // Members with score > now - 5min are "currently active"
+    if (visitorId || ip) {
+      const presenceId = (visitorId || ipHash).slice(0, 64);
+      const activeKey = `bio:active:${galleryId}`;
+      const nowMs = now.getTime();
+      const fiveMinAgo = nowMs - 5 * 60 * 1000;
+      ops.push(
+        redis.zadd(activeKey, { score: nowMs, member: presenceId }),
+        // Periodic cleanup of stale entries
+        redis.zremrangebyscore(activeKey, 0, fiveMinAgo)
+      );
+    }
 
     if (isUnique) {
       ops.push(redis.set(uniqueKey, "1", { ex: 86400 }));
