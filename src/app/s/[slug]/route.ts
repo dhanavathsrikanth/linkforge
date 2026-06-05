@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { links } from "@/lib/db/schema";
+import { links, workspaces, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
 import { incrementUsage } from "@/lib/billing/usage";
+import { sendFirstClickAlert } from "@/lib/email";
 
 type DeviceType = "desktop" | "mobile" | "tablet" | "bot" | "unknown";
 
@@ -323,6 +324,34 @@ export async function GET(
 
           await trackLinkClicked({ linkId: link.id, domain: getDefaultDomain() }).catch(() => {});
           await incrementUsage(link.workspaceId, "clicksTracked", 1);
+
+          // ── First click alert ──────────────────────────────────────────
+          if (link.totalClicks === 0) {
+            const notified = await redis.set(`first_click_sent:${link.id}`, "1", { nx: true });
+            if (notified) {
+              (async () => {
+                try {
+                  const owner = await db
+                    .select({ email: users.email, name: users.name })
+                    .from(workspaces)
+                    .innerJoin(users, eq(workspaces.ownerId, users.id))
+                    .where(eq(workspaces.id, link.workspaceId))
+                    .limit(1);
+                  if (owner[0]?.email) {
+                    await sendFirstClickAlert(owner[0].email, {
+                      name: owner[0].name || owner[0].email,
+                      linkTitle: link.title || link.slug,
+                      linkSlug: link.slug,
+                      linkUrl: `${getDefaultDomain()}/s/${link.slug}`,
+                      workspaceId: link.workspaceId,
+                    });
+                  }
+                } catch (e) {
+                  console.error("First click notification failed:", e);
+                }
+              })();
+            }
+          }
         } catch (e) {
           console.error("Click tracking failed (non-blocking):", e);
         }

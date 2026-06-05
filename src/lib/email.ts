@@ -3,13 +3,40 @@ import { resend } from "./resend";
 import type { PlanKey } from "./billing/plans";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const FROM = "PivotUrl <noreply@pivoturl.com>";
-const REPLY_TO = "support@pivoturl.com";
+const FROM = "PivotUrl <noreply@mail.pivoturl.com>";
+const REPLY_TO = "support@mail.pivoturl.com";
 
 // ── Lazy template imports (avoids bundling in Edge runtime) ────────────────────
 async function renderWelcome(props: { name: string; email: string }) {
   const { default: WelcomeEmail } = await import("../../emails/WelcomeEmail");
   return render(WelcomeEmail(props));
+}
+
+async function renderFirstClickAlert(props: {
+  name: string;
+  linkTitle: string;
+  linkSlug: string;
+  linkUrl: string;
+  workspaceId: string;
+}) {
+  const { default: FirstClickAlert } = await import("../../emails/FirstClickAlert");
+  return render(FirstClickAlert(props));
+}
+
+async function renderMonthlyReport(props: {
+  name: string;
+  email: string;
+  monthLabel: string;
+  totalClicks: number;
+  prevTotalClicks: number;
+  totalLinks: number;
+  newLinks: number;
+  topLinks: { title: string; slug: string; clicks: number; prevClicks: number }[];
+  topCountry: string;
+  topDevice: string;
+}) {
+  const { default: MonthlyReport } = await import("../../emails/MonthlyReport");
+  return render(MonthlyReport(props));
 }
 
 async function renderClickAlert(props: {
@@ -84,6 +111,33 @@ export async function sendWelcomeEmail(to: string, name: string) {
 }
 
 /**
+ * Fires when a brand-new link receives its very first click.
+ */
+export async function sendFirstClickAlert(
+  to: string,
+  props: {
+    name: string;
+    linkTitle: string;
+    linkSlug: string;
+    linkUrl: string;
+    workspaceId: string;
+  }
+) {
+  try {
+    const html = await renderFirstClickAlert(props);
+    await resend.emails.send({
+      from: FROM,
+      replyTo: REPLY_TO,
+      to,
+      subject: `🎯 "${props.linkTitle}" just got its first click!`,
+      html,
+    });
+  } catch (err) {
+    console.error("[email] sendFirstClickAlert failed:", err);
+  }
+}
+
+/**
  * Fires when a link hits a click milestone (100 / 1000 / 10000).
  */
 export async function sendClickMilestoneEmail(
@@ -139,6 +193,37 @@ export async function sendWeeklyDigest(
     });
   } catch (err) {
     console.error("[email] sendWeeklyDigest failed:", err);
+  }
+}
+
+/**
+ * Fires via Vercel cron on the 1st of every month.
+ */
+export async function sendMonthlyReport(
+  to: string,
+  props: {
+    name: string;
+    monthLabel: string;
+    totalClicks: number;
+    prevTotalClicks: number;
+    totalLinks: number;
+    newLinks: number;
+    topLinks: { title: string; slug: string; clicks: number; prevClicks: number }[];
+    topCountry: string;
+    topDevice: string;
+  }
+) {
+  try {
+    const html = await renderMonthlyReport({ ...props, email: to });
+    await resend.emails.send({
+      from: FROM,
+      replyTo: REPLY_TO,
+      to,
+      subject: `📈 Your month in links — ${props.monthLabel}`,
+      html,
+    });
+  } catch (err) {
+    console.error("[email] sendMonthlyReport failed:", err);
   }
 }
 
