@@ -18,6 +18,7 @@ interface FirstLinkCreatedProps {
   linkTitle: string;
   linkSlug: string;
   dashboardUrl: string;
+  appUrl: string;
 }
 
 export default function FirstLinkCreated({
@@ -25,6 +26,7 @@ export default function FirstLinkCreated({
   linkTitle,
   linkSlug,
   dashboardUrl,
+  appUrl,
 }: FirstLinkCreatedProps) {
   const firstName = name?.split(" ")[0] || "there";
 
@@ -48,7 +50,7 @@ export default function FirstLinkCreated({
 
           <Section style={linkCard}>
             <Text style={linkLabel}>Your link</Text>
-            <Text style={linkValue}>{`https://pivoturl.com/s/${linkSlug}`}</Text>
+            <Text style={linkValue}>{`${appUrl}/s/${linkSlug}`}</Text>
           </Section>
 
           <Section style={stepsSection}>
@@ -94,7 +96,7 @@ export default function FirstLinkCreated({
           <Section style={footer}>
             <Text style={footerText}>
               You're receiving this because you created your first link on PivotUrl.{" "}
-              <Link href={`https://pivoturl.com/dashboard/settings?tab=notifications`} style={unsubLink}>
+              <Link href={`${appUrl}/dashboard/settings?tab=notifications`} style={unsubLink}>
                 Manage alerts
               </Link>
             </Text>

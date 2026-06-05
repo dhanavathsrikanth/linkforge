@@ -1,15 +1,17 @@
 import { render } from "@react-email/render";
 import { resend } from "./resend";
+import { getAppUrl } from "./utils";
 import type { PlanKey } from "./billing/plans";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const FROM = "PivotUrl <noreply@mail.pivoturl.com>";
 const REPLY_TO = "support@mail.pivoturl.com";
+const APP_URL = getAppUrl();
 
 // ── Lazy template imports (avoids bundling in Edge runtime) ────────────────────
 async function renderWelcome(props: { name: string; email: string }) {
   const { default: WelcomeEmail } = await import("../../emails/WelcomeEmail");
-  return render(WelcomeEmail(props));
+  return render(WelcomeEmail({ ...props, appUrl: APP_URL }));
 }
 
 async function renderFirstClickAlert(props: {
@@ -20,7 +22,7 @@ async function renderFirstClickAlert(props: {
   workspaceId: string;
 }) {
   const { default: FirstClickAlert } = await import("../../emails/FirstClickAlert");
-  return render(FirstClickAlert(props));
+  return render(FirstClickAlert({ ...props, appUrl: APP_URL }));
 }
 
 async function renderMonthlyReport(props: {
@@ -36,7 +38,7 @@ async function renderMonthlyReport(props: {
   topDevice: string;
 }) {
   const { default: MonthlyReport } = await import("../../emails/MonthlyReport");
-  return render(MonthlyReport(props));
+  return render(MonthlyReport({ ...props, appUrl: APP_URL }));
 }
 
 async function renderDomainVerified(props: {
@@ -47,7 +49,7 @@ async function renderDomainVerified(props: {
   role: string;
 }) {
   const { default: DomainVerified } = await import("../../emails/DomainVerified");
-  return render(DomainVerified(props));
+  return render(DomainVerified({ ...props, appUrl: APP_URL }));
 }
 
 async function renderClickAlert(props: {
@@ -61,7 +63,7 @@ async function renderClickAlert(props: {
   workspaceId: string;
 }) {
   const { default: LinkClickAlert } = await import("../../emails/LinkClickAlert");
-  return render(LinkClickAlert(props));
+  return render(LinkClickAlert({ ...props, appUrl: APP_URL }));
 }
 
 async function renderWeeklyDigest(props: {
@@ -75,7 +77,7 @@ async function renderWeeklyDigest(props: {
   recommendation?: string;
 }) {
   const { default: WeeklyDigest } = await import("../../emails/WeeklyDigest");
-  return render(WeeklyDigest(props));
+  return render(WeeklyDigest({ ...props, appUrl: APP_URL }));
 }
 
 async function renderPlanUpgraded(props: {
@@ -85,7 +87,7 @@ async function renderPlanUpgraded(props: {
   billingCycle: "monthly" | "annual";
 }) {
   const { default: PlanUpgraded } = await import("../../emails/PlanUpgraded");
-  return render(PlanUpgraded(props));
+  return render(PlanUpgraded({ ...props, appUrl: APP_URL }));
 }
 
 async function renderFirstLinkCreated(props: {
@@ -95,7 +97,7 @@ async function renderFirstLinkCreated(props: {
   dashboardUrl: string;
 }) {
   const { default: FirstLinkCreated } = await import("../../emails/FirstLinkCreated");
-  return render(FirstLinkCreated(props));
+  return render(FirstLinkCreated({ ...props, appUrl: APP_URL }));
 }
 
 async function renderInactiveUser(props: {
@@ -110,7 +112,7 @@ async function renderInactiveUser(props: {
   dashboardUrl: string;
 }) {
   const { default: InactiveUser } = await import("../../emails/InactiveUser");
-  return render(InactiveUser(props));
+  return render(InactiveUser({ ...props, appUrl: APP_URL }));
 }
 
 async function renderBioPublished(props: {
@@ -121,7 +123,7 @@ async function renderBioPublished(props: {
   hasCustomDomain: boolean;
 }) {
   const { default: BioPublished } = await import("../../emails/BioPublished");
-  return render(BioPublished(props));
+  return render(BioPublished({ ...props, appUrl: APP_URL }));
 }
 
 // ── Send helpers ───────────────────────────────────────────────────────────────

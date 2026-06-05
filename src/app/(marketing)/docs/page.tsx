@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-const BASE_URL = "https://pivoturl.vercel.app";
+const BASE_URL = "https://www.pivoturl.com";
 
 const sections = [
   { id: "whats-new", label: "What's New" },

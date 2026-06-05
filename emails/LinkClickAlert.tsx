@@ -24,6 +24,7 @@ interface LinkClickAlertProps {
   topCountry: string;
   topDevice: string;
   workspaceId: string;
+  appUrl: string;
 }
 
 export default function LinkClickAlert({
@@ -35,8 +36,9 @@ export default function LinkClickAlert({
   topCountry,
   topDevice,
   workspaceId,
+  appUrl,
 }: LinkClickAlertProps) {
-  const analyticsUrl = `https://pivoturl.com/dashboard/links/${linkSlug}/analytics`;
+  const analyticsUrl = `${appUrl}/dashboard/links/${linkSlug}/analytics`;
 
   const milestoneEmoji =
     milestone >= 10000 ? "🚀" : milestone >= 1000 ? "🎯" : "🎉";
@@ -107,7 +109,7 @@ export default function LinkClickAlert({
             <Text style={footerText}>
               You're receiving this because you have click alerts enabled.{" "}
               <Link
-                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
+                href={`${appUrl}/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Manage alerts

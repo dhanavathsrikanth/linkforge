@@ -19,6 +19,7 @@ interface FirstClickAlertProps {
   linkSlug: string;
   linkUrl: string;
   workspaceId: string;
+  appUrl: string;
 }
 
 export default function FirstClickAlert({
@@ -26,9 +27,10 @@ export default function FirstClickAlert({
   linkTitle,
   linkSlug,
   linkUrl,
+  appUrl,
 }: FirstClickAlertProps) {
   const firstName = name?.split(" ")[0] || "there";
-  const analyticsUrl = `https://pivoturl.com/dashboard/links/${linkSlug}/analytics`;
+  const analyticsUrl = `${appUrl}/dashboard/links/${linkSlug}/analytics`;
 
   return (
     <Html>
@@ -82,7 +84,7 @@ export default function FirstClickAlert({
             <Text style={footerText}>
               You're receiving this because you have click alerts enabled.{" "}
               <Link
-                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
+                href={`${appUrl}/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Manage alerts

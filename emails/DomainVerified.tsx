@@ -19,6 +19,7 @@ interface DomainVerifiedProps {
   dashboardUrl: string;
   isDefault: boolean;
   role: string;
+  appUrl: string;
 }
 
 export default function DomainVerified({
@@ -27,6 +28,7 @@ export default function DomainVerified({
   dashboardUrl,
   isDefault,
   role,
+  appUrl,
 }: DomainVerifiedProps) {
   const firstName = name?.split(" ")[0] || "there";
   const roleLabel = role === "bio" ? "bio page" : role === "both" ? "links & bio pages" : "short links";
@@ -101,7 +103,7 @@ export default function DomainVerified({
             <Text style={footerText}>
               You're receiving this because you added {domain} to PivotUrl.{" "}
               <Link
-                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
+                href={`${appUrl}/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Manage alerts

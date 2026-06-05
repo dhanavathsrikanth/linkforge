@@ -25,12 +25,13 @@ interface TopLink {
 interface WeeklyDigestProps {
   name: string;
   email: string;
-  weekStart: string; // e.g. "May 12"
-  weekEnd: string;   // e.g. "May 18"
+  weekStart: string;
+  weekEnd: string;
   totalClicks: number;
   prevTotalClicks: number;
   topLinks: TopLink[];
   recommendation?: string;
+  appUrl: string;
 }
 
 function pct(current: number, prev: number) {
@@ -53,6 +54,7 @@ export default function WeeklyDigest({
   prevTotalClicks,
   topLinks,
   recommendation,
+  appUrl,
 }: WeeklyDigestProps) {
   const firstName = name?.split(" ")[0] || "there";
   const weekChange = pct(totalClicks, prevTotalClicks);
@@ -150,7 +152,7 @@ export default function WeeklyDigest({
           <Section style={ctaSection}>
             <Button
               style={ctaBtn}
-              href="https://pivoturl.com/dashboard/analytics"
+              href={`${appUrl}/dashboard/analytics`}
             >
               View Full Analytics →
             </Button>
@@ -163,7 +165,7 @@ export default function WeeklyDigest({
             <Text style={footerText}>
               You're receiving this weekly digest as {email}.{" "}
               <Link
-                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
+                href={`${appUrl}/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Unsubscribe

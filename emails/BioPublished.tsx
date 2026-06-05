@@ -19,6 +19,7 @@ interface BioPublishedProps {
   pageUrl: string;
   dashboardUrl: string;
   hasCustomDomain: boolean;
+  appUrl: string;
 }
 
 export default function BioPublished({
@@ -27,6 +28,7 @@ export default function BioPublished({
   pageUrl,
   dashboardUrl,
   hasCustomDomain,
+  appUrl,
 }: BioPublishedProps) {
   const firstName = name?.split(" ")[0] || "there";
 
@@ -111,7 +113,7 @@ export default function BioPublished({
           <Section style={footer}>
             <Text style={footerText}>
               You're receiving this because you published a bio page on PivotUrl.{" "}
-              <Link href={`https://pivoturl.com/dashboard/settings?tab=notifications`} style={unsubLink}>
+              <Link href={`${appUrl}/dashboard/settings?tab=notifications`} style={unsubLink}>
                 Manage alerts
               </Link>
             </Text>

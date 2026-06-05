@@ -19,34 +19,35 @@ import * as React from "react";
 interface WelcomeEmailProps {
   name: string;
   email: string;
+  appUrl: string;
 }
 
-const steps = [
-  {
-    icon: "🌐",
-    title: "Connect your domain",
-    desc: "Use your own branded domain for short links instead of pivoturl.com.",
-    href: "https://pivoturl.com/dashboard/settings/domains",
-    cta: "Add Domain",
-  },
-  {
-    icon: "🔗",
-    title: "Create your first link",
-    desc: "Shorten any URL, add UTM params, set expiry dates, and enable password protection.",
-    href: "https://pivoturl.com/dashboard/links",
-    cta: "Create Link",
-  },
-  {
-    icon: "📊",
-    title: "Share and track",
-    desc: "See real-time clicks, top countries, devices, and referrers in your analytics dashboard.",
-    href: "https://pivoturl.com/dashboard/analytics",
-    cta: "View Analytics",
-  },
-];
-
-export default function WelcomeEmail({ name, email }: WelcomeEmailProps) {
+export default function WelcomeEmail({ name, email, appUrl }: WelcomeEmailProps) {
   const firstName = name?.split(" ")[0] || "there";
+
+  const steps = [
+    {
+      icon: "🌐",
+      title: "Connect your domain",
+      desc: "Use your own branded domain for short links instead of pivoturl.com.",
+      href: `${appUrl}/dashboard/settings/domains`,
+      cta: "Add Domain",
+    },
+    {
+      icon: "🔗",
+      title: "Create your first link",
+      desc: "Shorten any URL, add UTM params, set expiry dates, and enable password protection.",
+      href: `${appUrl}/dashboard/links`,
+      cta: "Create Link",
+    },
+    {
+      icon: "📊",
+      title: "Share and track",
+      desc: "See real-time clicks, top countries, devices, and referrers in your analytics dashboard.",
+      href: `${appUrl}/dashboard/analytics`,
+      cta: "View Analytics",
+    },
+  ];
 
   return (
     <Html>
@@ -107,12 +108,12 @@ export default function WelcomeEmail({ name, email }: WelcomeEmailProps) {
                 </Link>
               </Column>
               <Column>
-                <Link href="https://pivoturl.com/docs" style={socialLink}>
+                <Link href={`${appUrl}/docs`} style={socialLink}>
                   Docs
                 </Link>
               </Column>
               <Column>
-                <Link href="https://pivoturl.com/blog" style={socialLink}>
+                <Link href={`${appUrl}/blog`} style={socialLink}>
                   Blog
                 </Link>
               </Column>
@@ -126,7 +127,7 @@ export default function WelcomeEmail({ name, email }: WelcomeEmailProps) {
             </Text>
             <Text style={footerText}>
               You're receiving this because you signed up with {email}.{" "}
-              <Link href={`https://pivoturl.com/unsubscribe?email=${email}`} style={unsubLink}>
+              <Link href={`${appUrl}/unsubscribe?email=${email}`} style={unsubLink}>
                 Unsubscribe
               </Link>
             </Text>

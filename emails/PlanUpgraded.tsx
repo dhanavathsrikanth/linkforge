@@ -22,6 +22,7 @@ interface PlanUpgradedProps {
   email: string;
   plan: PlanKey;
   billingCycle: "monthly" | "annual";
+  appUrl: string;
 }
 
 const PLAN_FEATURES: Record<string, string[]> = {
@@ -75,6 +76,7 @@ export default function PlanUpgraded({
   email,
   plan,
   billingCycle,
+  appUrl,
 }: PlanUpgradedProps) {
   const firstName = name?.split(" ")[0] || "there";
   const planConfig = PLANS[plan as keyof typeof PLANS];
@@ -120,7 +122,7 @@ export default function PlanUpgraded({
           <Section style={ctaSection}>
             <Button
               style={ctaBtn}
-              href="https://pivoturl.com/dashboard"
+              href={`${appUrl}/dashboard`}
             >
               Explore Your Dashboard →
             </Button>
@@ -133,7 +135,7 @@ export default function PlanUpgraded({
             <Text style={billingText}>
               You'll find your invoice and billing details in{" "}
               <Link
-                href="https://pivoturl.com/dashboard/settings/billing"
+                href={`${appUrl}/dashboard/settings/billing`}
                 style={inlineLink}
               >
                 Settings → Billing
@@ -147,7 +149,7 @@ export default function PlanUpgraded({
             <Text style={footerText}>
               Receipt sent to {email}.{" "}
               <Link
-                href={`https://pivoturl.com/dashboard/settings/billing`}
+                href={`${appUrl}/dashboard/settings/billing`}
                 style={unsubLink}
               >
                 Manage subscription

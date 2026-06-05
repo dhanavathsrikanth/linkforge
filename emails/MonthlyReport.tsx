@@ -33,6 +33,7 @@ interface MonthlyReportProps {
   topLinks: TopLink[];
   topCountry: string;
   topDevice: string;
+  appUrl: string;
 }
 
 function pct(current: number, prev: number) {
@@ -57,6 +58,7 @@ export default function MonthlyReport({
   topLinks,
   topCountry,
   topDevice,
+  appUrl,
 }: MonthlyReportProps) {
   const firstName = name?.split(" ")[0] || "there";
   const clickChange = pct(totalClicks, prevTotalClicks);
@@ -162,7 +164,7 @@ export default function MonthlyReport({
           <Section style={ctaSection}>
             <Button
               style={ctaBtn}
-              href="https://pivoturl.com/dashboard/analytics"
+              href={`${appUrl}/dashboard/analytics`}
             >
               View Full Analytics →
             </Button>
@@ -174,7 +176,7 @@ export default function MonthlyReport({
             <Text style={footerText}>
               You're receiving this monthly report as {email}.{" "}
               <Link
-                href={`https://pivoturl.com/dashboard/settings?tab=notifications`}
+                href={`${appUrl}/dashboard/settings?tab=notifications`}
                 style={unsubLink}
               >
                 Unsubscribe

@@ -25,6 +25,7 @@ interface InactiveUserProps {
   topLinkTitle: string;
   topLinkClicks: number;
   dashboardUrl: string;
+  appUrl: string;
 }
 
 export default function InactiveUser({
@@ -37,6 +38,7 @@ export default function InactiveUser({
   topLinkTitle,
   topLinkClicks,
   dashboardUrl,
+  appUrl,
 }: InactiveUserProps) {
   const firstName = name?.split(" ")[0] || "there";
 
@@ -102,7 +104,7 @@ export default function InactiveUser({
           <Section style={footer}>
             <Text style={footerText}>
               You're receiving this because you have a PivotUrl account with {email}.{" "}
-              <Link href={`https://pivoturl.com/dashboard/settings?tab=notifications`} style={unsubLink}>
+              <Link href={`${appUrl}/dashboard/settings?tab=notifications`} style={unsubLink}>
                 Unsubscribe
               </Link>
             </Text>
