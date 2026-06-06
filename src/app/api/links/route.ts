@@ -19,6 +19,7 @@ import { startSafetyScan } from "@/lib/cloudflare/link-safety";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 import { domains, users } from "@/lib/db/schema";
 import { sendFirstLinkCreatedEmail } from "@/lib/email";
+import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { eq, sql, and, isNull, ilike, or, desc, count } from "drizzle-orm";
 const CreateLinkSchema = z.object({
   destination: z.string().url("Must be a valid URL"),
@@ -317,6 +318,11 @@ export async function POST(req: Request) {
             }))
           : null,
         routingRules: v.routingRules ?? null,
+        // Seed QR settings with the default so /dashboard/qr and every
+        // preview in the app have a single source of truth to read from
+        // (link.qrSettings). Without this, the new link would render with
+        // null settings and every consumer would need its own fallback.
+        qrSettings: DEFAULT_QR_SETTINGS,
       })
       .returning();
 
@@ -408,6 +414,9 @@ export async function POST(req: Request) {
         shortDomain,
         shortUrl,
         qrUrl,
+        // Echo the persisted QR settings so the success card in the link
+        // creator and the page on /dashboard/qr render the exact same QR.
+        qrSettings: link.qrSettings ?? DEFAULT_QR_SETTINGS,
       },
       { status: 201 }
     );

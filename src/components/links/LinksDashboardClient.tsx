@@ -12,7 +12,7 @@ import { useClipboard } from "@/hooks/use-clipboard";
 import { AdvancedCreateSheet, type FolderOption } from "./AdvancedCreateSheet";
 import { BulkCreateSheet } from "./BulkCreateSheet";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
-import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
+import { SharedQRCode } from "@/components/qr/SharedQRCode";
 import { RealtimeClicks } from "@/components/analytics/RealtimeClicks";
 import { KPICard } from "@/components/analytics/KPICard";
 import { ClicksChart } from "@/components/analytics/ClicksChart";
@@ -496,10 +496,8 @@ export function LinksDashboardClient({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
   const [advancedPrefill, setAdvancedPrefill] = useState<{ id?: string; destination?: string; slug?: string }>({});
-  const [qrLinkId, setQrLinkId] = useState<string | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const { copied, copy } = useClipboard();
-  const qrLink = links.find((l) => l.id === qrLinkId) ?? null;
   const [createdLink, setCreatedLink] = useState<{ slug: string; shortUrl: string; destination: string } | null>(null);
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -1060,14 +1058,13 @@ useEffect(() => {
                             >
                               <ExternalLink className="h-3 w-3" />
                             </a>
-                            <button
-                              type="button"
-                              onClick={() => setQrLinkId(link.id)}
+                            <Link
+                              href={`/dashboard/qr?focus=${encodeURIComponent(link.id)}`}
                               className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-slate-100"
-                              title="QR Code"
+                              title="Manage QR code"
                             >
                               <QrCode className="h-3 w-3" />
-                            </button>
+                            </Link>
                             {link.password && (
                               <span className="shrink-0 rounded bg-amber-50 px-1 py-0.5 text-[9px] font-bold text-amber-600 dark:bg-amber-950 dark:text-amber-400" title="Password protected">L</span>
                             )}
@@ -1215,17 +1212,11 @@ useEffect(() => {
         />
       )}
 
-      {qrLink && (
-        <QRCustomizePanel
-          open={!!qrLinkId}
-          onOpenChange={(v) => { if (!v) setQrLinkId(null); }}
-          linkId={qrLink.id}
-          linkSlug={qrLink.slug}
-          shortUrl={`https://${defaultDomain}/${qrLink.slug}`}
-          linkTitle={qrLink.title ?? qrLink.slug}
-          initialSettings={qrLink.qrSettings ?? DEFAULT_QR_SETTINGS}
-        />
-      )}
+      {/* QR customization lives on /dashboard/qr. The links page now shows
+          a small QR thumbnail in each row and a "Manage QR" link that
+          opens the QR page with the card focused so the user lands on
+          the QR they wanted to edit. No inline customize UI is rendered
+          here on purpose. */}
 
       {createdLink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

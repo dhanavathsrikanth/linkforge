@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
+import { redis } from "@/lib/redis";
 
 const QRSettingsSchema = z.object({
   fgColor: z
@@ -62,6 +63,18 @@ export async function PATCH(
       .set({ qrSettings: parsed.data, updatedAt: new Date() })
       .where(eq(links.id, id))
       .returning();
+
+    // Invalidate caches so the next render reads the fresh settings.
+    // Both `linkmeta:{slug}` (JSON cache used by the redirect handler)
+    // and `link:{slug}` (string-destination cache used by /api/links POST
+    // and bulk creation) must be cleared; otherwise a stale payload could
+    // keep the old QR settings around.
+    if (updated?.slug) {
+      await Promise.all([
+        redis.del(`linkmeta:${updated.slug}`),
+        redis.del(`link:${updated.slug}`),
+      ]).catch(() => {});
+    }
 
     return NextResponse.json({ link: updated });
   } catch (err) {

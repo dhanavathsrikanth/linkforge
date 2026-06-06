@@ -2,9 +2,12 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy, Hash, Tag, Folder, QrCode } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { cn, getShortLinkBase, getDefaultDomain } from "@/lib/utils";
+import type { QRSettings } from "@/types/qr";
+import { DEFAULT_QR_SETTINGS } from "@/types/qr";
+import { SharedQRCode } from "@/components/qr/SharedQRCode";
+import Link from "next/link";
 
 function buildShortUrl(slug: string) {
   return `${getShortLinkBase()}/${slug}`;
@@ -24,6 +27,12 @@ type Result = {
   shortSlug: string;
   shortDomain: string;
   destination: string;
+  /**
+   * Persisted QR settings returned by POST /api/links. Always present now
+   * because the API seeds defaults at creation; we keep it optional to
+   * tolerate older clients / partial responses.
+   */
+  qrSettings?: QRSettings;
 };
 
 export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
@@ -133,6 +142,10 @@ export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
         shortSlug: data.shortSlug ?? data.link?.slug,
         shortDomain: data.shortDomain ?? getDefaultDomain(),
         destination: data.destination ?? data.link?.destination,
+        // Pull the persisted settings so the success card shows the exact
+        // same QR as the /dashboard/qr page. If the API ever returns
+        // something partial we fall back to defaults.
+        qrSettings: (data.qrSettings ?? data.link?.qrSettings ?? DEFAULT_QR_SETTINGS) as QRSettings,
       });
     } catch {
       setError("Network error. Please try again.");
@@ -172,17 +185,21 @@ export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
             New link
           </button>
         </div>
-        {/* Live QR preview using the official main domain.
-            ?source=qr lets the redirect handler attribute scans to this QR. */}
+        {/* Live QR preview using the official main domain and the link's
+            persisted qrSettings. ?source=qr lets the redirect handler
+            attribute scans to this QR's analytics bucket. The QR is
+            rendered by SharedQRCode so it always matches the one on
+            /dashboard/qr (single source of truth). */}
         <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-white p-3">
           <div className="shrink-0 rounded bg-white p-1.5">
-            <QRCodeSVG
-              value={qrUrl}
+            <SharedQRCode
+              link={{
+                id: result.id,
+                slug: result.shortSlug,
+                qrSettings: result.qrSettings ?? DEFAULT_QR_SETTINGS,
+              }}
               size={84}
-              level="M"
-              marginSize={1}
-              fgColor="#0f172a"
-              bgColor="#ffffff"
+              defaultDomain={defaultDomain}
             />
           </div>
           <div className="min-w-0 flex-1">
@@ -196,6 +213,12 @@ export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
             <p className="mt-0.5 text-[10px] text-slate-400">
               Scans will be tracked separately in QR Code Analytics
             </p>
+            <Link
+              href={`/dashboard/qr?focus=${encodeURIComponent(result.id)}`}
+              className="mt-1 inline-block text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline"
+            >
+              Customize QR →
+            </Link>
           </div>
         </div>
       </div>

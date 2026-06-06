@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import NextLink from "next/link";
 import {
   X,
   Link2,
@@ -21,11 +22,12 @@ import {
   QrCode,
   Download,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn, getShortLinkBase, getDefaultDomain } from "@/lib/utils";
+import { DEFAULT_QR_SETTINGS } from "@/types/qr";
+import { SharedQRCode } from "@/components/qr/SharedQRCode";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -255,6 +257,12 @@ export function AdvancedCreateSheet({
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
+
+  // Stable, deterministic id for the not-yet-created preview link. Once
+  // the link is saved and we have a real id, the QR will use the same
+  // settings from the DB (and the create-success card will switch over
+  // to the persisted settings automatically).
+  const previewLinkId = prefill?.id ?? "preview";
 
   function handleAddTagFromInput() {
     const next = tagInput
@@ -1259,7 +1267,10 @@ export function AdvancedCreateSheet({
                 {/* Live QR preview — uses the official main domain
                     (defaultDomain from getDefaultDomain()) and stamps
                     ?source=qr so the redirect handler can attribute the
-                    click to this QR's analytics. */}
+                    click to this QR's analytics. Renders through
+                    SharedQRCode so the pre-create preview matches the
+                    final QR (same defaults) and any post-create
+                    customizations are honoured automatically. */}
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
                     <QrCode className="h-3.5 w-3.5" />
@@ -1269,15 +1280,20 @@ export function AdvancedCreateSheet({
                     {previewQrUrl ? (
                       <>
                         <div className="mx-auto flex aspect-square w-full max-w-[220px] items-center justify-center rounded-lg bg-white p-3">
-                          <QRCodeSVG
+                          <SharedQRCode
                             ref={qrSvgRef}
-                            value={previewQrUrl}
+                            link={{
+                              id: previewLinkId,
+                              slug: previewSlug,
+                              // Pre-create preview always uses the default
+                              // settings. Customizations happen on the QR
+                              // page after the link is saved, and the
+                              // shared component will pick them up there.
+                              qrSettings: DEFAULT_QR_SETTINGS,
+                            }}
                             size={196}
-                            level="M"
-                            marginSize={1}
-                            fgColor="#0f172a"
-                            bgColor="#ffffff"
-                            style={{ width: "100%", height: "auto" }}
+                            defaultDomain={defaultDomain}
+                            className="w-full h-full [&_svg]:!w-full [&_svg]:!h-auto"
                           />
                         </div>
                         <div className="mt-3 space-y-1">
@@ -1311,6 +1327,16 @@ export function AdvancedCreateSheet({
                               SVG
                             </button>
                           </div>
+                          <p className="pt-1 text-center text-[10px] text-muted-foreground">
+                            Want a custom look? Save the link, then open{" "}
+                            <NextLink
+                              href={`/dashboard/qr?focus=${encodeURIComponent(previewLinkId)}`}
+                              className="font-semibold text-primary hover:underline"
+                            >
+                              QR Code Manager
+                            </NextLink>
+                            .
+                          </p>
                         </div>
                       </>
                     ) : (

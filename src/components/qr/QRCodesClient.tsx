@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Link2, Sparkles, Download, QrCode } from "lucide-react";
 import { usePostHog } from "@posthog/react";
+import { useSearchParams } from "next/navigation";
 import { QRCard } from "./QRCard";
 import { downloadPNG } from "./qrDownload";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import Link from "next/link";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { cn } from "@/lib/utils";
+import { cn, getShortLinkBase } from "@/lib/utils";
 
 type LinkRow = {
   id: string;
@@ -25,14 +26,36 @@ interface Props {
   links: LinkRow[];
   defaultDomain?: string;
 }
-import { getShortLinkBase } from "@/lib/utils";
 
 export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Props) {
+  return (
+    <Suspense fallback={null}>
+      <QRCodesClientInner links={links} defaultDomain={defaultDomain} />
+    </Suspense>
+  );
+}
+
+function QRCodesClientInner({ links, defaultDomain }: Props) {
   const posthog = usePostHog();
   const [standaloneUrl, setStandaloneUrl] = useState("");
   const [standaloneValid, setStandaloneValid] = useState(false);
   const [standaloneDownloading, setStandaloneDownloading] = useState(false);
   const isMobile = useMediaQuery("(max-width: 640px)");
+
+  // When the user lands on /dashboard/qr with ?focus=<linkId> (typically
+  // by clicking "Manage QR" on /dashboard/links or the post-create card),
+  // we want the matching QRCard to auto-open its customize panel so the
+  // user lands on the QR they wanted to edit instead of a blank grid.
+  const searchParams = useSearchParams();
+  const focusLinkId = searchParams?.get("focus") ?? null;
+  const focusedLink = focusLinkId
+    ? links.find((l) => l.id === focusLinkId) ?? null
+    : null;
+  const [forcedFocus, setForcedFocus] = useState<string | null>(focusLinkId);
+
+  useEffect(() => {
+    if (focusLinkId) setForcedFocus(focusLinkId);
+  }, [focusLinkId]);
 
   function handleStandaloneChange(v: string) {
     setStandaloneUrl(v);
@@ -143,6 +166,23 @@ export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Pro
           </h2>
         </div>
 
+        {focusedLink && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground">Editing QR for</p>
+              <p className="truncate font-mono text-xs text-muted-foreground">
+                {defaultDomain}/{focusedLink.slug}
+              </p>
+            </div>
+            <Link
+              href="/dashboard/qr"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Done
+            </Link>
+          </div>
+        )}
+
         {links.length === 0 ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary mb-4">
@@ -163,7 +203,14 @@ export function QRCodesClient({ links, defaultDomain = getShortLinkBase() }: Pro
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
             {links.map((link) => (
-              <QRCard key={link.id} link={link} defaultDomain={defaultDomain} />
+              <QRCard
+                key={link.id}
+                link={link}
+                defaultDomain={defaultDomain}
+                // Auto-open the panel for the card the user came to edit
+                // (e.g. via the "Manage QR" button on /dashboard/links).
+                autoOpenCustomize={forcedFocus === link.id}
+              />
             ))}
           </div>
         )}

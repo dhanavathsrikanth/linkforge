@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { Download, Settings2, Scan } from "lucide-react";
 import { usePostHog } from "@posthog/react";
 import { cn, getShortLinkBase } from "@/lib/utils";
@@ -9,6 +8,7 @@ import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { QRCustomizePanel } from "./QRCustomizePanel";
 import { downloadPNG } from "./qrDownload";
+import { SharedQRCode } from "./SharedQRCode";
 
 interface Props {
   link: {
@@ -20,15 +20,21 @@ interface Props {
     qrSettings?: QRSettings | null;
   };
   defaultDomain?: string;
+  /**
+   * When true, automatically open the customize panel for this card on
+   * mount. Used to honour the `?focus=<linkId>` query param on the QR
+   * page so users land directly on the QR they wanted to edit.
+   */
+  autoOpenCustomize?: boolean;
 }
-export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
+export function QRCard({ link, defaultDomain = getShortLinkBase(), autoOpenCustomize = false }: Props) {
   const posthog = usePostHog();
   const shortUrl = `https://${defaultDomain}/${link.slug}`;
   const qrTargetUrl = `${shortUrl}?source=qr`;
   const settings: QRSettings = link.qrSettings ?? DEFAULT_QR_SETTINGS;
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(autoOpenCustomize);
   const [currentSettings, setCurrentSettings] = useState<QRSettings>(settings);
   const [downloading, setDownloading] = useState(false);
 
@@ -46,39 +52,17 @@ export function QRCard({ link, defaultDomain = getShortLinkBase() }: Props) {
   return (
     <>
       <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5">
-        {/* QR Preview area */}
+        {/* QR Preview area — rendered by the single source of truth. */}
         <div
           className="flex flex-col items-center justify-center gap-2 p-6 pb-4"
           style={{ backgroundColor: currentSettings.bgColor === "transparent" ? "transparent" : currentSettings.bgColor }}
         >
-          <QRCodeSVG
-            ref={svgRef as React.Ref<SVGSVGElement>}
-            value={qrTargetUrl}
+          <SharedQRCode
+            ref={svgRef}
+            link={{ id: link.id, slug: link.slug, qrSettings: currentSettings }}
             size={140}
-            fgColor={currentSettings.fgColor}
-            bgColor={currentSettings.bgColor === "transparent" ? "transparent" : currentSettings.bgColor}
-            level={currentSettings.errorLevel}
-            marginSize={currentSettings.marginSize}
-            boostLevel={currentSettings.boostLevel}
-            minVersion={currentSettings.minVersion}
-            imageSettings={
-              currentSettings.logoUrl
-                ? {
-                    src: currentSettings.logoUrl,
-                    height: currentSettings.logoSize === "small" ? 20 : currentSettings.logoSize === "large" ? 36 : 28,
-                    width: currentSettings.logoSize === "small" ? 20 : currentSettings.logoSize === "large" ? 36 : 28,
-                    excavate: true,
-                    opacity: currentSettings.logoOpacity,
-                  }
-                : undefined
-            }
+            defaultDomain={defaultDomain}
           />
-          {currentSettings.frameStyle === "scan-me" && (
-            <p className="text-[10px] font-bold tracking-widest uppercase"
-               style={{ color: currentSettings.fgColor }}>
-              {currentSettings.frameText || "SCAN ME"}
-            </p>
-          )}
         </div>
 
         {/* Link info */}
