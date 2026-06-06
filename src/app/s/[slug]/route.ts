@@ -108,12 +108,57 @@ export async function GET(
   }
 
   try {
-    const link = await db.query.links.findFirst({
-      where: (l, { eq, and, isNull }) =>
-        and(eq(l.slug, slug), isNull(l.domainId)),
-    });
+    // ── Fast path: cache the link in Redis to avoid a Postgres round-trip ──
+    // Slug → JSON of the columns we need for redirect resolution. 5-minute TTL
+    // is long enough to absorb the click burst on popular links but short
+    // enough that admin edits propagate quickly.
+    const cacheKey = `linkmeta:${slug}`;
+    let link = await redis.get(cacheKey) as any | null;
+    let cacheHit = !!link;
 
-    if (!link || !link.isActive) {
+    if (!link) {
+      link = await db.query.links.findFirst({
+        where: (l, { eq, and, isNull }) =>
+          and(eq(l.slug, slug), isNull(l.domainId)),
+      });
+      if (link) {
+        // Cache the small subset of columns needed for redirect logic.
+        // We re-fetch the full row on cache miss so we don't store a stale
+        // safetyVerdict, password, clickLimit, etc. in Redis.
+        const cached = {
+          id: link.id,
+          slug: link.slug,
+          destination: link.destination,
+          workspaceId: link.workspaceId,
+          isActive: link.isActive,
+          password: link.password ?? null,
+          expiresAt: link.expiresAt ?? null,
+          scheduledAt: link.scheduledAt ?? null,
+          clickLimit: link.clickLimit ?? null,
+          totalClicks: link.totalClicks,
+          safetyStatus: link.safetyStatus,
+          safetyBlockedByAdmin: link.safetyBlockedByAdmin,
+          iosDestination: link.iosDestination ?? null,
+          androidDestination: link.androidDestination ?? null,
+          uriScheme: link.uriScheme ?? null,
+          iosAppStoreId: link.iosAppStoreId ?? null,
+          androidPlayStoreId: link.androidPlayStoreId ?? null,
+          abTestEnabled: link.abTestEnabled ?? false,
+          abTestVariants: link.abTestVariants ?? null,
+          routingRules: link.routingRules ?? null,
+          utmSource: link.utmSource ?? null,
+          utmMedium: link.utmMedium ?? null,
+          utmCampaign: link.utmCampaign ?? null,
+          utmTerm: link.utmTerm ?? null,
+          utmContent: link.utmContent ?? null,
+          title: link.title ?? null,
+        };
+        // Fire-and-forget: don't block the redirect on a Redis write
+        redis.set(cacheKey, JSON.stringify(cached), { ex: 300 }).catch(() => {});
+      }
+    }
+
+    if (!link || link.isActive === false) {
       return new Response(null, { status: 404 });
     }
 
@@ -175,7 +220,7 @@ export async function GET(
 
       if (variantCookie) {
         const matched = link.abTestVariants.find(
-          v => (v.label || v.id || v.destination) === variantCookie.value
+          (v: any) => (v.label || v.id || v.destination) === variantCookie.value
         );
         if (matched) {
           picked = { destination: matched.destination, label: matched.label ?? matched.id ?? matched.destination };

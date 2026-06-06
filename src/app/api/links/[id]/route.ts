@@ -10,6 +10,7 @@ import { getDefaultDomain } from "@/lib/utils";
 import { sendWebhookEvent } from "@/lib/svix/send";
 import { isReservedSlug } from "@/lib/reserved-slugs";
 import { domains } from "@/lib/db/schema";
+import { redis } from "@/lib/redis";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -266,6 +267,11 @@ export async function PATCH(
       .where(eq(links.id, id))
       .returning();
 
+    // Invalidate redirect-time caches so the new destination / rules
+    // take effect immediately on the next request.
+    redis.del(`link:${existing.slug}`).catch(() => {});
+    redis.del(`linkmeta:${existing.slug}`).catch(() => {});
+
     logAudit({
       workspaceId: v.workspaceId,
       actorId: dbUser.id,
@@ -329,6 +335,10 @@ export async function DELETE(
     }
 
     await db.delete(links).where(eq(links.id, id));
+
+    // Invalidate redirect-time caches so the link is no longer resolvable.
+    redis.del(`link:${existing.slug}`).catch(() => {});
+    redis.del(`linkmeta:${existing.slug}`).catch(() => {});
 
     logAudit({
       workspaceId,

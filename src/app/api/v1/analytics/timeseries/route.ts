@@ -86,18 +86,24 @@ export async function GET(request: NextRequest) {
     // Determine the date truncation based on groupBy
     const truncateFunc = groupBy === "hour" ? "hour" : "day";
 
+    // Optional source filter so the dashboard can chart QR-only time series.
+    const sourceFilter = searchParams.get("source");
+    const qrOnly = sourceFilter === "qr";
+
     // Build the query
     const baseWhere = linkId
       ? and(
           eq(clicks.workspaceId, workspaceId),
           eq(clicks.linkId, linkId),
           gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
+          lte(clicks.createdAt, end),
+          ...(qrOnly ? [eq(clicks.isQrScan, true)] : [])
         )
       : and(
           eq(clicks.workspaceId, workspaceId),
           gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
+          lte(clicks.createdAt, end),
+          ...(qrOnly ? [eq(clicks.isQrScan, true)] : [])
         );
 
     // Get total clicks per period

@@ -149,18 +149,25 @@ export async function GET(request: NextRequest) {
 
     const { start, end } = getDateRange(range, from, to);
 
+    // Optional source filter so the dashboard can pull "QR-only" breakdowns
+    // separately from the link's other click sources.
+    const sourceFilter = searchParams.get("source");
+    const qrOnly = sourceFilter === "qr";
+
     // Build the where clause
     const baseWhere = linkId
       ? and(
           eq(clicks.workspaceId, workspaceId),
           eq(clicks.linkId, linkId),
           gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
+          lte(clicks.createdAt, end),
+          ...(qrOnly ? [eq(clicks.isQrScan, true)] : [])
         )
       : and(
           eq(clicks.workspaceId, workspaceId),
           gte(clicks.createdAt, start),
-          lte(clicks.createdAt, end)
+          lte(clicks.createdAt, end),
+          ...(qrOnly ? [eq(clicks.isQrScan, true)] : [])
         );
 
     // Get total clicks for percentage calculation

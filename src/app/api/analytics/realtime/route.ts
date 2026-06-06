@@ -2,8 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 import { db } from "@/lib/db";
-import { workspaces } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { workspaces, links, workspaceMembers } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
@@ -19,13 +19,41 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
     }
 
-    // Verify user owns the workspace for this link
+    // Verify the caller is allowed to see this slug's analytics: they must
+    // own the workspace that owns the link, or be a member of it.
     const user = await db.query.users.findFirst({
       where: (u, { eq }) => eq(u.clerkId, userId),
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const [linkRow] = await db
+      .select({ workspaceId: links.workspaceId })
+      .from(links)
+      .where(eq(links.slug, slug))
+      .limit(1);
+
+    if (!linkRow) {
+      return NextResponse.json({ error: "Link not found" }, { status: 404 });
+    }
+
+    const [ownedWs] = await db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(and(eq(workspaces.id, linkRow.workspaceId), eq(workspaces.ownerId, user.id)))
+      .limit(1);
+
+    if (!ownedWs) {
+      const [member] = await db
+        .select({ id: workspaceMembers.id })
+        .from(workspaceMembers)
+        .where(and(eq(workspaceMembers.workspaceId, linkRow.workspaceId), eq(workspaceMembers.userId, user.id)))
+        .limit(1);
+      if (!member) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     // Fetch latest clicks from Redis

@@ -17,7 +17,13 @@ interface OverviewResponse {
   } | null;
   averageCTR: number;
   topCountry: string;
+  topCountryCount: number;
   topDevice: string;
+  topDeviceCount: number;
+  // Per-QR analytics — derived from the `?source=qr` redirect parameter.
+  qrScans: number;
+  qrScansToday: number;
+  qrScanGrowth: number;
 }
 
 function getDateRange(
@@ -50,11 +56,12 @@ function getDateRange(
   return { start, end, previousStart, previousEnd };
 }
 
-function buildWhere(workspaceId: string, linkId?: string, start?: Date, end?: Date) {
+function buildWhere(workspaceId: string, linkId?: string, start?: Date, end?: Date, qrOnly?: boolean) {
   const conditions = [eq(clicks.workspaceId, workspaceId)];
   if (linkId) conditions.push(eq(clicks.linkId, linkId));
   if (start) conditions.push(gte(clicks.createdAt, start));
   if (end) conditions.push(lte(clicks.createdAt, end));
+  if (qrOnly) conditions.push(eq(clicks.isQrScan, true));
   return and(...conditions);
 }
 
@@ -71,6 +78,7 @@ export async function GET(request: NextRequest) {
     const range = searchParams.get("range") || "30d";
     const from = searchParams.get("from") || undefined;
     const to = searchParams.get("to") || undefined;
+    const source = searchParams.get("source") || undefined;
 
     if (!workspaceId) {
       return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
@@ -105,16 +113,18 @@ export async function GET(request: NextRequest) {
     }
 
     const { start, end, previousStart, previousEnd } = getDateRange(range, from, to);
+    // source=qr scopes the entire response to QR-scans-only.
+    const qrOnly = source === "qr";
 
     const currentClicks = await db
       .select({ totalClicks: count() })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, start, end));
+      .where(buildWhere(workspaceId, linkId, start, end, qrOnly));
 
     const previousClicks = await db
       .select({ totalClicks: count() })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, previousStart, previousEnd));
+      .where(buildWhere(workspaceId, linkId, previousStart, previousEnd, qrOnly));
 
     const totalClicks = currentClicks[0]?.totalClicks || 0;
     const previousTotalClicks = previousClicks[0]?.totalClicks || 0;
@@ -122,6 +132,9 @@ export async function GET(request: NextRequest) {
     let clicksGrowth = 0;
     if (previousTotalClicks > 0) {
       clicksGrowth = Math.round(((totalClicks - previousTotalClicks) / previousTotalClicks) * 100);
+    } else if (totalClicks > 0) {
+      // New link with no prior period — show 100% to indicate growth from zero
+      clicksGrowth = 100;
     }
 
     const today = new Date();
@@ -129,21 +142,21 @@ export async function GET(request: NextRequest) {
     const todayClicks = await db
       .select({ totalClicks: count() })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, today));
+      .where(buildWhere(workspaceId, linkId, today, undefined, qrOnly));
 
     const clicksToday = todayClicks[0]?.totalClicks || 0;
 
     const uniqueClicksResult = await db
       .select({ uniqueClicks: sql<number>`count(distinct ${clicks.ip})` })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, start, end));
+      .where(buildWhere(workspaceId, linkId, start, end, qrOnly));
 
     const uniqueClicks = uniqueClicksResult[0]?.uniqueClicks || 0;
 
     const deepLinkResult = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(clicks)
-      .where(and(buildWhere(workspaceId, linkId, start, end), eq(clicks.isDeepLink, true)));
+      .where(and(buildWhere(workspaceId, linkId, start, end, qrOnly), eq(clicks.isDeepLink, true)));
 
     const deepLinkClicks = deepLinkResult[0]?.count || 0;
 
@@ -157,7 +170,7 @@ export async function GET(request: NextRequest) {
         })
         .from(clicks)
         .leftJoin(links, eq(clicks.linkId, links.id))
-        .where(buildWhere(workspaceId, undefined, start, end))
+        .where(buildWhere(workspaceId, undefined, start, end, qrOnly))
         .groupBy(clicks.linkId, links.slug)
         .orderBy(desc(sql`count(*)`))
         .limit(1);
@@ -180,12 +193,13 @@ export async function GET(request: NextRequest) {
         count: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, start, end))
+      .where(buildWhere(workspaceId, linkId, start, end, qrOnly))
       .groupBy(clicks.country)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
     const topCountry = topCountryData[0]?.country || "Unknown";
+    const topCountryCount = topCountryData[0]?.count || 0;
 
     const topDeviceData = await db
       .select({
@@ -193,12 +207,53 @@ export async function GET(request: NextRequest) {
         count: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, start, end))
+      .where(buildWhere(workspaceId, linkId, start, end, qrOnly))
       .groupBy(clicks.device)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
     const topDevice = topDeviceData[0]?.device || "unknown";
+    const topDeviceCount = topDeviceData[0]?.count || 0;
+
+    // ── Per-QR analytics ───────────────────────────────────────────────
+    // Scans carry the `isQrScan = true` flag because the QR links embed
+    // ?source=qr which the redirect handler (s/[slug]/route.ts) sets on the
+    // click row. We read both the current period and the previous one so
+    // the dashboard can show "QR scan growth" alongside total-clicks growth.
+    // When the caller already passed source=qr, these are the same numbers
+    // as the totals above, so we skip the second query to save a round trip.
+    let qrScans = 0;
+    let previousQrScans = 0;
+    let qrScansToday = 0;
+    if (qrOnly) {
+      qrScans = totalClicks;
+      previousQrScans = previousTotalClicks;
+      qrScansToday = clicksToday;
+    } else {
+      const currentQr = await db
+        .select({ total: count() })
+        .from(clicks)
+        .where(buildWhere(workspaceId, linkId, start, end, true));
+      const previousQr = await db
+        .select({ total: count() })
+        .from(clicks)
+        .where(buildWhere(workspaceId, linkId, previousStart, previousEnd, true));
+
+      qrScans = currentQr[0]?.total || 0;
+      previousQrScans = previousQr[0]?.total || 0;
+
+      const todayQr = await db
+        .select({ total: count() })
+        .from(clicks)
+        .where(buildWhere(workspaceId, linkId, today, undefined, true));
+      qrScansToday = todayQr[0]?.total || 0;
+    }
+    let qrScanGrowth = 0;
+    if (previousQrScans > 0) {
+      qrScanGrowth = Math.round(((qrScans - previousQrScans) / previousQrScans) * 100);
+    } else if (qrScans > 0) {
+      qrScanGrowth = 100;
+    }
 
     let averageCTR = 0;
     if (!linkId) {
@@ -227,7 +282,12 @@ export async function GET(request: NextRequest) {
       topLink,
       averageCTR,
       topCountry,
+      topCountryCount,
       topDevice,
+      topDeviceCount,
+      qrScans,
+      qrScansToday,
+      qrScanGrowth,
     };
 
     return NextResponse.json(response);

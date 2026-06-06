@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -18,11 +18,14 @@ import {
   Folder,
   ChevronDown,
   CircleCheck,
+  QrCode,
+  Download,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { cn, getShortLinkBase } from "@/lib/utils";
+import { cn, getShortLinkBase, getDefaultDomain } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -222,6 +225,36 @@ export function AdvancedCreateSheet({
 
   const previewSlug = form.slug.trim() || "your-slug";
   const previewShort = `https://${defaultDomain}/${previewSlug}`;
+
+  // QR target always carries ?source=qr so we can attribute scans separately
+  // in the per-QR analytics breakdown. The official main domain is the host
+  // (`defaultDomain` is wired up by the parent from `getDefaultDomain()`).
+  const previewQrUrl = useMemo(() => {
+    if (!form.destination && !form.slug.trim()) return "";
+    const base = `https://${defaultDomain}/${previewSlug}`;
+    return `${base}?source=qr`;
+  }, [defaultDomain, previewSlug, form.destination, form.slug]);
+
+  const qrSvgRef = useRef<SVGSVGElement | null>(null);
+
+  function handleDownloadQr() {
+    const svg = qrSvgRef.current;
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const blob = new Blob(
+      ['<?xml version="1.0" standalone="no"?>\n', svgString],
+      { type: "image/svg+xml" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${previewSlug || "qr"}-qr.svg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 
   function handleAddTagFromInput() {
     const next = tagInput
@@ -1218,6 +1251,74 @@ export function AdvancedCreateSheet({
                             {t}
                           </span>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Live QR preview — uses the official main domain
+                    (defaultDomain from getDefaultDomain()) and stamps
+                    ?source=qr so the redirect handler can attribute the
+                    click to this QR's analytics. */}
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <QrCode className="h-3.5 w-3.5" />
+                    QR preview
+                  </p>
+                  <div className="rounded-xl border border-border bg-background p-4">
+                    {previewQrUrl ? (
+                      <>
+                        <div className="mx-auto flex aspect-square w-full max-w-[220px] items-center justify-center rounded-lg bg-white p-3">
+                          <QRCodeSVG
+                            ref={qrSvgRef}
+                            value={previewQrUrl}
+                            size={196}
+                            level="M"
+                            marginSize={1}
+                            fgColor="#0f172a"
+                            bgColor="#ffffff"
+                            style={{ width: "100%", height: "auto" }}
+                          />
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          <p className="font-mono text-[11px] text-muted-foreground truncate text-center">
+                            {previewShort}?source=qr
+                          </p>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => copy(previewShort + "?source=qr")}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              {copied ? (
+                                <>
+                                  <Check className="h-3 w-3 text-emerald-500" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" />
+                                  Copy
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDownloadQr}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <Download className="h-3 w-3" />
+                              SVG
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex aspect-square w-full max-w-[220px] mx-auto flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-center">
+                        <QrCode className="h-8 w-8 text-muted-foreground/50" />
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          Add a slug to generate the QR
+                        </p>
                       </div>
                     )}
                   </div>

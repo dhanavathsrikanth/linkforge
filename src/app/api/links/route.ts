@@ -388,12 +388,29 @@ export async function POST(req: Request) {
           name: dbUser.name || dbUser.email,
           linkTitle: v.title || slug,
           linkSlug: slug,
-          dashboardUrl: `https://pivoturl.com/dashboard/links`,
+          dashboardUrl: `https://${getDefaultDomain()}/dashboard/links`,
         }).catch(() => {});
       }
     }
 
-    return NextResponse.json({ link }, { status: 201 });
+    // Build the public short URL using the official main domain. The QR
+    // variant carries ?source=qr so the redirect handler can attribute
+    // the click to QR-scan analytics (per-QR breakdown in the dashboard).
+    const shortDomain = getDefaultDomain();
+    const shortUrl = `https://${shortDomain}/s/${slug}`;
+    const qrUrl = `${shortUrl}?source=qr`;
+
+    return NextResponse.json(
+      {
+        link,
+        id: link.id,
+        shortSlug: slug,
+        shortDomain,
+        shortUrl,
+        qrUrl,
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error("[POST /api/links]", err);
     return NextResponse.json({ error: "Failed to create link" }, { status: 500 });

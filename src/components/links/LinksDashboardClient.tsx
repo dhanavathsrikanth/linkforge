@@ -106,6 +106,49 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
     enabled: !!workspaceId,
   });
 
+  // Per-QR analytics — separate queries so QR scans show up as their own
+  // section in the expanded row (count, growth, time series, top countries,
+  // top devices, top referrers — all filtered to clicks where isQrScan=true).
+  const { data: qrOverview, isLoading: qrOverviewLoading } = useQuery<any>({
+    queryKey: ["analytics", "overview", workspaceId, "7d", link.id, "qr"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/overview?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&source=qr`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+
+  const { data: qrTimeSeries, isLoading: qrTimeSeriesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "timeseries", workspaceId, link.id, "7d", "qr"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/timeseries?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&source=qr`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+
+  const { data: qrCountries, isLoading: qrCountriesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "country", "qr"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=country&source=qr`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+
+  const { data: qrDevices, isLoading: qrDevicesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "device", "qr"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=device&source=qr`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+  });
+
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -120,8 +163,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
           <KPICard compact label="Total Clicks" value={overview?.totalClicks || 0} growth={overview?.clicksGrowth} isLoading={overviewLoading} />
           <KPICard compact label="Unique" value={overview?.uniqueClicks || 0} isLoading={overviewLoading} />
           <KPICard compact label="Today" value={overview?.clicksToday || 0} isLoading={overviewLoading} />
-          <KPICard compact label="Top Device" value={0} subValue={overview?.topDevice && overview.topDevice !== "unknown" ? overview.topDevice : "—"} isLoading={overviewLoading} />
-          <KPICard compact label="Top Country" value={0} subValue={overview?.topCountry && overview.topCountry !== "Unknown" ? overview.topCountry : "—"} isLoading={overviewLoading} />
+          <KPICard compact label="Top Device" value={overview?.topDeviceCount ?? 0} subValue={overview?.topDevice && overview.topDevice !== "unknown" ? overview.topDevice : "—"} isLoading={overviewLoading} />
+          <KPICard compact label="Top Country" value={overview?.topCountryCount ?? 0} subValue={overview?.topCountry && overview.topCountry !== "Unknown" ? overview.topCountry : "—"} isLoading={overviewLoading} />
         </div>
 
         {/* Clicks Chart */}
@@ -156,6 +199,44 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Referrers</h3>
             <TopReferrers data={referrers || []} isLoading={referrersLoading} />
+          </div>
+        </div>
+
+        {/* QR Code Analytics — separated from total link analytics.
+            All data here is filtered to clicks where isQrScan=true (set
+            by the redirect handler when ?source=qr is on the URL). */}
+        <div className="overflow-hidden rounded-xl border border-violet-200 bg-white p-4 shadow-sm dark:border-violet-900 dark:bg-slate-800">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <QrCode className="h-4 w-4 text-violet-600" />
+              QR Code Analytics
+            </h3>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Last 7 days</span>
+          </div>
+
+          {/* QR-specific KPIs */}
+          <div className="mb-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
+            <KPICard compact label="QR Scans" value={qrOverview?.totalClicks || 0} growth={qrOverview?.clicksGrowth} isLoading={qrOverviewLoading} />
+            <KPICard compact label="Unique" value={qrOverview?.uniqueClicks || 0} isLoading={qrOverviewLoading} />
+            <KPICard compact label="Today" value={qrOverview?.clicksToday || 0} isLoading={qrOverviewLoading} />
+            <KPICard compact label="Top Country" value={qrOverview?.topCountryCount ?? 0} subValue={qrOverview?.topCountry && qrOverview.topCountry !== "Unknown" ? qrOverview.topCountry : "—"} isLoading={qrOverviewLoading} />
+          </div>
+
+          {/* QR scans over time */}
+          <div className="mb-3">
+            <ClicksChart data={qrTimeSeries || []} isLoading={qrTimeSeriesLoading} />
+          </div>
+
+          {/* QR-specific top countries / devices */}
+          <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+            <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Top Countries (QR)</h4>
+              <TopCountries data={qrCountries || []} isLoading={qrCountriesLoading} />
+            </div>
+            <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Device Breakdown (QR)</h4>
+              <DonutChart data={qrDevices || []} isLoading={qrDevicesLoading} />
+            </div>
           </div>
         </div>
 

@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
-import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy, Hash, Tag, Folder } from "lucide-react";
+import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy, Hash, Tag, Folder, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { cn, getShortLinkBase } from "@/lib/utils";
+import { cn, getShortLinkBase, getDefaultDomain } from "@/lib/utils";
 
 function buildShortUrl(slug: string) {
   return `${getShortLinkBase()}/${slug}`;
+}
+
+function buildQrUrl(slug: string) {
+  return `https://${getDefaultDomain()}/s/${slug}?source=qr`;
 }
 
 type Props = {
@@ -122,31 +127,32 @@ export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
           return;
         }
 
-        const data = await res.json();
-        setResult({
-          id: data.id,
-          shortSlug: data.shortSlug,
-          shortDomain: data.shortDomain,
-          destination: data.destination,
-        });
-      } catch {
-        setError("Network error. Please try again.");
-      }
-    });
-  }
+      const data = await res.json();
+      setResult({
+        id: data.id ?? data.link?.id,
+        shortSlug: data.shortSlug ?? data.link?.slug,
+        shortDomain: data.shortDomain ?? getDefaultDomain(),
+        destination: data.destination ?? data.link?.destination,
+      });
+    } catch {
+      setError("Network error. Please try again.");
+    }
+  });
+}
 
   // ── Success state ─────────────────────────────────────────────────────────
   if (result) {
     const shortUrl = buildShortUrl(result.shortSlug);
+    const qrUrl = buildQrUrl(result.shortSlug);
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 animate-in fade-in-0 duration-200">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-3">
           <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
             <Check className="h-3 w-3 text-white" />
           </div>
           <span className="text-sm font-medium text-emerald-800">Link created</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-3">
           <code className="flex-1 rounded-md bg-white/80 border border-emerald-200 px-3 py-1.5 text-sm text-emerald-900 font-mono truncate">
             {shortUrl}
           </code>
@@ -165,6 +171,32 @@ export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
           >
             New link
           </button>
+        </div>
+        {/* Live QR preview using the official main domain.
+            ?source=qr lets the redirect handler attribute scans to this QR. */}
+        <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-white p-3">
+          <div className="shrink-0 rounded bg-white p-1.5">
+            <QRCodeSVG
+              value={qrUrl}
+              size={84}
+              level="M"
+              marginSize={1}
+              fgColor="#0f172a"
+              bgColor="#ffffff"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <QrCode className="h-3 w-3" />
+              QR code ready
+            </p>
+            <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
+              {qrUrl}
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              Scans will be tracked separately in QR Code Analytics
+            </p>
+          </div>
         </div>
       </div>
     );
