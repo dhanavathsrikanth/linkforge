@@ -25,7 +25,7 @@ import {
 import { DatePicker } from "@/components/ui/DatePicker";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { cn, getShortLinkBase, getDefaultDomain } from "@/lib/utils";
+import { cn, getShortLinkBase, getDefaultDomain, getQrDomain } from "@/lib/utils";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { SharedQRCode } from "@/components/qr/SharedQRCode";
 import { toast } from "sonner";
@@ -229,13 +229,14 @@ export function AdvancedCreateSheet({
   const previewShort = `https://${defaultDomain}/${previewSlug}`;
 
   // QR target always carries ?source=qr so we can attribute scans separately
-  // in the per-QR analytics breakdown. The official main domain is the host
-  // (`defaultDomain` is wired up by the parent from `getDefaultDomain()`).
+  // in the per-QR analytics breakdown. The encoded URL uses the permanent QR
+  // domain (getQrDomain()) so the Cloudflare Worker handles the redirect
+  // directly without Vercel → Clerk auth when the QR is scanned.
+  const qrPreviewHost = getQrDomain();
   const previewQrUrl = useMemo(() => {
     if (!form.destination && !form.slug.trim()) return "";
-    const base = `https://${defaultDomain}/${previewSlug}`;
-    return `${base}?source=qr`;
-  }, [defaultDomain, previewSlug, form.destination, form.slug]);
+    return `https://${qrPreviewHost}/${previewSlug}?source=qr`;
+  }, [qrPreviewHost, previewSlug, form.destination, form.slug]);
 
   const qrSvgRef = useRef<SVGSVGElement | null>(null);
 
@@ -1298,12 +1299,12 @@ export function AdvancedCreateSheet({
                         </div>
                         <div className="mt-3 space-y-1">
                           <p className="font-mono text-[11px] text-muted-foreground truncate text-center">
-                            {previewShort}?source=qr
+                            {previewQrUrl}
                           </p>
                           <div className="flex items-center justify-center gap-2">
                             <button
                               type="button"
-                              onClick={() => copy(previewShort + "?source=qr")}
+                              onClick={() => copy(previewQrUrl)}
                               className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                             >
                               {copied ? (

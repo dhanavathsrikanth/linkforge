@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy, Hash, Tag, Folder, QrCode } from "lucide-react";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { cn, getShortLinkBase, getDefaultDomain } from "@/lib/utils";
+import { cn, getShortLinkBase, getDefaultDomain, getQrDomain } from "@/lib/utils";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { SharedQRCode } from "@/components/qr/SharedQRCode";
@@ -14,7 +14,9 @@ function buildShortUrl(slug: string) {
 }
 
 function buildQrUrl(slug: string) {
-  return `https://${getDefaultDomain()}/s/${slug}?source=qr`;
+  // Use the permanent QR domain (not the preview deployment's host) so the
+  // Cloudflare Worker handles the redirect directly without Vercel → Clerk.
+  return `https://${getQrDomain()}/s/${slug}?source=qr`;
 }
 
 type Props = {

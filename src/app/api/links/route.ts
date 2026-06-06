@@ -8,7 +8,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { trackLinkCreated } from "@/lib/posthog";
-import { getDefaultDomain } from "@/lib/utils";
+import { getDefaultDomain, getQrDomain } from "@/lib/utils";
 import { checkLimit, getEffectiveLimits } from "@/lib/billing/usage";
 import { billingLimitError } from "@/lib/billing/middleware";
 import { resolveUserWorkspace, canWrite } from "@/lib/db/workspace";
@@ -402,9 +402,12 @@ export async function POST(req: Request) {
     // Build the public short URL using the official main domain. The QR
     // variant carries ?source=qr so the redirect handler can attribute
     // the click to QR-scan analytics (per-QR breakdown in the dashboard).
+    // The QR URL **must** use getQrDomain() so the Cloudflare Worker handles
+    // the redirect directly; a Vercel preview host would hit Clerk auth
+    // and fail with an invalid redirect_url error when scanned.
     const shortDomain = getDefaultDomain();
     const shortUrl = `https://${shortDomain}/s/${slug}`;
-    const qrUrl = `${shortUrl}?source=qr`;
+    const qrUrl = `https://${getQrDomain()}/s/${slug}?source=qr`;
 
     return NextResponse.json(
       {

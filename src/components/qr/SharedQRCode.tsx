@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
+import { getQrDomain } from "@/lib/utils";
 
 /**
  * The single source of truth for rendering a short-link's QR code.
@@ -63,18 +64,21 @@ function mergeSettings(stored: QRSettings | null | undefined): QRSettings {
   };
 }
 
-function buildQrTargetUrl(slug: string, withSource: boolean, defaultDomain?: string): string {
-  // Resolve the host lazily so the import is only evaluated in the browser.
-  // getDefaultDomain() is safe to call on the client because it's a pure
-  // read of env / hardcoded default.
-  const host =
-    defaultDomain ||
-    (typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}` : "");
-  // Fall back to a relative path if no host is known — the qrcode library
-  // can encode any string, and the link is still scannable to whatever the
-  // short URL resolves to on the current domain.
-  if (!host) return withSource ? `/s/${slug}?source=qr` : `/s/${slug}`;
-  return withSource ? `${host.replace(/\/$/, "")}/s/${slug}?source=qr` : `${host.replace(/\/$/, "")}/s/${slug}`;
+/**
+ * The encoded URL inside the QR code **must** use the permanent production
+ * domain (`getQrDomain()`) so the Cloudflare Worker handles the redirect
+ * directly without touching Vercel or Clerk auth.  A Vercel preview host
+ * like `pivoturl.vercel.app` would cause the Worker to proxy to Vercel,
+ * where Clerk's auth middleware intercepts the request and rejects the
+ * `redirect_url` parameter.
+ *
+ * The `defaultDomain` prop on `SharedQRCode` is only used for *display*
+ * previews (e.g. showing the short URL text next to the QR), NOT for the
+ * machine-readable QR content.
+ */
+function buildQrTargetUrl(slug: string, withSource: boolean): string {
+  const host = `https://${getQrDomain()}`;
+  return withSource ? `${host}/s/${slug}?source=qr` : `${host}/s/${slug}`;
 }
 
 /**
@@ -92,7 +96,7 @@ export const SharedQRCode = forwardRef<SVGSVGElement, SharedQRCodeProps>(functio
   ref,
 ) {
   const settings = mergeSettings(link.qrSettings);
-  const value = buildQrTargetUrl(link.slug, withSource, defaultDomain);
+  const value = buildQrTargetUrl(link.slug, withSource);
 
   const logoPx =
     settings.logoSize === "small" ? 20 : settings.logoSize === "large" ? 36 : 28;
