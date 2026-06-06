@@ -237,11 +237,20 @@ async function queueClick(
   userAgent: string,
   referrer: string | null,
   variant?: string,
+  url?: URL,
 ): Promise<void> {
   const { browser, os } = parseUserAgent(userAgent);
 
   // Write to Analytics Engine (primary analytics pipeline — always succeeds)
   writeClickAnalyticsEngine(env, link, context, browser, os, referrer, variant);
+
+  // Detect click-source flags from the short URL query string. QR codes embed
+  // `?source=qr` and deep links embed `?deep=1`, so we can attribute scans
+  // and platform-specific opens to the right bucket. We previously hard-coded
+  // these to false, which made the per-QR analytics card show 0 scans even
+  // for links that were clearly being scanned.
+  const isQrScan = url?.searchParams.get("source") === "qr";
+  const isDeepLink = url?.searchParams.get("deep") === "1";
 
   // Queue for Redis real-time feed + billing/webhooks side-effects
   const msg: ClickQueueMessage = {
@@ -261,8 +270,8 @@ async function queueClick(
     referrer: referrer || undefined,
     referrerDomain: referrer ? extractDomain(referrer) : undefined,
     variant,
-    isQrScan: false,
-    isDeepLink: false,
+    isQrScan,
+    isDeepLink,
     timestamp: Date.now(),
   };
   await env.CLICK_QUEUE.send(msg);
@@ -635,9 +644,19 @@ export default {
 
       const userAgent = request.headers.get('User-Agent') || '';
       const device = detectDevice(userAgent);
-      const country = (request as any).cf?.country || 'Unknown';
-      const city = (request as any).cf?.city || 'Unknown';
-      const region = (request as any).cf?.region || 'Unknown';
+      // Country detection — prefer Cloudflare's request.cf context (the most
+      // accurate), then fall back to forwarded headers, and finally to
+      // "Unknown". Using only `cf?.country` left clicks as "Unknown" whenever
+      // the request lacked the cf object, which produced an analytics view
+      // that always showed the same country.
+      const cfContext = (request as any).cf;
+      const country =
+        cfContext?.country ||
+        request.headers.get('cf-ipcountry') ||
+        request.headers.get('x-vercel-ip-country') ||
+        'Unknown';
+      const city = cfContext?.city || request.headers.get('cf-ipcity') || 'Unknown';
+      const region = cfContext?.region || request.headers.get('cf-region') || 'Unknown';
       const language = request.headers.get('Accept-Language')?.split(',')[0] || 'en';
       const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
       const ipHash = await hashIP(ip);
@@ -654,7 +673,7 @@ export default {
 
       const referrer = request.headers.get('Referer');
       if (device !== 'bot') {
-        ctx.waitUntil(queueClick(env, link, context, userAgent, referrer, variant));
+        ctx.waitUntil(queueClick(env, link, context, userAgent, referrer, variant, url));
       }
 
       return Response.redirect(destination, 302);

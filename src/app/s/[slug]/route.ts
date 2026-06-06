@@ -299,10 +299,29 @@ export async function GET(
           const ipHash = await hashIp(rawIp);
           const browser = parseBrowser(ua);
           const os = parseOs(ua);
-          const country = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "XX";
-          const city = req.headers.get("cf-ipcity") || req.headers.get("x-vercel-ip-city") || null;
-          const region = req.headers.get("cf-region") || req.headers.get("x-vercel-ip-country-region") || null;
+          // Country detection — prefer the `cf` request context (Cloudflare's
+          // geo object), then fall back to the legacy cf-ipcountry header,
+          // then to Vercel's forwarded header, and finally to "XX". Without
+          // these fallbacks clicks from non-CF sources all looked identical
+          // in the country breakdown.
+          const cfContext = (req as any).cf;
+          const country =
+            cfContext?.country ||
+            req.headers.get("cf-ipcountry") ||
+            req.headers.get("x-vercel-ip-country") ||
+            "XX";
+          const city =
+            cfContext?.city ||
+            req.headers.get("cf-ipcity") ||
+            req.headers.get("x-vercel-ip-city") ||
+            null;
+          const region =
+            cfContext?.region ||
+            req.headers.get("cf-region") ||
+            req.headers.get("x-vercel-ip-country-region") ||
+            null;
           const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
+          const isDeepLink = new URL(req.url).searchParams.get("deep") === "1";
           const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return null; } })() : null;
 
           const uniqKey = `uniq:${link.id}:${ipHash}`;

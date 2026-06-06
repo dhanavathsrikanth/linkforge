@@ -11,6 +11,12 @@ export const metadata: Metadata = {
   description: "Generate and customize QR codes for all your short links.",
 };
 
+// Always run on the request — newly created short links must appear in the
+// list immediately without a full rebuild. Without this directive, Next.js
+// could cache the page at build time since the only "dynamic" signal here
+// is the Clerk auth call, which the framework may not always recognize.
+export const dynamic = "force-dynamic";
+
 type Props = {
   searchParams: Promise<{ workspaceId?: string }>;
 };

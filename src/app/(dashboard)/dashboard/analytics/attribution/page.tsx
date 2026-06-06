@@ -99,6 +99,10 @@ export default function AttributionPage() {
       return res.json();
     },
     enabled: !!workspace?.id,
+    // Attribution reports are expensive — recompute every 60s so the page
+    // stays reasonably current without thrashing the DB on every keystroke.
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: journeyData } = useQuery<any>({

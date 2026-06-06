@@ -76,6 +76,11 @@ export function useAnalyticsOverview(
       return res.json();
     },
     enabled: !!workspaceId,
+    // Auto-refresh every 20s so the analytics page reflects live click
+    // activity without a manual reload. Background polling is disabled so
+    // hidden tabs don't burn API quota.
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -104,6 +109,8 @@ export function useAnalyticsTimeSeries(
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -132,6 +139,8 @@ export function useAnalyticsBreakdown(
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -158,6 +167,8 @@ export function useAnalyticsTopLinks(
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -186,6 +197,8 @@ export function useAnalyticsPostingTimes(
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -218,6 +231,8 @@ export function useAnalyticsAudience(
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -275,5 +290,9 @@ export function useAnalyticsInsights(
       return res.json();
     },
     enabled: !!workspaceId,
+    // Insights are recomputed on a slower cadence — 60s is plenty and saves
+    // DB churn since the heuristic is non-trivial.
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
   });
 }

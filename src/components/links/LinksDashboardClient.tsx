@@ -64,6 +64,10 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    // Auto-refresh every 15s so the row's KPIs/charts stay current without a
+    // manual reload. Tab visibility / focus handled by React Query defaults.
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: timeSeries, isLoading: timeSeriesLoading } = useQuery<any[]>({
@@ -74,6 +78,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: countries, isLoading: countriesLoading } = useQuery<any[]>({
@@ -84,6 +90,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: devices, isLoading: devicesLoading } = useQuery<any[]>({
@@ -94,6 +102,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: referrers, isLoading: referrersLoading } = useQuery<any[]>({
@@ -104,6 +114,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   // Per-QR analytics — separate queries so QR scans show up as their own
@@ -117,6 +129,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: qrTimeSeries, isLoading: qrTimeSeriesLoading } = useQuery<any[]>({
@@ -127,6 +141,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: qrCountries, isLoading: qrCountriesLoading } = useQuery<any[]>({
@@ -137,6 +153,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: qrDevices, isLoading: qrDevicesLoading } = useQuery<any[]>({
@@ -147,6 +165,8 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
       return res.json();
     },
     enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   return (

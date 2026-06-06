@@ -59,6 +59,10 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    // Auto-refresh every 20s so the dashboard home tiles stay current with
+    // live clicks without the user needing to reload the page.
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: last7d } = useQuery<any>({
@@ -69,6 +73,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: timeSeries, isLoading: timeSeriesLoading } = useQuery<any[]>({
@@ -79,6 +85,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: topLinks } = useQuery<any[]>({
@@ -89,6 +97,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: postingTimes, isLoading: postingTimesLoading } = useQuery<any>({
@@ -99,6 +109,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: audience, isLoading: audienceLoading } = useQuery<any>({
@@ -109,6 +121,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: insights, isLoading: insightsLoading } = useQuery<any>({
@@ -119,6 +133,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!wsId,
+    refetchInterval: 20000,
+    refetchIntervalInBackground: false,
   });
 
   const ctr = overview?.totalClicks && overview?.uniqueClicks
