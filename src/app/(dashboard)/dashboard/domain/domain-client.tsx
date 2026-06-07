@@ -133,6 +133,8 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const [verifySeverity, setVerifySeverity] = useState<"success" | "warning" | "error" | null>(null);
   const [canRevalidate, setCanRevalidate] = useState(false);
   const [cnameDnsVerified, setCnameDnsVerified] = useState<boolean | null>(null);
+  const [cfOwnershipRecord, setCfOwnershipRecord] = useState<{ name?: string; type?: string; value?: string } | null>(null);
+  const [cfValidationRecords, setCfValidationRecords] = useState<Array<{ cname?: string; cname_target?: string; txt_name?: string; txt_value?: string }> | null>(null);
   const [activeDomain, setActiveDomain] = useState<{
     id: string;
     domain: string;
@@ -215,6 +217,12 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
       const data = await res.json();
       if (data.cnameVerified !== undefined) {
         setCnameDnsVerified(data.cnameVerified);
+      }
+      if (data.ownershipVerification) {
+        setCfOwnershipRecord(data.ownershipVerification);
+      }
+      if (data.validationRecords) {
+        setCfValidationRecords(data.validationRecords);
       }
       if (data.verified) {
         setVerifySeverity("success");
@@ -314,6 +322,8 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     setVerifySeverity(null);
     setCanRevalidate(false);
     setCnameDnsVerified(null);
+    setCfOwnershipRecord(null);
+    setCfValidationRecords(null);
     setActiveDomain({
       id: d.id,
       domain: d.domain,
@@ -357,7 +367,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
       cnameDnsVerified === false ? "pending" :
       cfCnameLevel;
 
-    return [
+    const records: Array<{ type: string; name: string; content: string; ttl: string; status: string; level: StatusLevel }> = [
       {
         type: "CNAME",
         name: d.domain.split(".")[0],
@@ -375,6 +385,46 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
         level: d.verified ? "success" as StatusLevel : "pending" as StatusLevel,
       },
     ];
+
+    // Cloudflare ownership verification TXT record (returned by CF API after custom hostname creation)
+    if (cfOwnershipRecord?.name && cfOwnershipRecord?.value) {
+      records.push({
+        type: "TXT",
+        name: cfOwnershipRecord.name,
+        content: cfOwnershipRecord.value,
+        ttl: "Auto",
+        status: "Pending",
+        level: "pending" as StatusLevel,
+      });
+    }
+
+    // Cloudflare DCV delegation records (for SSL certificate validation)
+    if (cfValidationRecords) {
+      for (const vr of cfValidationRecords) {
+        if (vr.cname && vr.cname_target) {
+          records.push({
+            type: "CNAME",
+            name: vr.cname,
+            content: vr.cname_target,
+            ttl: "Auto",
+            status: "Pending",
+            level: "pending" as StatusLevel,
+          });
+        }
+        if (vr.txt_name && vr.txt_value) {
+          records.push({
+            type: "TXT",
+            name: vr.txt_name,
+            content: vr.txt_value,
+            ttl: "Auto",
+            status: "Pending",
+            level: "pending" as StatusLevel,
+          });
+        }
+      }
+    }
+
+    return records;
   };
 
   const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);

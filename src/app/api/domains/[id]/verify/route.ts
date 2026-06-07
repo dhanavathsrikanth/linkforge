@@ -10,6 +10,8 @@ import {
   cloudflareCustomHostnames,
   type CfHostnameStatus,
   type CfSslStatus,
+  type CfOwnershipVerification,
+  type CfDcvDelegationRecord,
 } from "@/lib/cloudflare/custom-hostnames";
 import { refreshDomainConfig } from "@/lib/domains/config-sync";
 
@@ -51,6 +53,8 @@ export async function POST(
     let verificationErrors: string[] | null = domainRecord.cfVerificationErrors || null;
     let sslValidationErrors: Array<{ message?: string }> | null =
       domainRecord.cfSslValidationErrors || null;
+    let ownershipVerification: CfOwnershipVerification | null = null;
+    let validationRecords: CfDcvDelegationRecord[] | null = null;
     let actionableMessage: string | null = null;
     let userMessage = "";
 
@@ -113,18 +117,58 @@ export async function POST(
     }
 
     //
-    // Step 2: Check Cloudflare SSL for SaaS status
+    // Step 2: Check / create Cloudflare SSL for SaaS custom hostname
     //
-    if (domainRecord.cfHostnameId && cloudflareCustomHostnames.isConfigured()) {
-      try {
-        const cfHostname = await cloudflareCustomHostnames.get(domainRecord.cfHostnameId);
+    if (cloudflareCustomHostnames.isConfigured()) {
+      let cfHostname: import("@/lib/cloudflare/custom-hostnames").CfCustomHostname | null = null;
+
+      if (domainRecord.cfHostnameId) {
+        // Existing hostname — check its current status
+        try {
+          cfHostname = await cloudflareCustomHostnames.get(domainRecord.cfHostnameId);
+        } catch (err) {
+          console.warn("[Cloudflare] Get hostname failed, may have been deleted:", err);
+        }
+      }
+
+      if (!cfHostname) {
+        // Try to find an existing hostname by domain name, or create one
+        try {
+          cfHostname = await cloudflareCustomHostnames.getByHostname(domainRecord.domain);
+        } catch {
+          // not found — proceed to create
+        }
+      }
+
+      if (!cfHostname) {
+        // Create the custom hostname in Cloudflare
+        try {
+          cfHostname = await cloudflareCustomHostnames.create({
+            hostname: domainRecord.domain,
+            sslMethod: "http",
+            customMetadata: {
+              workspace_id: domainRecord.workspaceId,
+              domain_id: id,
+            },
+          });
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.error("[Cloudflare] Failed to create custom hostname:", err);
+          cfError = errorMessage;
+        }
+      }
+
+      if (cfHostname) {
         cfHostnameStatus = cfHostname.status as CfHostnameStatus;
         cfSslStatus = (cfHostname.ssl?.status ?? null) as CfSslStatus | null;
         cfError = null;
         verificationErrors = cfHostname.verification_errors ?? null;
         sslValidationErrors = cfHostname.ssl?.validation_errors ?? null;
+        ownershipVerification = cfHostname.ownership_verification ?? null;
+        validationRecords = cfHostname.ssl?.validation_records ?? null;
 
         await db.update(domains).set({
+          cfHostnameId: cfHostname.id,
           cfHostnameStatus: cfHostname.status as CfHostnameStatus,
           cfSslStatus: (cfHostname.ssl?.status ?? null) as CfSslStatus | null,
           cfSslMethod: cfHostname.ssl?.method ?? null,
@@ -136,11 +180,6 @@ export async function POST(
           cfStatusUpdatedAt: new Date(),
           cfError: null,
         }).where(eq(domains.id, id));
-
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error("[Cloudflare] Status check failed:", err);
-        cfError = errorMessage;
       }
     }
 
@@ -150,10 +189,9 @@ export async function POST(
     const cfConfigured = !!domainRecord.cfHostnameId && cloudflareCustomHostnames.isConfigured();
     const cfActive = cfHostnameStatus === "active";
     const cfSslActive = cfSslStatus === "active";
+    const cfJustCreated = !domainRecord.cfHostnameId && cfHostnameStatus !== null;
 
-    // If CF SaaS is configured, require both CF hostname+SSL active AND (TXT OR CNAME).
-    // If CF SaaS is NOT configured, require TXT verified (CNAME is informational).
-    const fullyVerified = txtVerified && (!cfConfigured || (cfActive && cfSslActive));
+    const fullyVerified = txtVerified && (!(cfConfigured || cfJustCreated) || (cfActive && cfSslActive));
 
     //
     // Step 4: Build user-friendly messages
@@ -294,7 +332,8 @@ export async function POST(
       "pending",
     ];
 
-    const canRevalidate = cfConfigured && !!domainRecord.cfHostnameId && (
+    const hasActiveHostname = !!(domainRecord.cfHostnameId || cfHostnameStatus !== null);
+    const canRevalidate = hasActiveHostname && cloudflareCustomHostnames.isConfigured() && (
       revalidateStates.includes(cfHostnameStatus ?? "") ||
       revalidateStates.includes(cfSslStatus ?? "")
     );
@@ -319,6 +358,8 @@ export async function POST(
       sslValidationErrors,
       cnameVerified,
       cnameTarget,
+      ownershipVerification,
+      validationRecords,
       status: {
         ownershipVerified: txtVerified,
         cnameVerified,
