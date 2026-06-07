@@ -25,7 +25,7 @@ import { ActiveUsersIndicator, RealtimeStatusIndicator } from "@/components/dash
 import { useRealtime } from "@/providers/RealtimeProvider";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
-import { getShortLinkBase } from "@/lib/utils";
+import { getShortLinkBase, getQrDomain } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -1493,7 +1493,7 @@ useEffect(() => {
 
 function QrButton({ link, defaultDomain }: { link: LinkRow; defaultDomain?: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const qrTargetUrl = `https://pivoturl.com/s/${link.slug}?source=qr`;
+  const qrTargetUrl = `https://${getQrDomain()}/s/${link.slug}?source=qr`;
 
   return (
     <Dialog>
