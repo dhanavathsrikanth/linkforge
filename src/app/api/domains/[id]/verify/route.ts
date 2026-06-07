@@ -44,6 +44,7 @@ export async function POST(
     }
 
     let txtVerified = domainRecord.verified;
+    let cnameVerified = false;
     let cfHostnameStatus = domainRecord.cfHostnameStatus;
     let cfSslStatus = domainRecord.cfSslStatus;
     let cfError: string | null = domainRecord.cfError || null;
@@ -78,7 +79,36 @@ export async function POST(
           }
         }
       } catch (dnsErr) {
-        console.warn("[DNS] Lookup failed:", dnsErr);
+        console.warn("[DNS] TXT lookup failed:", dnsErr);
+      }
+    }
+
+    //
+    // Step 1b: Check CNAME record via DNS (Cloudflare DoH)
+    //
+    const cnameTarget = process.env.CLOUDFLARE_CNAME_TARGET || "links.pivoturl.com";
+    {
+      const dnsUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domainRecord.domain)}&type=CNAME`;
+      try {
+        const dnsRes = await fetch(dnsUrl, {
+          headers: { "Accept": "application/dns-json" }
+        });
+        if (dnsRes.ok) {
+          const dnsData = await dnsRes.json();
+          if (dnsData.Status === 0 && dnsData.Answer) {
+            for (const record of dnsData.Answer) {
+              if (record.type === 5) {
+                const target = record.data.replace(/\.$/, "").toLowerCase();
+                if (target === cnameTarget.toLowerCase()) {
+                  cnameVerified = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (dnsErr) {
+        console.warn("[DNS] CNAME lookup failed:", dnsErr);
       }
     }
 
@@ -121,6 +151,8 @@ export async function POST(
     const cfActive = cfHostnameStatus === "active";
     const cfSslActive = cfSslStatus === "active";
 
+    // If CF SaaS is configured, require both CF hostname+SSL active AND (TXT OR CNAME).
+    // If CF SaaS is NOT configured, require TXT verified (CNAME is informational).
     const fullyVerified = txtVerified && (!cfConfigured || (cfActive && cfSslActive));
 
     //
@@ -285,8 +317,11 @@ export async function POST(
       cfError,
       verificationErrors,
       sslValidationErrors,
+      cnameVerified,
+      cnameTarget,
       status: {
         ownershipVerified: txtVerified,
+        cnameVerified,
         cfHostnameStatus,
         cfSslStatus,
         cfConfigured,

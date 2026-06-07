@@ -132,6 +132,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const [verifyMessage, setVerifyMessage] = useState("");
   const [verifySeverity, setVerifySeverity] = useState<"success" | "warning" | "error" | null>(null);
   const [canRevalidate, setCanRevalidate] = useState(false);
+  const [cnameDnsVerified, setCnameDnsVerified] = useState<boolean | null>(null);
   const [activeDomain, setActiveDomain] = useState<{
     id: string;
     domain: string;
@@ -212,6 +213,9 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
       const res = await safeFetch(`/api/domains/${id}/verify`, { method: "POST" });
       if (!res) return;
       const data = await res.json();
+      if (data.cnameVerified !== undefined) {
+        setCnameDnsVerified(data.cnameVerified);
+      }
       if (data.verified) {
         setVerifySeverity("success");
         setVerifyMessage("Domain verified successfully! SSL is active and ready.");
@@ -309,6 +313,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     setVerifyMessage("");
     setVerifySeverity(null);
     setCanRevalidate(false);
+    setCnameDnsVerified(null);
     setActiveDomain({
       id: d.id,
       domain: d.domain,
@@ -343,24 +348,34 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     );
   };
 
-  const dnsRecords = (d: Domain) => [
-    {
-      type: "CNAME",
-      name: d.domain.split(".")[0],
-      content: CNAME_TARGET,
-      ttl: "Auto",
-      status: classifyStatus(d.cfHostnameStatus) === "success" ? "Verified" : classifyStatus(d.cfHostnameStatus) === "error" ? "Error" : "Pending",
-      level: classifyStatus(d.cfHostnameStatus),
-    },
-    {
-      type: "TXT",
-      name: `_pivoturl-verify.${d.domain}`,
-      content: d.verificationToken,
-      ttl: "Auto",
-      status: d.verified ? "Verified" : "Pending",
-      level: d.verified ? "success" as StatusLevel : "pending" as StatusLevel,
-    },
-  ];
+  const dnsRecords = (d: Domain) => {
+    const cfCnameLevel = classifyStatus(d.cfHostnameStatus);
+    // Use DNS CNAME check result if available, otherwise fall back to CF status
+    const cnameLevel: StatusLevel =
+      cnameDnsVerified === true ? "success" :
+      cfCnameLevel === "error" ? "error" :
+      cnameDnsVerified === false ? "pending" :
+      cfCnameLevel;
+
+    return [
+      {
+        type: "CNAME",
+        name: d.domain.split(".")[0],
+        content: CNAME_TARGET,
+        ttl: "Auto",
+        status: cnameLevel === "success" ? "Verified" : cnameLevel === "error" ? "Error" : "Pending",
+        level: cnameLevel,
+      },
+      {
+        type: "TXT",
+        name: `_pivoturl-verify.${d.domain}`,
+        content: d.verificationToken,
+        ttl: "Auto",
+        status: d.verified ? "Verified" : "Pending",
+        level: d.verified ? "success" as StatusLevel : "pending" as StatusLevel,
+      },
+    ];
+  };
 
   const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
@@ -568,10 +583,19 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
                           <span className="flex items-center gap-1.5 text-xs text-gray-600">
                             Status: {renderStatusBadge(d)}
                           </span>
+                          <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                            CNAME DNS: <span className={`font-medium ${
+                              cnameDnsVerified === true ? "text-emerald-600" :
+                              cnameDnsVerified === false ? "text-amber-600" :
+                              "text-gray-400"
+                            }`}>
+                              {cnameDnsVerified === true ? "pointing correctly" : cnameDnsVerified === false ? "not pointing here" : "not checked"}
+                            </span>
+                          </span>
                           {d.cfHostnameId && (
                             <>
                               <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                                CNAME: <span className={`font-medium ${classifyStatus(d.cfHostnameStatus) === "success" ? "text-emerald-600" : classifyStatus(d.cfHostnameStatus) === "error" ? "text-red-600" : "text-amber-600"}`}>
+                                CF Hostname: <span className={`font-medium ${classifyStatus(d.cfHostnameStatus) === "success" ? "text-emerald-600" : classifyStatus(d.cfHostnameStatus) === "error" ? "text-red-600" : "text-amber-600"}`}>
                                   {d.cfHostnameStatus ? d.cfHostnameStatus.replace(/_/g, " ") : "—"}
                                 </span>
                               </span>
@@ -722,6 +746,9 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
                               );
                             })}
                           </div>
+                          <p className="mt-2 text-xs text-gray-400">
+                            Add these records at your DNS provider, then click &quot;Verify Now&quot;. DNS changes may take a few minutes to propagate.
+                          </p>
                         </div>
                       </div>
                     </div>
