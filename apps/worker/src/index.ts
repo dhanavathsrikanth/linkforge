@@ -506,13 +506,21 @@ export default {
       }
     }
 
-    // ── System/static passthrough (pivoturl.com domains) ─────────────────────────
-    // favicon.ico, robots.txt, _next/static, .well-known — proxy to Vercel.
-    // Custom domains handle this via resolveRoute → system-passthrough below.
-    if (isSystemPath(pathname)) {
-      if (isPivotUrlHost(host)) {
-        return proxyToVercel(pathname, url.search);
-      }
+    // ── Next.js app routes passthrough ──────────────────────────────────────────
+    // Proxy dashboard, auth, static assets, and other Next.js routes to Vercel
+    // BEFORE the short-link slug lookup to avoid unnecessary KV misses.
+    // Preserves original cookies/headers so user session works on dashboard pages.
+    if (
+      pathname.startsWith('/_next/') ||
+      pathname.startsWith('/dashboard/') ||
+      pathname.startsWith('/sign-in') ||
+      pathname.startsWith('/sign-up') ||
+      pathname.startsWith('/challenge/') ||
+      pathname.startsWith('/docs') ||
+      pathname.startsWith('/pricing')
+    ) {
+      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
+      return fetch(new Request(originUrl, request), { redirect: 'manual' });
     }
 
     // ── Custom-domain routing ─────────────────────────────────────────────────
