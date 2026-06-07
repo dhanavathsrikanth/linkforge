@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const range = searchParams.get("range") || "30d";
     const from = searchParams.get("from") || undefined;
     const to = searchParams.get("to") || undefined;
+    const tz = searchParams.get("tz") || "UTC";
 
     if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
 
@@ -178,12 +179,12 @@ export async function GET(request: NextRequest) {
     // 4. Hour peak insight
     const hourData = await db
       .select({
-        hour: sql<number>`extract(hour from ${clicks.createdAt})::int`,
+        hour: sql<number>`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})::int`,
         clicks: sql<number>`count(*)::int`,
       })
       .from(clicks)
       .where(buildWhere(workspaceId, undefined, start, end))
-      .groupBy(sql`extract(hour from ${clicks.createdAt})`)
+      .groupBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})`)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 

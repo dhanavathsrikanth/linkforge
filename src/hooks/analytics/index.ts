@@ -53,6 +53,15 @@ function buildQueryString(params: Record<string, string | undefined>): string {
   return searchParams.toString();
 }
 
+/** Returns the browser's IANA timezone (e.g. "America/New_York"). */
+function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
 export function useAnalyticsOverview(
   workspaceId: string | undefined,
   range: DateRange,
@@ -191,7 +200,7 @@ export function useAnalyticsPostingTimes(
     queryKey: ["analytics", "posting-times", workspaceId, linkId, range, from, to],
     queryFn: async () => {
       if (!workspaceId) throw new Error("No workspace");
-      const queryString = buildQueryString({ workspaceId, linkId, range, from, to });
+      const queryString = buildQueryString({ workspaceId, linkId, range, from, to, tz: getBrowserTimezone() });
       const res = await fetch(`/api/v1/analytics/posting-times?${queryString}`);
       if (!res.ok) throw new Error("Failed to fetch posting times");
       return res.json();
@@ -284,7 +293,7 @@ export function useAnalyticsInsights(
     queryKey: ["analytics", "insights", workspaceId, range, from, to],
     queryFn: async () => {
       if (!workspaceId) throw new Error("No workspace");
-      const queryString = buildQueryString({ workspaceId, range, from, to });
+      const queryString = buildQueryString({ workspaceId, range, from, to, tz: getBrowserTimezone() });
       const res = await fetch(`/api/v1/analytics/insights?${queryString}`);
       if (!res.ok) throw new Error("Failed to fetch insights");
       return res.json();

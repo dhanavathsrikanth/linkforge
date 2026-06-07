@@ -31,6 +31,37 @@ export function getShortLinkBase() {
 }
 
 /**
+ * Resolve the short URL domain for a link.
+ *
+ * Links with a custom domain use `https://{customDomain}/{slug}` (no /s/ prefix).
+ * Links without a custom domain use `https://{defaultDomain}/s/{slug}`.
+ *
+ * The `link` parameter may be any object that carries either:
+ *  - `domain?: { domain: string }` (Drizzle relation from the `domains` table)
+ *  - `customDomain?: string` (pre-resolved domain hostname string)
+ */
+export function resolveLinkDomain(
+  link: { domain?: { domain: string } | null; customDomain?: string | null } | null | undefined,
+): { domain: string; basePath: string } {
+  const custom = link?.domain?.domain ?? link?.customDomain;
+  if (custom) {
+    return { domain: custom, basePath: custom };
+  }
+  return { domain: getDefaultDomain(), basePath: `${getDefaultDomain()}/s` };
+}
+
+/**
+ * Build the full short URL for a link, respecting any custom domain.
+ */
+export function getShortUrl(
+  slug: string,
+  link?: { domain?: { domain: string } | null; customDomain?: string | null } | null,
+): string {
+  const { basePath } = resolveLinkDomain(link);
+  return `https://${basePath}/${slug}`;
+}
+
+/**
  * The permanent domain used for scannable QR codes and shareable short URLs.
  *
  * QR codes are printed on materials and must outlast any preview deployment,

@@ -173,6 +173,10 @@ export function BioEditor({ initialData, domains = [] }: BioEditorProps) {
   );
   useEffect(() => { setAppBase(window.location.origin.replace(/\/$/, "")); }, []);
 
+  // Resolve the custom domain for this bio page
+  const activeDomain = domains.find((d) => d.id === page.customDomainId);
+  const bioBaseUrl = activeDomain ? `https://${activeDomain.domain}` : appBase;
+
   // Remember the slug we loaded with — we only send `slug` to the API when
   // the user explicitly changes it. Re-sending the unchanged slug on every
   // auto-save trips the API's strict slug regex when legacy galleries have
@@ -829,7 +833,7 @@ export function BioEditor({ initialData, domains = [] }: BioEditorProps) {
       {/* Share modal */}
       {showShareModal && (
         <BioShareModal
-          url={`${appBase}/p/${page.slug}`}
+          url={activeDomain ? `https://${activeDomain.domain}` : `${appBase}/p/${page.slug}`}
           displayName={page.displayName}
           onClose={() => setShowShareModal(false)}
         />

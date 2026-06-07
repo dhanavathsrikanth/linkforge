@@ -25,7 +25,7 @@ import { ActiveUsersIndicator, RealtimeStatusIndicator } from "@/components/dash
 import { useRealtime } from "@/providers/RealtimeProvider";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
-import { getShortLinkBase, getQrDomain } from "@/lib/utils";
+import { getShortLinkBase, getQrDomain, getShortUrl, resolveLinkDomain } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -55,6 +55,8 @@ type LinkRow = {
   routingRules?: { condition: { device?: string; country?: string; language?: string }; destination: string }[];
   scheduledAt?: string | null;
   qrSettings?: QRSettings | null;
+  domain?: { domain: string } | null;
+  customDomain?: string | null;
 };
 
 type Props = {
@@ -641,7 +643,7 @@ export function LinksDashboardClient({
   }, [links]);
 
   function handleCreated(link: any) {
-    const shortUrl = `https://${defaultDomain}/${link.slug}`;
+    const shortUrl = getShortUrl(link.slug, link);
     setCreatedLink({ slug: link.slug, shortUrl, destination: link.destination });
     setLinks((prev) => [link as LinkRow, ...prev.filter((l) => l.id !== link.id)]);
     handleFoldersChange();
@@ -1004,7 +1006,8 @@ useEffect(() => {
             <tbody>
               <AnimatePresence initial={false}>
                 {filteredLinks.map((link) => {
-                  const shortUrl = `https://${defaultDomain}/${link.slug}`;
+                  const shortUrl = getShortUrl(link.slug, link);
+                  const { domain: displayDomain } = resolveLinkDomain(link);
                   const isExpanded = expandedId === link.id;
                   const isCopied = copied === link.id;
                   const displayFolder = link.folderId ? localFolders.find((f) => f.id === link.folderId) : null;
@@ -1055,7 +1058,7 @@ useEffect(() => {
                               className="truncate font-mono text-sm font-medium text-slate-800 hover:text-primary transition-colors dark:text-slate-200 dark:hover:text-primary"
                               title="Click to copy"
                             >
-                              {defaultDomain}/{link.slug}
+                              {displayDomain}/{link.slug}
                             </button>
                             {isCopied && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
                             <a
@@ -1494,6 +1497,7 @@ useEffect(() => {
 function QrButton({ link, defaultDomain }: { link: LinkRow; defaultDomain?: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const qrTargetUrl = `https://${getQrDomain()}/s/${link.slug}?source=qr`;
+  const displayUrl = getShortUrl(link.slug, link);
 
   return (
     <Dialog>
@@ -1509,7 +1513,7 @@ function QrButton({ link, defaultDomain }: { link: LinkRow; defaultDomain?: stri
         <DialogHeader>
           <DialogTitle className="text-base">QR code</DialogTitle>
           <DialogDescription className="text-xs">
-            {defaultDomain}/{link.slug}
+            {displayUrl}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-2">

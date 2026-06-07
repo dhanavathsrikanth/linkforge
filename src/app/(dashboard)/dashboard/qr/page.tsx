@@ -75,12 +75,14 @@ export default async function QRCodesPage(props: Props) {
           totalClicks: true,
           qrSettings: true,
         },
+        with: { domain: { columns: { domain: true } } },
       })
     : [];
 
   const serialized = userLinks.map((l) => ({
     ...l,
     qrSettings: l.qrSettings ?? null,
+    domain: l.domain ?? null,
   }));
 
   return <QRCodesClient links={serialized} />;

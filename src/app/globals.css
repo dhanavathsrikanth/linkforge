@@ -5,6 +5,11 @@
 @import "./tokens.css";
 @import "./theme.css";
 
+/* Hide the default Sentry feedback button — replaced by our draggable FAB */
+[data-sentry-feedback] {
+  display: none !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @layer base {

@@ -173,12 +173,18 @@ export async function refreshSafetyVerdict(
 
   const result = await getScanResult(link.safetyScanId);
   if (!result) {
-    return null; // still in progress (Cloudflare returns 404)
+    return null; // still in progress (Cloudflare returns 404, Queued, or InProgress)
   }
 
   if (result.status === "Failed" || !result.success) {
     await markFailed(linkId, link.workspaceId, link.safetyScanId, "scan_failed");
     return { status: "error", trustScore: 0, trustBand: "unknown" };
+  }
+
+  // Defensive: if the result somehow arrived with a non-terminal status,
+  // treat it as still-in-progress rather than persisting partial data.
+  if (result.status === "Queued" || result.status === "InProgress") {
+    return null;
   }
 
   const { newStatus, trust, flags } = await persistFinishedReport(

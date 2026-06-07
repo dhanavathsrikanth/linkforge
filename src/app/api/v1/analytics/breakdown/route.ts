@@ -182,26 +182,47 @@ export async function GET(request: NextRequest) {
 
     // Build the query based on dimension
     let groupColumn: any;
+    let dimensionFilters: any[] = [];
 
     switch (dimension) {
       case "country":
         groupColumn = clicks.country;
+        dimensionFilters = [
+          sql`${clicks.country} IS NOT NULL`,
+          sql`${clicks.country} != 'XX'`,
+        ];
         break;
       case "device":
         groupColumn = clicks.device;
+        dimensionFilters = [
+          sql`${clicks.device} IS NOT NULL`,
+          sql`${clicks.device} != 'unknown'`,
+          sql`${clicks.device} != 'bot'`,
+        ];
         break;
       case "browser":
         groupColumn = clicks.browser;
+        dimensionFilters = [sql`${clicks.browser} IS NOT NULL`];
         break;
       case "os":
         groupColumn = clicks.os;
+        dimensionFilters = [sql`${clicks.os} IS NOT NULL`];
         break;
       case "referrer":
         groupColumn = clicks.referrerDomain;
+        dimensionFilters = [sql`${clicks.referrerDomain} IS NOT NULL`];
         break;
       default:
         groupColumn = clicks.country;
+        dimensionFilters = [
+          sql`${clicks.country} IS NOT NULL`,
+          sql`${clicks.country} != 'XX'`,
+        ];
     }
+
+    const whereWithDimension = dimensionFilters.length > 0
+      ? and(baseWhere, ...dimensionFilters)
+      : baseWhere;
 
     // Use the raw column in both SELECT and GROUP BY to avoid
     // drizzle-orm GROUP BY + expression mismatch. Null handling is
@@ -212,7 +233,7 @@ export async function GET(request: NextRequest) {
         clicks: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(baseWhere)
+      .where(whereWithDimension)
       .groupBy(sql`${groupColumn}`)
       .orderBy(desc(sql`count(*)`))
       .limit(20);

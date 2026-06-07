@@ -63,6 +63,7 @@ export async function POST(req: Request) {
     country,
     referrer,
     referrerDomain,
+    language,
     isQrScan,
     isDeepLink,
   } = body;
@@ -99,13 +100,18 @@ export async function POST(req: Request) {
     }
 
     // Persist click to PostgreSQL for analytics dashboard & link counters
+    // Normalise "XX" country to null so GROUP BY queries in analytics don't
+    // pick up undetermined geo locations.  Empty city/region are also stored
+    // as null for the same reason.
+    const normalizedCountry = country === "XX" ? null : (country ?? null);
     await db.insert(clicks).values({
       linkId,
       workspaceId,
       ip: ipHash,
-      country: country ?? null,
-      city: body.city ?? null,
-      region: body.region ?? null,
+      country: normalizedCountry,
+      city: (body.city ?? "").trim() || null,
+      region: (body.region ?? "").trim() || null,
+      language: language ?? null,
       device: device === "bot" ? "unknown" : (device as "desktop" | "mobile" | "tablet" | "unknown"),
       browser: browser ?? null,
       os: os ?? null,
@@ -148,7 +154,7 @@ export async function POST(req: Request) {
           linkId,
           slug,
           domain: getDefaultDomain(),
-          country: country ?? null,
+          country: normalizedCountry,
           device,
           browser: browser ?? null,
           os: os ?? null,

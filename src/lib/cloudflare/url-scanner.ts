@@ -297,6 +297,14 @@ export async function getScanResult(scanId: string): Promise<ScanResult | null> 
 
   // ── Top-level groups ────────────────────────────────────────────────────
   const task = (data.task ?? {}) as Record<string, unknown>;
+  const scanStatus = (task.status as string) ?? "Finished";
+
+  // Queued / InProgress means the scan hasn't finished yet — treat the
+  // same as a 404 so callers see "still in progress" rather than
+  // attempting to persist partial/incomplete data.
+  if (scanStatus === "Queued" || scanStatus === "InProgress") {
+    return null;
+  }
   const page = (data.page ?? {}) as Record<string, unknown>;
   const meta = ((data.meta as Record<string, unknown>)?.processors ?? {}) as Record<string, unknown>;
   const verdicts = (data.verdicts ?? {}) as Record<string, unknown>;

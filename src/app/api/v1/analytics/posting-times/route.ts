@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
     const range = searchParams.get("range") || "30d";
     const from = searchParams.get("from") || undefined;
     const to = searchParams.get("to") || undefined;
+    // Timezone for hour extraction — defaults to UTC if not provided.
+    // The frontend sends the browser's IANA timezone (e.g. "America/New_York").
+    const tz = searchParams.get("tz") || "UTC";
 
     if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
 
@@ -83,13 +86,13 @@ export async function GET(request: NextRequest) {
 
     const hourData = await db
       .select({
-        hour: sql<number>`extract(hour from ${clicks.createdAt})::int`,
+        hour: sql<number>`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})::int`,
         clicks: sql<number>`count(*)::int`,
       })
       .from(clicks)
       .where(baseWhere)
-      .groupBy(sql`extract(hour from ${clicks.createdAt})`)
-      .orderBy(sql`extract(hour from ${clicks.createdAt})`);
+      .groupBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})`)
+      .orderBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})`);
 
     const buckets: HourBucket[] = [];
     for (let h = 0; h < 24; h++) {

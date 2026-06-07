@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Download, Settings2, Scan } from "lucide-react";
 import { usePostHog } from "@posthog/react";
-import { cn, getShortLinkBase, getQrDomain } from "@/lib/utils";
+import { cn, getShortLinkBase, getQrDomain, getShortUrl, resolveLinkDomain } from "@/lib/utils";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { QRCustomizePanel } from "./QRCustomizePanel";
@@ -18,6 +18,8 @@ interface Props {
     title: string | null;
     totalClicks: number;
     qrSettings?: QRSettings | null;
+    domain?: { domain: string } | null;
+    customDomain?: string | null;
   };
   defaultDomain?: string;
   /**
@@ -29,7 +31,7 @@ interface Props {
 }
 export function QRCard({ link, defaultDomain = getShortLinkBase(), autoOpenCustomize = false }: Props) {
   const posthog = usePostHog();
-  const shortUrl = `https://${defaultDomain}/${link.slug}`;
+  const shortUrl = getShortUrl(link.slug, link);
   const qrTargetUrl = `https://${getQrDomain()}/s/${link.slug}?source=qr`;
   const settings: QRSettings = link.qrSettings ?? DEFAULT_QR_SETTINGS;
   const svgRef = useRef<SVGSVGElement | null>(null);

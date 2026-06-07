@@ -140,12 +140,14 @@ export async function GET(request: Request) {
       .where(whereClause);
     const total = Number(countResult[0]?.count || 0);
 
-    // Get paginated results
+    // Get paginated results (include domain relation so the frontend can
+    // build short URLs using the link's custom domain when one is assigned)
     let userLinks = await db.query.links.findMany({
       where: whereClause,
       orderBy: [desc(links.createdAt)],
       limit,
       offset,
+      with: { domain: { columns: { domain: true } } },
     });
 
     // Filter by tags on server-side (PostgreSQL array overlap)
@@ -406,14 +408,25 @@ export async function POST(req: Request) {
       }
     }
 
-    // Build the public short URL using the official main domain. The QR
-    // variant carries ?source=qr so the redirect handler can attribute
-    // the click to QR-scan analytics (per-QR breakdown in the dashboard).
-    // The QR URL **must** use getQrDomain() so the Cloudflare Worker handles
-    // the redirect directly; a Vercel preview host would hit Clerk auth
-    // and fail with an invalid redirect_url error when scanned.
-    const shortDomain = getDefaultDomain();
-    const shortUrl = `https://${shortDomain}/s/${slug}`;
+    // Build the public short URL. When the link has a custom domain the
+    // short URL is `https://{customDomain}/{slug}` (no /s/ prefix) so the
+    // Cloudflare Worker routes it directly. Otherwise fall back to the
+    // default domain with the /s/ prefix.
+    let shortDomain: string;
+    let shortUrl: string;
+
+    if (domainId) {
+      // Re-fetch the domain row to get the hostname
+      const dom = await db.query.domains.findFirst({
+        where: eq(domains.id, domainId),
+        columns: { domain: true },
+      });
+      shortDomain = dom?.domain ?? getDefaultDomain();
+      shortUrl = `https://${shortDomain}/${slug}`;
+    } else {
+      shortDomain = getDefaultDomain();
+      shortUrl = `https://${shortDomain}/s/${slug}`;
+    }
     const qrUrl = `https://${getQrDomain()}/s/${slug}?source=qr`;
 
     return NextResponse.json(
@@ -424,6 +437,7 @@ export async function POST(req: Request) {
         shortDomain,
         shortUrl,
         qrUrl,
+        customDomain: domainId ? shortDomain : null,
         // Echo the persisted QR settings so the success card in the link
         // creator and the page on /dashboard/qr render the exact same QR.
         qrSettings: link.qrSettings ?? DEFAULT_QR_SETTINGS,

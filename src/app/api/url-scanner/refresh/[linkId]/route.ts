@@ -63,10 +63,11 @@ export async function POST(
       );
     }
 
-    // Timeout: if the scan has been pending for > 5 minutes, mark as error
+    // Timeout: if the scan has been pending for > 10 minutes, mark as error.
+    // Cloudflare URL Scanner can take several minutes for complex pages.
     if (link.safetyScannedAt) {
       const ageMs = Date.now() - new Date(link.safetyScannedAt).getTime();
-      if (ageMs > 300_000) {
+      if (ageMs > 600_000) {
         await db
           .update(links)
           .set({ safetyStatus: "error", safetyScannedAt: new Date() })

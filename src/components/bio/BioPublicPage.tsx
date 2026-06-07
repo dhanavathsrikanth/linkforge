@@ -52,6 +52,7 @@ export interface BioPublicPageData {
   blocks: BioBlock[];
   smLayout: BioLayoutItem[];
   xxsLayout: BioLayoutItem[];
+  customDomain?: string | null;
 }
 
 // ─── Profile header ───────────────────────────────────────────────────────────
@@ -132,6 +133,9 @@ export function BioPublicPage({ page }: BioPublicPageProps) {
     setAppBase(window.location.origin.replace(/\/$/, ""));
   }, []);
 
+  // Use custom domain when available, otherwise fall back to app base
+  const pageBase = page.customDomain ? `https://${page.customDomain}` : appBase;
+
   const visibleBlocks = page.blocks.filter((b) => b.visible);
   const hasProfile = page.displayName || page.bio || page.avatarUrl;
 
@@ -175,7 +179,7 @@ export function BioPublicPage({ page }: BioPublicPageProps) {
 
         {/* ── Share bar ─────────────────────────────────────────────── */}
         <BioShareBar
-          url={`${appBase}/p/${page.slug}`}
+          url={page.customDomain ? `https://${page.customDomain}` : `${appBase}/p/${page.slug}`}
           displayName={page.displayName}
         />
 

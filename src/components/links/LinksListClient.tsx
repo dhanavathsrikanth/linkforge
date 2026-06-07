@@ -10,7 +10,7 @@ import { AdvancedCreateSheet } from "./AdvancedCreateSheet";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
-import { getShortLinkBase } from "@/lib/utils";
+import { getShortLinkBase, getShortUrl, resolveLinkDomain } from "@/lib/utils";
 
 type LinkRow = {
   id: string;
@@ -22,6 +22,8 @@ type LinkRow = {
   createdAt: string | Date;
   isActive?: boolean;
   qrSettings?: QRSettings | null;
+  domain?: { domain: string } | null;
+  customDomain?: string | null;
 };
 
 type Props = {
@@ -121,7 +123,8 @@ export function LinksListClient({
             <tbody>
               <AnimatePresence initial={false}>
                 {links.map((link) => {
-                  const shortUrl = `https://${defaultDomain}/${link.slug}`;
+                  const shortUrl = getShortUrl(link.slug, link);
+                  const { domain: displayDomain } = resolveLinkDomain(link);
                   const isNew = newIds.has(link.id);
                   const isCopied = copied === link.id;
                   return (
@@ -161,7 +164,7 @@ export function LinksListClient({
                             className="group inline-flex items-center gap-1.5 rounded-md bg-primary/5 px-2 py-1 font-mono text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
                             title="Click to copy"
                           >
-                            {defaultDomain}/{link.slug}
+                            {displayDomain}/{link.slug}
                             <span className="text-muted-foreground group-hover:text-primary">
                               {isCopied ? (
                                 <Check className="h-3 w-3 text-emerald-500" />
@@ -220,7 +223,7 @@ export function LinksListClient({
           onOpenChange={(v) => { if (!v) setQrLinkId(null); }}
           linkId={qrLink.id}
           linkSlug={qrLink.slug}
-          shortUrl={`https://${defaultDomain}/${qrLink.slug}`}
+          shortUrl={getShortUrl(qrLink.slug, qrLink)}
           linkTitle={qrLink.title ?? qrLink.slug}
           initialSettings={qrLink.qrSettings ?? DEFAULT_QR_SETTINGS}
         />

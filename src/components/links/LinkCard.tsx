@@ -15,14 +15,14 @@ import { RealtimeClicks } from "../analytics/RealtimeClicks";
 import { QRCustomizePanel } from "@/components/qr/QRCustomizePanel";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
-import { getShortLinkBase } from "@/lib/utils";
+import { getShortLinkBase, getShortUrl, resolveLinkDomain } from "@/lib/utils";
 
 export function LinkCard({ link }: { link: any }) {
   const [copied, setCopied] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [qrPanelOpen, setQrPanelOpen] = useState(false);
-  const defaultDomain = getShortLinkBase();
-  const shortUrl = `https://${defaultDomain}/${link.slug}`;
+  const shortUrl = getShortUrl(link.slug, link);
+  const { domain: displayDomain } = resolveLinkDomain(link);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shortUrl);
@@ -53,7 +53,7 @@ export function LinkCard({ link }: { link: any }) {
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 font-medium text-[#433BFF] hover:text-[#3730E6] transition-colors"
               >
-                {defaultDomain}/{link.slug}
+                {displayDomain}/{link.slug}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <span className="text-slate-400">•</span>

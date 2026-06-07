@@ -272,7 +272,7 @@ export function LinkSafetyClient() {
         } catch {
           // keep polling
         }
-        if (count > 20) advanced = true;
+        if (count > 45) advanced = true;
       }
       if (advanced) refetch();
     }, 15_000);

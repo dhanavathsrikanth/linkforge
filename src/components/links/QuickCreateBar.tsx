@@ -3,13 +3,14 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { ArrowRight, Loader2, Link2, Sparkles, Check, Copy, Hash, Tag, Folder, QrCode } from "lucide-react";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { cn, getShortLinkBase, getDefaultDomain, getQrDomain } from "@/lib/utils";
+import { cn, getShortLinkBase, getDefaultDomain, getQrDomain, getShortUrl, resolveLinkDomain } from "@/lib/utils";
 import type { QRSettings } from "@/types/qr";
 import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { SharedQRCode } from "@/components/qr/SharedQRCode";
 import Link from "next/link";
 
-function buildShortUrl(slug: string) {
+function buildShortUrl(slug: string, domain?: string) {
+  if (domain) return `https://${domain}/${slug}`;
   return `${getShortLinkBase()}/${slug}`;
 }
 
@@ -157,7 +158,7 @@ export function QuickCreateBar({ workspaceId, defaultDomain }: Props) {
 
   // ── Success state ─────────────────────────────────────────────────────────
   if (result) {
-    const shortUrl = buildShortUrl(result.shortSlug);
+    const shortUrl = buildShortUrl(result.shortSlug, result.shortDomain);
     const qrUrl = buildQrUrl(result.shortSlug);
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 animate-in fade-in-0 duration-200">

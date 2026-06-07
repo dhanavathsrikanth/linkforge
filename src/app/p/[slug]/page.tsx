@@ -304,6 +304,12 @@ export default async function PublishedBioPage({
     blocks,
     smLayout,
     xxsLayout,
+    customDomain: gallery.customDomainId
+      ? (await db.query.domains.findFirst({
+          where: (d, { eq }) => eq(d.id, gallery.customDomainId!),
+          columns: { domain: true },
+        }))?.domain ?? null
+      : null,
   };
 
   return (

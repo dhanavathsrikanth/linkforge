@@ -193,7 +193,11 @@ export async function GET(request: NextRequest) {
         count: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, start, end, qrOnly))
+      .where(and(
+        buildWhere(workspaceId, linkId, start, end, qrOnly),
+        sql`${clicks.country} IS NOT NULL`,
+        sql`${clicks.country} != 'XX'`,
+      ))
       .groupBy(clicks.country)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
@@ -208,7 +212,12 @@ export async function GET(request: NextRequest) {
         count: sql<number>`count(*)::int`,
       })
       .from(clicks)
-      .where(buildWhere(workspaceId, linkId, start, end, qrOnly))
+      .where(and(
+        buildWhere(workspaceId, linkId, start, end, qrOnly),
+        sql`${clicks.device} IS NOT NULL`,
+        sql`${clicks.device} != 'unknown'`,
+        sql`${clicks.device} != 'bot'`,
+      ))
       .groupBy(clicks.device)
       .orderBy(desc(sql`count(*)`))
       .limit(1);

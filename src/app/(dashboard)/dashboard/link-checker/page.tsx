@@ -289,12 +289,25 @@ function ResultRow({ result, mode, retryingIds, onRetry }: {
             <StatusBadge status={result.status} />
             {cf && <SafetyBadge status={cf.safetyStatus} trustScore={cf.safetyTrustScore} />}
             {result.statusCode ? (
-              <span className="text-xs text-muted-foreground">HTTP {result.statusCode}</span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                HTTP {result.statusCode}
+              </span>
             ) : result.status === "broken" ? (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <AlertCircle className="h-3 w-3" />Connection failed
               </span>
             ) : null}
+            {cf && cf.safetyTrustBand && cf.safetyTrustBand !== "unknown" && cf.safetyStatus !== "pending" && (
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                cf.safetyTrustBand === "high" || cf.safetyTrustBand === "verified"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+                  : cf.safetyTrustBand === "medium"
+                  ? "border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                  : "border-red-200 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400"
+              }`}>
+                {cf.safetyTrustBand}
+              </span>
+            )}
             {result.status === "broken" && (
               <RetryButton linkId={result.linkId} mode={mode} retryingIds={retryingIds} onRetry={onRetry} />
             )}
@@ -687,11 +700,23 @@ export default function LinkCheckerPage() {
                         </a>
                       </td>
                       <td className="hidden lg:table-cell px-2 py-3 w-28">
-                        {checked ? <StatusBadge status={checked.status} /> : <span className="text-xs text-muted-foreground">Not checked</span>}
+                        {checked ? (
+                          <div className="flex items-center gap-1.5">
+                            <StatusBadge status={checked.status} />
+                            {checked.statusCode ? (
+                              <span className="text-[11px] text-muted-foreground tabular-nums">{checked.statusCode}</span>
+                            ) : null}
+                          </div>
+                        ) : <span className="text-xs text-muted-foreground">Not checked</span>}
                       </td>
                       <td className="hidden lg:table-cell px-2 py-3 w-32">
                         {checked?.cloudflare ? (
-                          <SafetyBadge status={checked.cloudflare.safetyStatus} trustScore={checked.cloudflare.safetyTrustScore} />
+                          <div className="flex items-center gap-1.5">
+                            <SafetyBadge status={checked.cloudflare.safetyStatus} trustScore={checked.cloudflare.safetyTrustScore} />
+                            {checked.cloudflare.safetyTrustScore !== null && checked.cloudflare.safetyStatus !== "pending" && (
+                              <span className="text-[11px] text-muted-foreground tabular-nums">{checked.cloudflare.safetyTrustScore}/100</span>
+                            )}
+                          </div>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
                     </tr>
