@@ -346,7 +346,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const dnsRecords = (d: Domain) => [
     {
       type: "CNAME",
-      name: "go",
+      name: d.domain.split(".")[0],
       content: CNAME_TARGET,
       ttl: "Auto",
       status: classifyStatus(d.cfHostnameStatus) === "success" ? "Verified" : classifyStatus(d.cfHostnameStatus) === "error" ? "Error" : "Pending",

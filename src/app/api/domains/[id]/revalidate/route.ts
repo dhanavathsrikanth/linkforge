@@ -10,6 +10,7 @@ import {
   type CfHostnameStatus,
   type CfSslStatus,
 } from "@/lib/cloudflare/custom-hostnames";
+import { refreshDomainConfig } from "@/lib/domains/config-sync";
 
 export async function POST(
   req: Request,
@@ -70,7 +71,14 @@ export async function POST(
       cfSslValidationErrors: cfUpdated.ssl?.validation_errors ?? null,
       cfStatusUpdatedAt: new Date(),
       cfError: null,
+      // If CF hostname and SSL are now active, mark domain as verified
+      ...(cfUpdated.status === "active" && cfUpdated.ssl?.status === "active"
+        ? { verified: true, updatedAt: new Date() }
+        : {}),
     }).where(eq(domains.id, id));
+
+    // Push domain config to worker KV so the edge reflects the latest status
+    await refreshDomainConfig(domainRecord.domain);
 
     return NextResponse.json({
       revalidated: true,

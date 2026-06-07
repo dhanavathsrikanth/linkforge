@@ -11,6 +11,7 @@ import {
   type CfHostnameStatus,
   type CfSslStatus,
 } from "@/lib/cloudflare/custom-hostnames";
+import { refreshDomainConfig } from "@/lib/domains/config-sync";
 
 export async function POST(
   req: Request,
@@ -131,6 +132,8 @@ export async function POST(
           verified: true,
           updatedAt: new Date(),
         }).where(eq(domains.id, id));
+        // Push domain config to worker KV so the edge knows it's active
+        await refreshDomainConfig(domainRecord.domain);
         // Notify workspace owner
         (async () => {
           try {
@@ -226,6 +229,8 @@ export async function POST(
           verified: true,
           updatedAt: new Date(),
         }).where(eq(domains.id, id));
+        // Push domain config to worker KV so the edge knows it's active
+        await refreshDomainConfig(domainRecord.domain);
         // Notify workspace owner
         (async () => {
           try {
