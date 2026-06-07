@@ -220,7 +220,7 @@ export async function GET(request: NextRequest) {
     // Format the response with percentages
     const result: BreakdownData[] = breakdownData.map((item) => {
       let label = item.label;
-      if (label === null || label === undefined || label === "") {
+      if (label === null || label === undefined || label === "" || label === "XX") {
         label = dimension === "referrer" ? "Direct" : "Unknown";
       }
       return {

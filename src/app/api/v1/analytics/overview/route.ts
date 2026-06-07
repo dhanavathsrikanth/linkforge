@@ -198,7 +198,8 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
-    const topCountry = topCountryData[0]?.country || "Unknown";
+    const rawCountry = topCountryData[0]?.country;
+    const topCountry = (!rawCountry || rawCountry === "XX") ? "Unknown" : rawCountry;
     const topCountryCount = topCountryData[0]?.count || 0;
 
     const topDeviceData = await db

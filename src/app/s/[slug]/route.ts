@@ -309,7 +309,7 @@ export async function GET(
             cfContext?.country ||
             req.headers.get("cf-ipcountry") ||
             req.headers.get("x-vercel-ip-country") ||
-            "XX";
+            null;
           const city =
             cfContext?.city ||
             req.headers.get("cf-ipcity") ||
