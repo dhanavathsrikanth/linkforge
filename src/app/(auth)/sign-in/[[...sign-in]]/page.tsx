@@ -1,5 +1,12 @@
 import { SignIn } from "@clerk/nextjs";
 
+function getDashboardUrl() {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+  }
+  return "/dashboard";
+}
+
 export default function SignInPage() {
   return (
     <SignIn
@@ -9,7 +16,7 @@ export default function SignInPage() {
           card: "shadow-sm border border-border bg-card",
         },
       }}
-      forceRedirectUrl="/dashboard"
+      forceRedirectUrl={getDashboardUrl()}
       signUpUrl="/sign-up"
     />
   );

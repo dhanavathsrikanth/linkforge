@@ -1,4 +1,5 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
+import { sanitizeRedirectUrl } from "@/lib/utils";
 
 const PUBLIC_PREFIXES = [
   "/sign-in",
@@ -30,7 +31,7 @@ export default clerkMiddleware(async (auth, req) => {
     if (req.nextUrl.pathname.startsWith("/api")) {
       return new Response("Unauthorized", { status: 401 });
     }
-    return redirectToSignIn({ returnBackUrl: req.url });
+    return redirectToSignIn({ returnBackUrl: sanitizeRedirectUrl(req.url) });
   }
 });
 

@@ -46,6 +46,33 @@ export function getShortLinkBase() {
  *  2. `NEXT_PUBLIC_APP_URL` env var (strip protocol)
  *  3. Hard-coded `pivoturl.com`
  */
+/**
+ * Replace the host in a URL with the canonical production host.
+ * This prevents Clerk redirect_url errors when the app runs on
+ * a Vercel preview domain that isn't whitelisted in Clerk Dashboard.
+ */
+export function getProductionHost(): string {
+  if (process.env.NEXT_PUBLIC_MAIN_DOMAIN) {
+    return process.env.NEXT_PUBLIC_MAIN_DOMAIN.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL).host;
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  }
+  return "pivoturl.com";
+}
+
+export function sanitizeRedirectUrl(url: string): string {
+  const parsed = new URL(url);
+  const prodHost = getProductionHost();
+  if (parsed.host !== prodHost) {
+    parsed.host = prodHost;
+  }
+  return parsed.toString();
+}
+
 export function getQrDomain(): string {
   if (process.env.NEXT_PUBLIC_MAIN_DOMAIN) {
     return process.env.NEXT_PUBLIC_MAIN_DOMAIN.replace(/^https?:\/\//, "").replace(/\/$/, "");
