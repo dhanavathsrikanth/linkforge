@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { domains, links, linkGallery } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getOrCreateDbUser } from "@/lib/auth";
 import { resolveUserWorkspace, canAdmin } from "@/lib/db/workspace";
 import { cloudflareCustomHostnames } from "@/lib/cloudflare/custom-hostnames";
@@ -38,17 +38,6 @@ export async function DELETE(
     const ws = await resolveUserWorkspace(dbUser.id, domainRecord.workspaceId);
     if (!canAdmin(ws.role)) {
       return NextResponse.json({ error: "Forbidden: Only workspace admins can delete domains" }, { status: 403 });
-    }
-
-    const allWorkspaceDomains = await db.query.domains.findMany({
-      where: and(
-        eq(domains.workspaceId, domainRecord.workspaceId),
-        eq(domains.verified, true)
-      )
-    });
-
-    if (domainRecord.verified && allWorkspaceDomains.length === 1) {
-      return NextResponse.json({ error: "Cannot delete the only verified domain. Add another verified domain first." }, { status: 400 });
     }
 
     // ── Binding check + confirm gate (custom-domain-assignment Req 11.1) ──────

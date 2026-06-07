@@ -10,6 +10,15 @@ import {
   ChevronDown, ChevronRight, Layers
 } from "lucide-react";
 import { useSafeFetch } from "@/hooks/useBillingError";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
+import { Button } from "@/components/ui/Button";
 
 interface Domain {
   id: string;
@@ -129,6 +138,9 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ id: string; domain: string; linkCount: number } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [verifyMessage, setVerifyMessage] = useState("");
   const [verifySeverity, setVerifySeverity] = useState<"success" | "warning" | "error" | null>(null);
   const [canRevalidate, setCanRevalidate] = useState(false);
@@ -263,21 +275,36 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this domain? Links using it will revert to the default domain.")) return;
+  function handleDelete(id: string, domain: string, linkCount: number) {
+    setDeleteDialog({ id, domain, linkCount });
+    setDeleteError(null);
+  }
+
+  async function confirmDelete() {
+    if (!deleteDialog) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      const res = await safeFetch(`/api/domains/${id}`, { method: "DELETE" });
-      if (!res) return;
+      const res = await safeFetch(`/api/domains/${deleteDialog.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!res) { setDeleting(false); return; }
       if (res.ok) {
-        if (expandedId === id) setExpandedId(null);
-        if (activeDomain?.id === id) { setActiveDomain(null); setVerifyMessage(""); }
+        if (expandedId === deleteDialog.id) setExpandedId(null);
+        if (activeDomain?.id === deleteDialog.id) { setActiveDomain(null); setVerifyMessage(""); }
+        setDeleteDialog(null);
         fetchDomains();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to delete domain");
+        const err = data?.error;
+        setDeleteError(typeof err === "string" ? err : err?.message || "Failed to delete domain");
       }
     } catch {
-      alert("Something went wrong");
+      setDeleteError("Something went wrong");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -578,7 +605,7 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
                     </div>
                     <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
                       <RowMenu
-                        onDelete={() => handleDelete(d.id)}
+                        onDelete={() => handleDelete(d.id, d.domain, d.linkCount)}
                         onSetup={() => toggleExpand(d.id, d)}
                         onSetPrimary={() => handleSetPrimary(d.id)}
                         isVerified={d.verified}
@@ -809,6 +836,53 @@ export function DomainsClient({ workspaceId }: { workspaceId: string }) {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deleteDialog}
+        onOpenChange={(open) => { if (!open) { setDeleteDialog(null); setDeleteError(null); } }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
+            <DialogTitle>Delete Domain</DialogTitle>
+            <DialogDescription>
+              {deleteError
+                ? "An error occurred while deleting the domain."
+                : deleteDialog && deleteDialog.linkCount > 0
+                  ? `This domain is used by ${deleteDialog.linkCount} link(s). They will revert to the default domain.`
+                  : "This action cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-4">
+            {deleteDialog && (
+              <p className="text-sm text-foreground mb-1">
+                Are you sure you want to delete <span className="font-mono font-medium">{deleteDialog.domain}</span>?
+              </p>
+            )}
+            {deleteError && (
+              <p className="text-sm text-red-600 mt-2">{deleteError}</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setDeleteDialog(null); setDeleteError(null); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
