@@ -55,12 +55,6 @@ export function getProductionHost(): string {
   if (process.env.NEXT_PUBLIC_MAIN_DOMAIN) {
     return process.env.NEXT_PUBLIC_MAIN_DOMAIN.replace(/^https?:\/\//, "").replace(/\/$/, "");
   }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return new URL(process.env.NEXT_PUBLIC_APP_URL).host;
-  }
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  }
   return "pivoturl.com";
 }
 
@@ -76,9 +70,6 @@ export function sanitizeRedirectUrl(url: string): string {
 export function getQrDomain(): string {
   if (process.env.NEXT_PUBLIC_MAIN_DOMAIN) {
     return process.env.NEXT_PUBLIC_MAIN_DOMAIN.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
   }
   return "pivoturl.com";
 }
