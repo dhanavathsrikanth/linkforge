@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition, useMemo, useEffect, useCallback } from "react";
+import { Fragment, useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, ExternalLink, Plus, QrCode, ChevronDown, MoreHorizontal, BarChart2, Trash2, Loader2, FileText, Download, Sparkles, Send, Edit3, FlaskConical, Folder, Tag, Search, X, Users, Calendar, Square, CheckSquare, MinusSquare, Archive, RefreshCw, FolderOpen, Tag as TagIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,15 @@ import { DEFAULT_QR_SETTINGS } from "@/types/qr";
 import { getShortLinkBase } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/Dialog";
+import { downloadPNG, downloadSVG } from "@/components/qr/qrDownload";
 
 type LinkRow = {
   id: string;
@@ -1058,13 +1067,7 @@ useEffect(() => {
                             >
                               <ExternalLink className="h-3 w-3" />
                             </a>
-                            <Link
-                              href={`/dashboard/qr?focus=${encodeURIComponent(link.id)}`}
-                              className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-slate-100"
-                              title="Manage QR code"
-                            >
-                              <QrCode className="h-3 w-3" />
-                            </Link>
+                            <QrButton link={link} defaultDomain={defaultDomain} />
                             {link.password && (
                               <span className="shrink-0 rounded bg-amber-50 px-1 py-0.5 text-[9px] font-bold text-amber-600 dark:bg-amber-950 dark:text-amber-400" title="Password protected">L</span>
                             )}
@@ -1485,5 +1488,73 @@ useEffect(() => {
         </div>
       )}
     </div>
+  );
+}
+
+function QrButton({ link, defaultDomain }: { link: LinkRow; defaultDomain?: string }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const qrTargetUrl = `https://pivoturl.com/s/${link.slug}?source=qr`;
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-slate-100"
+          title="Show QR code"
+        >
+          <QrCode className="h-3 w-3" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-base">QR code</DialogTitle>
+          <DialogDescription className="text-xs">
+            {defaultDomain}/{link.slug}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-2">
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <SharedQRCode
+              ref={svgRef}
+              link={{
+                id: link.id,
+                slug: link.slug,
+                qrSettings: link.qrSettings ?? DEFAULT_QR_SETTINGS,
+              }}
+              size={180}
+              defaultDomain={defaultDomain}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => downloadPNG(qrTargetUrl, link.slug, link.qrSettings ?? DEFAULT_QR_SETTINGS, link.id)}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              PNG
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (svgRef.current) {
+                  downloadSVG(svgRef.current, link.slug, link.qrSettings ?? DEFAULT_QR_SETTINGS, link.id);
+                }
+              }}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              SVG
+            </Button>
+            <Link
+              href={`/dashboard/qr?focus=${encodeURIComponent(link.id)}`}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors"
+            >
+              Customize
+            </Link>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

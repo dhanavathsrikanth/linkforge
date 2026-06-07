@@ -247,13 +247,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: { code: "DOMAIN_NOT_VERIFIED" } }, { status: 400 });
       }
       if (dom.role === "bio") {
-        return NextResponse.json({ error: { code: "ROLE_DISALLOWS_LINKS" } }, { status: 409 });
-      }
-      // Reserved system/route slugs may never be a custom-domain short link
-      if (isReservedSlug(slug)) {
-        return NextResponse.json({
-          error: { code: "SLUG_RESERVED", message: "This path is reserved on this domain. Choose a different slug." },
-        }, { status: 409 });
+        if (v.domainId) {
+          // User explicitly chose this bio domain — reject
+          return NextResponse.json({ error: { code: "ROLE_DISALLOWS_LINKS" } }, { status: 409 });
+        }
+        // Auto-resolved default domain is for bio only — fall through to
+        // the global namespace so link creation doesn't fail silently.
+        domainId = null;
+      } else {
+        // Reserved system/route slugs may never be a custom-domain short link
+        if (isReservedSlug(slug)) {
+          return NextResponse.json({
+            error: { code: "SLUG_RESERVED", message: "This path is reserved on this domain. Choose a different slug." },
+          }, { status: 409 });
+        }
       }
     }
 

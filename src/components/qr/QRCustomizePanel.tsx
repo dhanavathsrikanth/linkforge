@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { usePostHog } from "@posthog/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,7 @@ export function QRCustomizePanel({
   onSaved,
 }: Props) {
   const posthog = usePostHog();
+  const queryClient = useQueryClient();
   const isMobile = useMediaQuery("(max-width: 640px)");
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -141,6 +143,7 @@ export function QRCustomizePanel({
       setLogoDirty(false);
       setSaveOk(true);
       onSaved?.(payload);
+      queryClient.invalidateQueries({ queryKey: ["links"] });
       setTimeout(() => setSaveOk(false), 3000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Unknown error");
