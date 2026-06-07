@@ -109,6 +109,9 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html>
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
+/** Forward request to Vercel with the original Host set as X-Forwarded-Host
+ *  so Clerk middleware uses the correct domain (pivoturl.com) for redirect URLs
+ *  instead of the Vercel preview URL. */
 async function proxyToVercel(pathname: string, search: string): Promise<Response> {
   const originUrl = `https://pivoturl.vercel.app${pathname}${search}`;
   const originRes = await fetch(originUrl, { method: 'GET', redirect: 'manual' });
@@ -128,6 +131,17 @@ async function proxyToVercel(pathname: string, search: string): Promise<Response
     status: 502,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
+}
+
+function proxyAuthenticatedRequest(pathname: string, search: string, request: Request, host: string): Promise<Response> {
+  const originUrl = `https://pivoturl.vercel.app${pathname}${search}`;
+  const headers = new Headers(request.headers);
+  headers.set('X-Forwarded-Host', host);
+  return fetch(new Request(originUrl, {
+    method: request.method,
+    headers,
+    body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
+  }), { redirect: 'manual' });
 }
 
 function isPivotUrlHost(host: string): boolean {
@@ -408,8 +422,7 @@ export default {
     // ── Passthrough for Next.js API routes ───────────────────────────────────
     // Forward to Vercel origin directly to avoid circular worker invocation.
     if (pathname.startsWith('/api/')) {
-      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
-      return fetch(new Request(originUrl, request));
+      return proxyAuthenticatedRequest(pathname, url.search, request, host);
     }
 
     // ── Internal worker management endpoints ──────────────────────────────────
@@ -519,8 +532,7 @@ export default {
       pathname.startsWith('/docs') ||
       pathname.startsWith('/pricing')
     ) {
-      const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
-      return fetch(new Request(originUrl, request), { redirect: 'manual' });
+      return proxyAuthenticatedRequest(pathname, url.search, request, host);
     }
 
     // ── Custom-domain routing ─────────────────────────────────────────────────
@@ -586,8 +598,7 @@ export default {
 
     if (!slug) {
       if (hostIsPivotUrl) {
-        const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
-        return fetch(new Request(originUrl, request), { redirect: 'manual' });
+        return proxyAuthenticatedRequest(pathname, url.search, request, host);
       }
       return new Response(NOT_FOUND_PAGE, {
         status: 404,
@@ -615,8 +626,7 @@ export default {
 
       if (!link) {
         if (hostIsPivotUrl) {
-          const originUrl = `https://pivoturl.vercel.app${pathname}${url.search}`;
-          return fetch(new Request(originUrl, request), { redirect: 'manual' });
+          return proxyAuthenticatedRequest(pathname, url.search, request, host);
         }
         return new Response(NOT_FOUND_PAGE, {
           status: 404,
