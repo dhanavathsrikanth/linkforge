@@ -16,7 +16,7 @@ export type PlanLimits = {
 export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
     free: {
         links: 50,
-        domains: 0,
+        domains: 1,
         clicksTracked: 1000,
         apiCalls: 2592000,
         workspaces: 1,

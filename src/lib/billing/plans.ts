@@ -6,7 +6,7 @@ export const PLANS = {
       maxOrganizations: 0,
       linksPerMonth: 50,
       clicksTrackedPerMonth: 1000,
-      customDomains: 0,
+      customDomains: 1,
       teamMembers: 1,
       apiCallsPerHour: 3600,
       bioPages: 1,
