@@ -37,6 +37,7 @@ import {
   Type,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getQrDomain } from "@/lib/utils";
 
 type ECL = "L" | "M" | "Q" | "H";
 
@@ -100,9 +101,7 @@ export function QRCustomizePanel({
   const [clipOk, setClipOk] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const qrTargetUrl = shortUrl.includes("?")
-    ? `${shortUrl}&source=qr`
-    : `${shortUrl}?source=qr`;
+  const qrTargetUrl = `https://${getQrDomain()}/s/${linkSlug}?source=qr`;
 
   const logoPx = LOGO_SIZES.find((s) => s.value === options.logoSize)?.px ?? 24;
 
