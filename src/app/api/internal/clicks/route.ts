@@ -77,13 +77,15 @@ export async function POST(req: Request) {
 
     // Write to Redis for realtime feed (idempotent — queue consumer may also write)
     if (slug) {
+      const normalizedCountry = country === "XX" ? null : country;
       await Promise.all([
         redis.lpush(`clicks:${slug}`, JSON.stringify({
           ts: clickTs,
           device,
           browser,
           os,
-          country,
+          country: normalizedCountry,
+          city: body.city ?? null,
           referrer: referrer ?? null,
           referrerDomain: referrerDomain ?? null,
           abVariant: variant ?? null,

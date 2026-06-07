@@ -74,9 +74,10 @@ export async function GET(request: NextRequest) {
         .groupBy(sql`${column}`)
         .orderBy(desc(sql`count(*)`))
         .limit(1);
-      const label = rows[0]?.label || nullLabel;
+      let label = rows[0]?.label || nullLabel;
+      if (label === null || label === "" || label === "XX") label = nullLabel;
       const count = rows[0]?.clicks || 0;
-      return { label: label === null || label === "" ? nullLabel : String(label), percentage: safePercent(count) };
+      return { label: String(label), percentage: safePercent(count) };
     };
 
     const [topDevice, topBrowser, topOs, topCountry, topReferrer] = await Promise.all([

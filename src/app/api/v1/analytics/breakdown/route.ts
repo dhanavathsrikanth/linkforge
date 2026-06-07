@@ -223,6 +223,7 @@ export async function GET(request: NextRequest) {
       if (label === null || label === undefined || label === "" || label === "XX") {
         label = dimension === "referrer" ? "Direct" : "Unknown";
       }
+      if (dimension === "device" && label === "bot") label = "unknown";
       return {
         label: dimension === "country" ? `${countryCodeToEmoji(label)} ${getCountryName(label)}` : label,
         clicks: item.clicks,

@@ -13,13 +13,14 @@ async function handleClickBatch(
   // 1. Write to Redis (fast path — immediate)
   const pipeline: string[][] = [];
   for (const msg of messages) {
-    const { slug, device, browser, os, country, referrer, referrerDomain, variant, timestamp } = msg;
+    const { slug, device, browser, os, country, city, referrer, referrerDomain, variant, timestamp } = msg;
     const entry = JSON.stringify({
       ts: timestamp,
       device,
       browser,
       os,
-      country,
+      country: country === "XX" ? "Unknown" : (country ?? "Unknown"),
+      city: city ?? null,
       referrer: referrer ?? null,
       referrerDomain: referrerDomain ?? null,
       abVariant: variant ?? null,

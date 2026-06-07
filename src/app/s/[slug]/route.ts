@@ -387,12 +387,12 @@ export async function GET(
           }
 
           // Persist click to PostgreSQL for analytics dashboard & link counters
-          // Use sql`` for computed defaults so the DB handles them server-side
+          const normalizedCountry = country === "XX" ? null : country;
           await db.insert(clicks).values({
             linkId: link.id,
             workspaceId: link.workspaceId,
             ip: ipHash,
-            country,
+            country: normalizedCountry,
             city,
             region,
             device: device as DeviceType,

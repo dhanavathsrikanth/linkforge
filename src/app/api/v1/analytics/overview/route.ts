@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
-    const topDevice = topDeviceData[0]?.device || "unknown";
+    const topDevice = topDeviceData[0]?.device === "bot" ? "unknown" : (topDeviceData[0]?.device || "unknown");
     const topDeviceCount = topDeviceData[0]?.count || 0;
 
     // ── Per-QR analytics ───────────────────────────────────────────────
