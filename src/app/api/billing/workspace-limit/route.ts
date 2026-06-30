@@ -15,6 +15,9 @@ export async function GET() {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Workspace limit check error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error", detail: error instanceof Error ? error.message : String(error) },
+      { status: 500 },
+    );
   }
 }
