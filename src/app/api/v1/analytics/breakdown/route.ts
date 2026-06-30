@@ -170,16 +170,6 @@ export async function GET(request: NextRequest) {
           ...(qrOnly ? [eq(clicks.isQrScan, true)] : [])
         );
 
-    // Get total clicks for percentage calculation
-    const totalResult = await db
-      .select({
-        total: sql<number>`count(*)::int`,
-      })
-      .from(clicks)
-      .where(baseWhere);
-
-    const totalClicks = totalResult[0]?.total || 1;
-
     // Build the query based on dimension
     let groupColumn: any;
     let dimensionFilters: any[] = [];
