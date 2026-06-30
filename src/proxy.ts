@@ -26,10 +26,6 @@ function isPublicRoute(pathname: string): boolean {
 const VERCEL_HOST = "pivoturl.vercel.app";
 const PRODUCTION_HOST = "pivoturl.com";
 
-// Clerk middleware generates handshake redirects with redirect_url pointing
-// back to the Vercel preview host (because the Worker proxies pivoturl.com →
-// pivoturl.vercel.app).  Intercept those redirects and rewrite the redirect_url
-// so the user lands on the correct domain after the handshake completes.
 function fixClerkRedirect(response: Response | null | undefined): Response | null | undefined {
   if (!response || response.status < 300 || response.status >= 400) return response;
   const location = response.headers.get("Location");
@@ -57,7 +53,7 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
   }
 });
 
-export default async function middleware(req: NextRequest, event: NextFetchEvent) {
+export async function proxy(req: NextRequest, event: NextFetchEvent) {
   const result = await clerkHandler(req, event);
   return result instanceof Response ? fixClerkRedirect(result) : result;
 }
