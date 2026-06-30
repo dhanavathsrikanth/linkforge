@@ -4,12 +4,17 @@ import { getOrCreateDbUser } from "@/lib/auth";
 import { checkUserWorkspaceLimit } from "@/lib/billing/workspace-limits";
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const dbUser = await getOrCreateDbUser();
-  if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
+    const dbUser = await getOrCreateDbUser();
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 401 });
 
-  const result = await checkUserWorkspaceLimit(userId);
-  return NextResponse.json(result);
+    const result = await checkUserWorkspaceLimit(userId);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Workspace limit check error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
