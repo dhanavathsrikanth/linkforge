@@ -17,19 +17,15 @@ import { TopCountries } from "@/components/analytics/TopCountries";
 import { DonutChart } from "@/components/analytics/DonutChart";
 import { TopReferrers } from "@/components/analytics/TopReferrers";
 import { TopLinksTable } from "@/components/analytics/TopLinksTable";
-
 import { BarChart3, ArrowRight, Route, DollarSign, MousePointerClick, Sparkles } from "lucide-react";
-
+import { cn } from "@/lib/utils";
 
 interface AnalyticsClientProps {
   workspaceId: string;
 }
 
-type Tab = "links" | "bio";
-
 export function AnalyticsClient({ workspaceId }: AnalyticsClientProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("links");
   const [range, setRange] = useState<DateRange>("30d");
   const [from, setFrom] = useState<string | undefined>();
   const [to, setTo] = useState<string | undefined>();
@@ -42,10 +38,10 @@ export function AnalyticsClient({ workspaceId }: AnalyticsClientProps) {
 
   // Fetch all analytics data
   const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview(workspaceId, range, from, to);
-  const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, undefined, range, "day", from, to);
-  const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "country", from, to);
-  const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "device", from, to);
-  const { data: referrers, isLoading: referrersLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "referrer", from, to);
+  const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, undefined, range);
+  const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "country");
+  const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "device");
+  const { data: referrers, isLoading: referrersLoading } = useAnalyticsBreakdown(workspaceId, undefined, range, "referrer");
   const { data: topLinks, isLoading: topLinksLoading } = useAnalyticsTopLinks(workspaceId, range, 10, from, to);
 
   const handleLinkClick = (linkId: string) => {

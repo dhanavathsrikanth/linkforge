@@ -78,11 +78,26 @@ export interface CfListResultInfo {
   total_pages: number;
 }
 
+export interface CfCustomCertBundleItem {
+  customCertificate: string;
+  customKey: string;
+}
+
 export interface CfCreateHostnameOptions {
   hostname: string;
   sslMethod?: "http" | "txt" | "email";
+  bundleMethod?: "ubiquitous" | "optimal" | "force";
+  certificateAuthority?: "digicert" | "google" | "lets_encrypt" | "ssl_com";
+  cloudflareBranding?: boolean;
+  customCertBundle?: CfCustomCertBundleItem[];
+  customCertificate?: string;
+  customKey?: string;
+  customCsrId?: string;
+  wildcard?: boolean;
+  sslSettings?: CfSslSettings;
   customMetadata?: Record<string, unknown>;
   customOriginServer?: string;
+  customOriginSni?: string;
 }
 
 interface CfApiResponse<T> {
@@ -147,15 +162,66 @@ class CloudflareCustomHostnames {
   async create(options: CfCreateHostnameOptions): Promise<CfCustomHostname> {
     const body: Record<string, unknown> = {
       hostname: options.hostname,
-      ssl: {
-        method: options.sslMethod || "http",
-        type: "dv",
-        settings: {
-          min_tls_version: "1.2",
-          http2: "on",
-        },
-      },
     };
+
+    const ssl: Record<string, unknown> = {
+      method: options.sslMethod || "http",
+      type: "dv",
+    };
+
+    if (options.bundleMethod) {
+      ssl.bundle_method = options.bundleMethod;
+    }
+
+    if (options.certificateAuthority) {
+      ssl.certificate_authority = options.certificateAuthority;
+    }
+
+    if (options.cloudflareBranding !== undefined) {
+      ssl.cloudflare_branding = options.cloudflareBranding;
+    }
+
+    if (options.customCertBundle) {
+      ssl.custom_cert_bundle = options.customCertBundle.map((b) => ({
+        custom_certificate: b.customCertificate,
+        custom_key: b.customKey,
+      }));
+    }
+
+    if (options.customCertificate) {
+      ssl.custom_certificate = options.customCertificate;
+    }
+
+    if (options.customKey) {
+      ssl.custom_key = options.customKey;
+    }
+
+    if (options.customCsrId) {
+      ssl.custom_csr_id = options.customCsrId;
+    }
+
+    if (options.wildcard !== undefined) {
+      ssl.wildcard = options.wildcard;
+    }
+
+    if (options.sslSettings) {
+      const settings: Record<string, unknown> = {};
+      if (options.sslSettings.ciphers) settings.ciphers = options.sslSettings.ciphers;
+      if (options.sslSettings.early_hints) settings.early_hints = options.sslSettings.early_hints;
+      if (options.sslSettings.http2) settings.http2 = options.sslSettings.http2;
+      if (options.sslSettings.min_tls_version) settings.min_tls_version = options.sslSettings.min_tls_version;
+      if (options.sslSettings.tls_1_3) settings.tls_1_3 = options.sslSettings.tls_1_3;
+      ssl.settings = settings;
+    }
+
+    if (!ssl.settings || Object.keys(ssl.settings as Record<string, unknown>).length === 0) {
+      ssl.settings = {
+        min_tls_version: "1.2",
+        http2: "on",
+      };
+    }
+
+    body.ssl = ssl;
 
     if (options.customMetadata) {
       body.custom_metadata = options.customMetadata;
@@ -163,6 +229,10 @@ class CloudflareCustomHostnames {
 
     if (options.customOriginServer) {
       body.custom_origin_server = options.customOriginServer;
+    }
+
+    if (options.customOriginSni) {
+      body.custom_origin_sni = options.customOriginSni;
     }
 
     const data = await this.request<CfCustomHostname>("/custom_hostnames", {

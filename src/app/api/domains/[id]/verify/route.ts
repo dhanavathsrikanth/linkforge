@@ -180,6 +180,36 @@ export async function POST(
           cfStatusUpdatedAt: new Date(),
           cfError: null,
         }).where(eq(domains.id, id));
+
+        //
+        // If CNAME points to us but SSL is not active, PATCH the custom hostname
+        // to trigger DCV re-check (CF docs: "If http is used and the domain is
+        // not already pointing to the Managed CNAME host, the PATCH method must
+        // be used once it is, to complete validation")
+        //
+        if (cnameVerified && cfSslStatus !== "active") {
+          try {
+            const patched = await cloudflareCustomHostnames.update(cfHostname.id, {
+              ssl: { method: "http" },
+            });
+            cfHostnameStatus = patched.status as CfHostnameStatus;
+            cfSslStatus = (patched.ssl?.status ?? null) as CfSslStatus | null;
+            verificationErrors = patched.verification_errors ?? null;
+            sslValidationErrors = patched.ssl?.validation_errors ?? null;
+            validationRecords = patched.ssl?.validation_records ?? null;
+            // Persist updated status from PATCH
+            await db.update(domains).set({
+              cfHostnameStatus: patched.status as CfHostnameStatus,
+              cfSslStatus: (patched.ssl?.status ?? null) as CfSslStatus | null,
+              cfValidationRecords: patched.ssl?.validation_records ?? null,
+              cfVerificationErrors: patched.verification_errors ?? null,
+              cfSslValidationErrors: patched.ssl?.validation_errors ?? null,
+              cfStatusUpdatedAt: new Date(),
+            }).where(eq(domains.id, id));
+          } catch (err) {
+            console.warn("[Cloudflare] PATCH to retrigger DCV failed:", err);
+          }
+        }
       }
     }
 

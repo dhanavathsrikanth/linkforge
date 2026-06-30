@@ -15,7 +15,12 @@ interface OverviewData {
   } | null;
   averageCTR: number;
   topCountry: string;
+  topCountryCount: number;
   topDevice: string;
+  topDeviceCount: number;
+  qrScans: number;
+  qrScansToday: number;
+  qrScanGrowth: number;
 }
 
 interface TimeSeriesData {

@@ -224,6 +224,16 @@ export async function GET(request: NextRequest) {
       ? and(baseWhere, ...dimensionFilters)
       : baseWhere;
 
+    // Get total clicks for percentage calculation using the same filters as breakdown data
+    const totalResult = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+      })
+      .from(clicks)
+      .where(whereWithDimension);
+
+    const totalClicks = totalResult[0]?.total || 1;
+
     // Use the raw column in both SELECT and GROUP BY to avoid
     // drizzle-orm GROUP BY + expression mismatch. Null handling is
     // done in app code below.
