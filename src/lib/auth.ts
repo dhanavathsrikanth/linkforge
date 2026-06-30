@@ -53,13 +53,13 @@ export async function getOrCreateDbUser() {
       lastSignInAt: clerkUser.lastSignInAt ? new Date(clerkUser.lastSignInAt) : null,
       clerkCreatedAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : null,
       clerkUpdatedAt: clerkUser.updatedAt ? new Date(clerkUser.updatedAt) : null,
-      emailAddresses: clerkUser.emailAddresses,
-      phoneNumbers: clerkUser.phoneNumbers,
-      externalAccounts: clerkUser.externalAccounts,
-      web3Wallets: clerkUser.web3Wallets,
-      publicMetadata: clerkUser.publicMetadata,
-      privateMetadata: clerkUser.privateMetadata,
-      unsafeMetadata: clerkUser.unsafeMetadata,
+      emailAddresses: JSON.parse(JSON.stringify(clerkUser.emailAddresses ?? [])),
+      phoneNumbers: JSON.parse(JSON.stringify(clerkUser.phoneNumbers ?? [])),
+      externalAccounts: JSON.parse(JSON.stringify(clerkUser.externalAccounts ?? [])),
+      web3Wallets: JSON.parse(JSON.stringify(clerkUser.web3Wallets ?? [])),
+      publicMetadata: JSON.parse(JSON.stringify(clerkUser.publicMetadata ?? {})),
+      privateMetadata: JSON.parse(JSON.stringify(clerkUser.privateMetadata ?? {})),
+      unsafeMetadata: JSON.parse(JSON.stringify(clerkUser.unsafeMetadata ?? {})),
     };
 
     const [user] = await db
