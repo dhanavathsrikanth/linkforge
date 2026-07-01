@@ -73,7 +73,7 @@ export default function RootLayout({
       </head>
       <body className="bg-[var(--bg)] antialiased" suppressHydrationWarning>
         <PostHogProvider>
-        <ClerkProvider>
+        <ClerkProvider afterSignOutUrl="/sign-in">
           <RouteProvider>
             <ThemeProvider>
               <Providers>
