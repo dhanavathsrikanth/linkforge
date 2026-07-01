@@ -678,6 +678,21 @@ export default {
       const city = rawCity && rawCity !== 'XX' ? rawCity : '';
       const rawRegion = cfContext?.region || request.headers.get('cf-region') || '';
       const region = rawRegion && rawRegion !== 'XX' ? rawRegion : '';
+
+      // Debug: log raw CF context for country detection diagnostics
+      console.log(JSON.stringify({
+        tag: 'country-debug',
+        slug,
+        cfCountry: cfContext?.country,
+        cfColo: cfContext?.colo,
+        cfCity: cfContext?.city,
+        cfRegion: cfContext?.region,
+        headerCfIp: request.headers.get('cf-ipcountry'),
+        headerVercelCountry: request.headers.get('x-vercel-ip-country'),
+        rawCountry,
+        finalCountry: country,
+        ip: request.headers.get('CF-Connecting-IP'),
+      }));
       const language = request.headers.get('Accept-Language')?.split(',')[0] || 'en';
       const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
       const ipHash = await hashIP(ip);
