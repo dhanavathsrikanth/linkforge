@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
             eq(links.workspaceId, user.workspaceId),
             gte(clicks.createdAt, monthStart),
             lt(clicks.createdAt, now),
-            sql`${clicks.country} IS NOT NULL AND ${clicks.country} != 'XX'`
+            sql`${clicks.country} IS NOT NULL AND ${clicks.country} != 'XX' AND ${clicks.country} != 'Unknown'`
           )
         )
         .groupBy(clicks.country)

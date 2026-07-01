@@ -305,21 +305,24 @@ export async function GET(
           // these fallbacks clicks from non-CF sources all looked identical
           // in the country breakdown.
           const cfContext = (req as any).cf;
-          const country =
+          const rawCountry =
             cfContext?.country ||
             req.headers.get("cf-ipcountry") ||
             req.headers.get("x-vercel-ip-country") ||
-            null;
-          const city =
+            "";
+          const country = rawCountry && rawCountry !== "XX" && rawCountry !== "Unknown" ? rawCountry : null;
+          const rawCity =
             cfContext?.city ||
             req.headers.get("cf-ipcity") ||
             req.headers.get("x-vercel-ip-city") ||
-            null;
-          const region =
+            "";
+          const city = rawCity && rawCity !== "XX" ? rawCity : null;
+          const rawRegion =
             cfContext?.region ||
             req.headers.get("cf-region") ||
             req.headers.get("x-vercel-ip-country-region") ||
-            null;
+            "";
+          const region = rawRegion && rawRegion !== "XX" ? rawRegion : null;
           const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
           const isDeepLink = new URL(req.url).searchParams.get("deep") === "1";
           const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return null; } })() : null;
@@ -387,12 +390,11 @@ export async function GET(
           }
 
           // Persist click to PostgreSQL for analytics dashboard & link counters
-          const normalizedCountry = country === "XX" ? null : country;
           await db.insert(clicks).values({
             linkId: link.id,
             workspaceId: link.workspaceId,
             ip: ipHash,
-            country: normalizedCountry,
+            country: country,
             city,
             region,
             device: device as DeviceType,

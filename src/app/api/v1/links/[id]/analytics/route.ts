@@ -102,7 +102,7 @@ export async function GET(
       clicks: sql<number>`count(*)::int`,
     })
     .from(clicks)
-    .where(and(where, sql`${clicks.country} is not null`))
+    .where(and(where, sql`${clicks.country} is not null`, sql`${clicks.country} != 'XX'`, sql`${clicks.country} != 'Unknown'`))
     .groupBy(clicks.country)
     .orderBy(desc(sql`count(*)`))
     .limit(10);

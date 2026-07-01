@@ -180,6 +180,7 @@ export async function GET(request: NextRequest) {
         dimensionFilters = [
           sql`${clicks.country} IS NOT NULL`,
           sql`${clicks.country} != 'XX'`,
+          sql`${clicks.country} != 'Unknown'`,
         ];
         break;
       case "device":
@@ -207,6 +208,7 @@ export async function GET(request: NextRequest) {
         dimensionFilters = [
           sql`${clicks.country} IS NOT NULL`,
           sql`${clicks.country} != 'XX'`,
+          sql`${clicks.country} != 'Unknown'`,
         ];
     }
 

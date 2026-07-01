@@ -134,10 +134,11 @@ export async function GET(request: Request) {
       count: sql<number>`count(*)::int`,
     })
     .from(clicks)
-    .where(clickWhere)
+    .where(and(clickWhere, sql`${clicks.country} IS NOT NULL`, sql`${clicks.country} != 'XX'`, sql`${clicks.country} != 'Unknown'`))
     .groupBy(clicks.country)
     .orderBy(desc(sql`count(*)`))
     .limit(1);
+
   const topCountry = topCountryData?.country || "Unknown";
 
   const [topDeviceData] = await db

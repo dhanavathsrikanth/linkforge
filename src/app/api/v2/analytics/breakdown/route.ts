@@ -98,13 +98,15 @@ export async function GET(request: Request) {
       labelField = sql<string>`COALESCE(${clicks.country}, 'Unknown')`;
   }
 
+  const countryFilter = and(baseWhere, sql`${clicks.country} IS NOT NULL`, sql`${clicks.country} != 'XX'`, sql`${clicks.country} != 'Unknown'`);
+
   const breakdownData = await db
     .select({
       label: labelField,
       clicks: sql<number>`count(*)::int`,
     })
     .from(clicks)
-    .where(baseWhere)
+    .where(dimension === "country" ? countryFilter : baseWhere)
     .groupBy(groupColumn)
     .orderBy(desc(sql`count(*)`))
     .limit(20);

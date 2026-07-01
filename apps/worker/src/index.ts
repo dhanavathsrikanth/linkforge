@@ -668,13 +668,16 @@ export default {
       // the request lacked the cf object, which produced an analytics view
       // that always showed the same country.
       const cfContext = (request as any).cf;
-      const country =
+      const rawCountry =
         cfContext?.country ||
         request.headers.get('cf-ipcountry') ||
         request.headers.get('x-vercel-ip-country') ||
-        'Unknown';
-      const city = cfContext?.city || request.headers.get('cf-ipcity') || 'Unknown';
-      const region = cfContext?.region || request.headers.get('cf-region') || 'Unknown';
+        '';
+      const country = rawCountry && rawCountry !== 'XX' ? rawCountry : '';
+      const rawCity = cfContext?.city || request.headers.get('cf-ipcity') || '';
+      const city = rawCity && rawCity !== 'XX' ? rawCity : '';
+      const rawRegion = cfContext?.region || request.headers.get('cf-region') || '';
+      const region = rawRegion && rawRegion !== 'XX' ? rawRegion : '';
       const language = request.headers.get('Accept-Language')?.split(',')[0] || 'en';
       const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
       const ipHash = await hashIP(ip);

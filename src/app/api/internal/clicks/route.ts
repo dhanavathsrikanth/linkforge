@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 
     // Write to Redis for realtime feed (idempotent — queue consumer may also write)
     if (slug) {
-      const normalizedCountry = country === "XX" ? null : country;
+      const normalizedCountry = (country && country !== "XX" && country !== "Unknown") ? country : null;
       await Promise.all([
         redis.lpush(`clicks:${slug}`, JSON.stringify({
           ts: clickTs,
@@ -100,10 +100,10 @@ export async function POST(req: Request) {
     }
 
     // Persist click to PostgreSQL for analytics dashboard & link counters
-    // Normalise "XX" country to null so GROUP BY queries in analytics don't
-    // pick up undetermined geo locations.  Empty city/region are also stored
-    // as null for the same reason.
-    const normalizedCountry = country === "XX" ? null : (country ?? null);
+    // Normalise "XX", "Unknown", and empty country to null so GROUP BY
+    // queries in analytics don't pick up undetermined geo locations.
+    // Empty city/region are also stored as null for the same reason.
+    const normalizedCountry = (country && country !== "XX" && country !== "Unknown") ? country : null;
     await db.insert(clicks).values({
       linkId,
       workspaceId,

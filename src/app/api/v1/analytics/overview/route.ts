@@ -197,13 +197,14 @@ export async function GET(request: NextRequest) {
         buildWhere(workspaceId, linkId, start, end, qrOnly),
         sql`${clicks.country} IS NOT NULL`,
         sql`${clicks.country} != 'XX'`,
+        sql`${clicks.country} != 'Unknown'`,
       ))
       .groupBy(clicks.country)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
     const rawCountry = topCountryData[0]?.country;
-    const topCountry = (!rawCountry || rawCountry === "XX") ? "Unknown" : rawCountry;
+    const topCountry = (!rawCountry || rawCountry === "XX" || rawCountry === "Unknown") ? "Unknown" : rawCountry;
     const topCountryCount = topCountryData[0]?.count || 0;
 
     const topDeviceData = await db
