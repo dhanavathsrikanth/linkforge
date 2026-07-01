@@ -29,71 +29,75 @@ export async function getOrCreateDbUser() {
   }
 
   if (clerkUser) {
-    const primaryEmail =
-      clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
-        ?.emailAddress ?? "";
-    const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
-    const userValues = {
-      clerkId: clerkUser.id,
-      email: primaryEmail,
-      name: fullName,
-      firstName: clerkUser.firstName ?? null,
-      lastName: clerkUser.lastName ?? null,
-      username: clerkUser.username ?? null,
-      avatar: clerkUser.imageUrl ?? null,
-      profileImageUrl: clerkUser.imageUrl ?? null,
-      birthday: null,
-      gender: null,
-      externalId: clerkUser.externalId ?? null,
-      primaryEmailAddressId: clerkUser.primaryEmailAddressId ?? null,
-      primaryPhoneNumberId: clerkUser.primaryPhoneNumberId ?? null,
-      primaryWeb3WalletId: clerkUser.primaryWeb3WalletId ?? null,
-      passwordEnabled: clerkUser.passwordEnabled ?? null,
-      twoFactorEnabled: clerkUser.twoFactorEnabled ?? null,
-      lastSignInAt: clerkUser.lastSignInAt ? new Date(clerkUser.lastSignInAt) : null,
-      clerkCreatedAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : null,
-      clerkUpdatedAt: clerkUser.updatedAt ? new Date(clerkUser.updatedAt) : null,
-      emailAddresses: JSON.parse(JSON.stringify(clerkUser.emailAddresses ?? [])),
-      phoneNumbers: JSON.parse(JSON.stringify(clerkUser.phoneNumbers ?? [])),
-      externalAccounts: JSON.parse(JSON.stringify(clerkUser.externalAccounts ?? [])),
-      web3Wallets: JSON.parse(JSON.stringify(clerkUser.web3Wallets ?? [])),
-      publicMetadata: JSON.parse(JSON.stringify(clerkUser.publicMetadata ?? {})),
-      privateMetadata: JSON.parse(JSON.stringify(clerkUser.privateMetadata ?? {})),
-      unsafeMetadata: JSON.parse(JSON.stringify(clerkUser.unsafeMetadata ?? {})),
-    };
+    try {
+      const primaryEmail =
+        clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
+          ?.emailAddress ?? "";
+      const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+      const userValues = {
+        clerkId: clerkUser.id,
+        email: primaryEmail,
+        name: fullName,
+        firstName: clerkUser.firstName ?? null,
+        lastName: clerkUser.lastName ?? null,
+        username: clerkUser.username ?? null,
+        avatar: clerkUser.imageUrl ?? null,
+        profileImageUrl: clerkUser.imageUrl ?? null,
+        birthday: null,
+        gender: null,
+        externalId: clerkUser.externalId ?? null,
+        primaryEmailAddressId: clerkUser.primaryEmailAddressId ?? null,
+        primaryPhoneNumberId: clerkUser.primaryPhoneNumberId ?? null,
+        primaryWeb3WalletId: clerkUser.primaryWeb3WalletId ?? null,
+        passwordEnabled: clerkUser.passwordEnabled ?? null,
+        twoFactorEnabled: clerkUser.twoFactorEnabled ?? null,
+        lastSignInAt: clerkUser.lastSignInAt ? new Date(clerkUser.lastSignInAt) : null,
+        clerkCreatedAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : null,
+        clerkUpdatedAt: clerkUser.updatedAt ? new Date(clerkUser.updatedAt) : null,
+        emailAddresses: JSON.parse(JSON.stringify(clerkUser.emailAddresses ?? [])),
+        phoneNumbers: JSON.parse(JSON.stringify(clerkUser.phoneNumbers ?? [])),
+        externalAccounts: JSON.parse(JSON.stringify(clerkUser.externalAccounts ?? [])),
+        web3Wallets: JSON.parse(JSON.stringify(clerkUser.web3Wallets ?? [])),
+        publicMetadata: JSON.parse(JSON.stringify(clerkUser.publicMetadata ?? {})),
+        privateMetadata: JSON.parse(JSON.stringify(clerkUser.privateMetadata ?? {})),
+        unsafeMetadata: JSON.parse(JSON.stringify(clerkUser.unsafeMetadata ?? {})),
+      };
 
-    const [user] = await db
-      .insert(users)
-      .values(userValues)
-      .onConflictDoUpdate({
-        target: users.clerkId,
-        set: {
-          ...userValues,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+      const [user] = await db
+        .insert(users)
+        .values(userValues)
+        .onConflictDoUpdate({
+          target: users.clerkId,
+          set: {
+            ...userValues,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
 
-    // Ensure user has a personal workspace
-    if (user) {
-      const existing = await db.query.workspaces.findFirst({
-        where: eq(workspaces.ownerId, user.id),
-      });
-      if (!existing) {
-        const slugBase = (user.name || user.email || "personal").toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)+/g, "")
-          .slice(0, 32) || "personal";
-        await db.insert(workspaces).values({
-          name: "Personal",
-          slug: `${slugBase}-${user.id.slice(0, 8)}`,
-          ownerId: user.id,
-          isDefault: true,
-        }).onConflictDoNothing();
+      // Ensure user has a personal workspace
+      if (user) {
+        const existing = await db.query.workspaces.findFirst({
+          where: eq(workspaces.ownerId, user.id),
+        });
+        if (!existing) {
+          const slugBase = (user.name || user.email || "personal").toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)+/g, "")
+            .slice(0, 32) || "personal";
+          await db.insert(workspaces).values({
+            name: "Personal",
+            slug: `${slugBase}-${user.id.slice(0, 8)}`,
+            ownerId: user.id,
+            isDefault: true,
+          }).onConflictDoNothing();
+        }
       }
-    }
 
-    return user;
+      return user;
+    } catch (clerkSyncError) {
+      console.error("[getOrCreateDbUser] Clerk sync failed, falling back:", clerkSyncError);
+    }
   }
 
   // Fallback when currentUser() fails (cold start, network blip, etc.)
