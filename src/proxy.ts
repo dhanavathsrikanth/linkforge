@@ -30,7 +30,8 @@ function fixClerkRedirect(response: Response | null | undefined): Response | nul
   if (!response || response.status < 300 || response.status >= 400) return response;
   const location = response.headers.get("Location");
   if (!location) return response;
-  const url = new URL(location);
+  let url: URL;
+  try { url = new URL(location); } catch { return response; }
   if (!url.hostname.endsWith("clerk.pivoturl.com")) return response;
   const redirectUrl = url.searchParams.get("redirect_url");
   if (!redirectUrl) return response;

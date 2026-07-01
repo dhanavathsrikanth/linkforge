@@ -138,6 +138,7 @@ function proxyAuthenticatedRequest(pathname: string, search: string, request: Re
   const originUrl = `https://pivoturl.vercel.app${pathname}${search}`;
   const headers = new Headers(request.headers);
   headers.set('X-Forwarded-Host', host);
+  headers.set('Host', 'pivoturl.vercel.app');
   return fetch(new Request(originUrl, {
     method: request.method,
     headers,
@@ -564,9 +565,11 @@ export default {
       pathname.startsWith('/dashboard/') ||
       pathname.startsWith('/sign-in') ||
       pathname.startsWith('/sign-up') ||
+      pathname.startsWith('/create-organization') ||
       pathname.startsWith('/challenge/') ||
       pathname.startsWith('/docs') ||
-      pathname.startsWith('/pricing')
+      pathname.startsWith('/pricing') ||
+      pathname.startsWith('/api/')
     ) {
       return proxyAuthenticatedRequest(pathname, url.search, request, host);
     }
