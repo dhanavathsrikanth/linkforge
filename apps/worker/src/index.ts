@@ -491,12 +491,12 @@ export default {
           latitude: cfContext?.latitude,
           longitude: cfContext?.longitude,
         },
-        ipinfo: geoData ? {
-          country: geoData.country,
+        iplocate: geoData ? {
+          country: geoData.country_code,
           city: geoData.city,
           region: geoData.region,
-          loc: geoData.loc,
-          org: geoData.org,
+          latitude: geoData.latitude,
+          longitude: geoData.longitude,
         } : null,
         headers: {
           cfIpCountry: request.headers.get('cf-ipcountry'),
