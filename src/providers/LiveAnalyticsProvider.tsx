@@ -29,7 +29,11 @@ export function useLiveAnalyticsApi() {
 
 export function LiveAnalyticsProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const tokenRef = useRef<string>(crypto.randomUUID());
+  const tokenRef = useRef<string>(
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 10)
+  );
 
   const pushClickEvent = useCallback(async (linkId: string, data: any) => {
     await fetch(`/do/analytics-ws/link:${linkId}/push`, {
