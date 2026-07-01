@@ -356,7 +356,13 @@ export default {
       const ns = routeBindings[doName];
       if (ns) {
         const stub = ns.idFromName(doId);
-        return ns.get(stub).fetch(request);
+        // Strip the /do/{name}/{id} prefix so the DO receives the clean action path
+        // e.g. /do/presence/workspace:xxx/ws → /ws
+        const actionPath = '/' + parts.slice(4).join('/');
+        const doUrl = new URL(request.url);
+        doUrl.pathname = actionPath;
+        const cleanRequest = new Request(doUrl.toString(), request);
+        return ns.get(stub).fetch(cleanRequest);
       }
     }
 

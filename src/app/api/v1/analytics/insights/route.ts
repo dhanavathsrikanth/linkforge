@@ -53,6 +53,10 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get("to") || undefined;
     const tz = searchParams.get("tz") || "UTC";
 
+    // Inject timezone as a SQL string literal to avoid parameter binding issues
+    // with the Neon HTTP driver and PostgreSQL's AT TIME ZONE operator.
+    const tzLiteral = sql.raw(`'${tz.replace(/'/g, "''")}'`);
+
     if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
 
     const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
@@ -179,12 +183,12 @@ export async function GET(request: NextRequest) {
     // 4. Hour peak insight
     const hourData = await db
       .select({
-        hour: sql<number>`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})::int`,
+        hour: sql<number>`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tzLiteral})::int`,
         clicks: sql<number>`count(*)::int`,
       })
       .from(clicks)
       .where(buildWhere(workspaceId, undefined, start, end))
-      .groupBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})`)
+      .groupBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tzLiteral})`)
       .orderBy(desc(sql`count(*)`))
       .limit(1);
 
@@ -234,6 +238,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ insights });
   } catch (error) {
     console.error("Analytics insights error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

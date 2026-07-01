@@ -70,6 +70,7 @@ export function Header() {
           </ClerkLoading>
           <ClerkLoaded>
             <UserButton
+              afterSignOutUrl="/sign-in"
               appearance={{
                 elements: { avatarBox: "h-7 w-7 sm:h-8 sm:w-8" },
               }}

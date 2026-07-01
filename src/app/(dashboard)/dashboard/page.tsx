@@ -26,6 +26,14 @@ function getGreeting() {
   return "Good evening";
 }
 
+function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
 const today = new Date().toLocaleDateString("en-US", {
   weekday: "long", month: "long", day: "numeric", year: "numeric",
 });
@@ -104,7 +112,8 @@ export default function DashboardPage() {
   const { data: postingTimes, isLoading: postingTimesLoading } = useQuery<any>({
     queryKey: ["analytics", "posting-times", wsId, "30d"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/analytics/posting-times?workspaceId=${wsId}&range=30d`);
+      const tz = encodeURIComponent(getBrowserTimezone());
+      const res = await fetch(`/api/v1/analytics/posting-times?workspaceId=${wsId}&range=30d&tz=${tz}`);
       if (!res.ok) return null;
       return res.json();
     },
@@ -128,7 +137,8 @@ export default function DashboardPage() {
   const { data: insights, isLoading: insightsLoading } = useQuery<any>({
     queryKey: ["analytics", "insights", wsId, "30d"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/analytics/insights?workspaceId=${wsId}&range=30d`);
+      const tz = encodeURIComponent(getBrowserTimezone());
+      const res = await fetch(`/api/v1/analytics/insights?workspaceId=${wsId}&range=30d&tz=${tz}`);
       if (!res.ok) return null;
       return res.json();
     },

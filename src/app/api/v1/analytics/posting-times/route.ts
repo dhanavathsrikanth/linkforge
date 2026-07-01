@@ -57,6 +57,10 @@ export async function GET(request: NextRequest) {
     // The frontend sends the browser's IANA timezone (e.g. "America/New_York").
     const tz = searchParams.get("tz") || "UTC";
 
+    // Inject timezone as a SQL string literal to avoid parameter binding issues
+    // with the Neon HTTP driver and PostgreSQL's AT TIME ZONE operator.
+    const tzLiteral = sql.raw(`'${tz.replace(/'/g, "''")}'`);
+
     if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
 
     const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, workspaceId) });
@@ -86,13 +90,13 @@ export async function GET(request: NextRequest) {
 
     const hourData = await db
       .select({
-        hour: sql<number>`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})::int`,
+        hour: sql<number>`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tzLiteral})::int`,
         clicks: sql<number>`count(*)::int`,
       })
       .from(clicks)
       .where(baseWhere)
-      .groupBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})`)
-      .orderBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tz})`);
+      .groupBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tzLiteral})`)
+      .orderBy(sql`extract(hour from ${clicks.createdAt} AT TIME ZONE ${tzLiteral})`);
 
     const buckets: HourBucket[] = [];
     for (let h = 0; h < 24; h++) {
@@ -124,7 +128,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error("Analytics posting-times error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

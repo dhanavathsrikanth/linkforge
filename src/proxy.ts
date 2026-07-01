@@ -47,7 +47,13 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
   const { userId, redirectToSignIn } = await auth();
 
   if (!userId) {
-    if (req.nextUrl.pathname.startsWith("/api")) {
+    // Server actions (POST with next-action header) must not be redirected.
+    // Let them pass through so the action handler can return a proper error.
+    if (
+      req.nextUrl.pathname.startsWith("/api") ||
+      req.method === "POST" ||
+      req.headers.get("next-action")
+    ) {
       return new Response("Unauthorized", { status: 401 });
     }
     return redirectToSignIn({ returnBackUrl: sanitizeRedirectUrl(req.url) });
@@ -58,6 +64,8 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
   const result = await clerkHandler(req, event);
   return result instanceof Response ? fixClerkRedirect(result) : result;
 }
+
+export default proxy;
 
 export const config = {
   matcher: [
