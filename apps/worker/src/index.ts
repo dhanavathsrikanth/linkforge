@@ -4,6 +4,7 @@ import { resolveRoute, isSystemPath } from './domain-routing';
 import { handleQueue } from './queue-handler';
 import { checkRateLimitEdge } from './rate-limiter';
 import { handlePasswordChallenge, handlePasswordVerify } from './password-challenge';
+import { lookupGeo } from './geo';
 
 
 // ─── Suspended-domain page ────────────────────────────────────────────────────
@@ -472,6 +473,41 @@ export default {
       }
     }
 
+    // ── Geo debug endpoint ────────────────────────────────────────────────
+    if (pathname === '/internal/geo-debug') {
+      const cfContext = (request as any).cf;
+      const debugIp = request.headers.get('CF-Connecting-IP') || '';
+      const geoData = await lookupGeo(debugIp, env.IPLOCATE_API_KEY);
+      return new Response(JSON.stringify({
+        cf: {
+          country: cfContext?.country,
+          city: cfContext?.city,
+          region: cfContext?.region,
+          continent: cfContext?.continent,
+          colo: cfContext?.colo,
+          timezone: cfContext?.timezone,
+          postalCode: cfContext?.postalCode,
+          asOrganization: cfContext?.asOrganization,
+          latitude: cfContext?.latitude,
+          longitude: cfContext?.longitude,
+        },
+        ipinfo: geoData ? {
+          country: geoData.country,
+          city: geoData.city,
+          region: geoData.region,
+          loc: geoData.loc,
+          org: geoData.org,
+        } : null,
+        headers: {
+          cfIpCountry: request.headers.get('cf-ipcountry'),
+          vercelCountry: request.headers.get('x-vercel-ip-country'),
+          cfConnectingIp: request.headers.get('cf-connecting-ip'),
+        },
+      }, null, 2), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (pathname === '/internal/domain-config' && request.method === 'POST') {
       const secret = request.headers.get('x-worker-secret');
       if (!secret || secret !== env.WORKER_SECRET) {
@@ -662,39 +698,32 @@ export default {
 
       const userAgent = request.headers.get('User-Agent') || '';
       const device = detectDevice(userAgent);
-      // Country detection — prefer Cloudflare's request.cf context (the most
-      // accurate), then fall back to forwarded headers, and finally to
-      // "Unknown". Using only `cf?.country` left clicks as "Unknown" whenever
-      // the request lacked the cf object, which produced an analytics view
-      // that always showed the same country.
       const cfContext = (request as any).cf;
+      const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
+
+      // Country: Cloudflare's cf.country or cf-ipcountry header (accurate)
       const rawCountry =
         cfContext?.country ||
         request.headers.get('cf-ipcountry') ||
         request.headers.get('x-vercel-ip-country') ||
         '';
       const country = rawCountry && rawCountry !== 'XX' ? rawCountry : '';
-      const rawCity = cfContext?.city || request.headers.get('cf-ipcity') || '';
-      const city = rawCity && rawCity !== 'XX' ? rawCity : '';
-      const rawRegion = cfContext?.region || request.headers.get('cf-region') || '';
-      const region = rawRegion && rawRegion !== 'XX' ? rawRegion : '';
 
-      // Debug: log raw CF context for country detection diagnostics
-      console.log(JSON.stringify({
-        tag: 'country-debug',
-        slug,
-        cfCountry: cfContext?.country,
-        cfColo: cfContext?.colo,
-        cfCity: cfContext?.city,
-        cfRegion: cfContext?.region,
-        headerCfIp: request.headers.get('cf-ipcountry'),
-        headerVercelCountry: request.headers.get('x-vercel-ip-country'),
-        rawCountry,
-        finalCountry: country,
-        ip: request.headers.get('CF-Connecting-IP'),
-      }));
+      // City/region: use iplocate.io for accuracy, fall back to Cloudflare cf
+      let city = '';
+      let region = '';
+      const geoData = await lookupGeo(ip, env.IPLOCATE_API_KEY);
+      if (geoData) {
+        city = geoData.city || '';
+        region = geoData.region || '';
+      } else {
+        const rawCity = cfContext?.city || request.headers.get('cf-ipcity') || '';
+        city = rawCity && rawCity !== 'XX' ? rawCity : '';
+        const rawRegion = cfContext?.region || request.headers.get('cf-region') || '';
+        region = rawRegion && rawRegion !== 'XX' ? rawRegion : '';
+      }
+
       const language = request.headers.get('Accept-Language')?.split(',')[0] || 'en';
-      const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
       const ipHash = await hashIP(ip);
 
       const uniqueKey = `uniq:${link.id}:${ipHash}`;

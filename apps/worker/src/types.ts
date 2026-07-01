@@ -12,6 +12,7 @@ export interface Env {
   // ── Secrets / vars ──────────────────────────────────────────────────────
   API_URL: string;
   WORKER_SECRET: string;
+  IPLOCATE_API_KEY: string;
 
   // ── Queues ───────────────────────────────────────────────────────────────
   CLICK_QUEUE: Queue<ClickQueueMessage>;

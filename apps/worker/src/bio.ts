@@ -15,6 +15,7 @@
  */
 
 import type { Env, BioPageEvent, BioDomainMapping, BioEventQueueMessage } from './types';
+import { lookupGeo } from './geo';
 
 // ─── Bot patterns ─────────────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ async function serveBioPage(
       ...Object.fromEntries(request.headers),
       // Pass device type so Next.js can choose the right grid layout for SSR
       'X-Device-Type': device,
-      // Pass full CF geo data
+      // Pass full geo data (ipinfo.io for accuracy, CF as fallback)
       'X-CF-Country': (request as any).cf?.country ?? '',
       'X-CF-City': (request as any).cf?.city ?? '',
       'X-CF-Region': (request as any).cf?.region ?? '',
@@ -316,13 +317,15 @@ export async function handleBioRequest(
     }
 
     const cf = (request as any).cf ?? {};
+    const bioIp = request.headers.get('CF-Connecting-IP') || '';
+    const geoData = await lookupGeo(bioIp, env.IPLOCATE_API_KEY);
     const event: BioPageEvent = {
       ts: new Date().toISOString(),
       country: cf.country ?? 'XX',
-      city: cf.city ?? '',
-      region: cf.region ?? '',
-      lat: cf.latitude,
-      lon: cf.longitude,
+      city: geoData?.city || cf.city || '',
+      region: geoData?.region || cf.region || '',
+      lat: geoData?.latitude || cf.latitude,
+      lon: geoData?.longitude || cf.longitude,
       device,
       browser: detectBrowser(ua),
       os: detectOs(ua),
