@@ -126,13 +126,17 @@ export async function GET(request: Request) {
     .orderBy(desc(sql`count(*)`))
     .limit(20);
 
-  const result = breakdownData.map((item) => ({
-    label: dimension === "country"
-      ? `${getCountryName(item.label)} ${countryCodeToEmoji(item.label)}`
-      : item.label,
-    clicks: item.clicks,
-    percentage: Math.round((item.clicks / totalClicks) * 1000) / 10,
-  }));
+  const result = breakdownData.map((item) => {
+    const countryCode = dimension === "country" && item.label !== "Unknown" ? item.label : undefined;
+    return {
+      label: dimension === "country"
+        ? `${getCountryName(item.label)} ${countryCodeToEmoji(item.label)}`
+        : item.label,
+      clicks: item.clicks,
+      percentage: Math.round((item.clicks / totalClicks) * 1000) / 10,
+      ...(countryCode ? { countryCode } : {}),
+    };
+  });
 
   return NextResponse.json({ data: result });
 }

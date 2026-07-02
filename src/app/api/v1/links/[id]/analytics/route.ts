@@ -188,6 +188,7 @@ export async function GET(
       geography: {
         byCountry: geoData.map((r) => ({
           country: r.country || "Unknown",
+          countryCode: r.country && r.country !== "Unknown" ? r.country : undefined,
           clicks: r.clicks,
           percentage: totalWithGeo > 0 ? parseFloat(((r.clicks / totalWithGeo) * 100).toFixed(1)) : 0,
         })),

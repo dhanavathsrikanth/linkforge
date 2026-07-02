@@ -255,16 +255,18 @@ export async function GET(request: NextRequest) {
       .limit(20);
 
     // Format the response with percentages
-    const result: BreakdownData[] = breakdownData.map((item) => {
+    const result = breakdownData.map((item) => {
       let label = item.label;
       if (label === null || label === undefined || label === "" || label === "XX") {
         label = dimension === "referrer" ? "Direct" : "Unknown";
       }
       if (dimension === "device" && label === "bot") label = "unknown";
+      const countryCode = dimension === "country" && label !== "Unknown" ? label : undefined;
       return {
         label: dimension === "country" ? `${countryCodeToEmoji(label)} ${getCountryName(label)}` : label,
         clicks: item.clicks,
         percentage: Math.round((item.clicks / totalClicks) * 1000) / 10,
+        ...(countryCode ? { countryCode } : {}),
       };
     });
 
