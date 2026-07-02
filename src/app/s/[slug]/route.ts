@@ -89,12 +89,14 @@ async function hashIp(ip: string): Promise<string> {
 }
 
 function getClientIp(req: Request): string {
+  // Cloudflare's cf-connecting-ip is the actual client IP — always prefer it.
+  // x-forwarded-for may contain Vercel/Cloudflare proxy IPs that geolocate wrong.
+  const cfIp = req.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp;
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   const realIp = req.headers.get("x-real-ip");
   if (realIp) return realIp;
-  const cfIp = req.headers.get("cf-connecting-ip");
-  if (cfIp) return cfIp;
   return "127.0.0.1";
 }
 
