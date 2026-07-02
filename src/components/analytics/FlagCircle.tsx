@@ -18,7 +18,7 @@ export function FlagCircle({ countryCode, size = 28, className = "" }: FlagCircl
     );
   }
 
-  const code = countryCode.toUpperCase().slice(0, 2);
+  const code = countryCode.toLowerCase().slice(0, 2);
   const flagUrl = `https://flagcdn.com/w80/${code}.png`;
 
   return (

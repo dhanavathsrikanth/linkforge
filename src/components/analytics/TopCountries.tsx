@@ -14,10 +14,11 @@ interface TopCountriesProps {
 
 function extractCountryCode(label: string): string | null {
   // Labels from breakdown API are like "🇮🇳 India" — extract code from emoji
+  // Each regional indicator is a surrogate pair (2 UTF-16 code units)
   const firstChar = label.codePointAt(0);
   if (firstChar && firstChar >= 0x1F1E6 && firstChar <= 0x1F1FF) {
     const high = firstChar - 0x1F1E6;
-    const secondChar = label.codePointAt(1);
+    const secondChar = label.codePointAt(2);
     if (secondChar && secondChar >= 0x1F1E6 && secondChar <= 0x1F1FF) {
       const low = secondChar - 0x1F1E6;
       return String.fromCharCode(65 + high) + String.fromCharCode(65 + low);
