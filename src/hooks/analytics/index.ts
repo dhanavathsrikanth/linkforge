@@ -132,7 +132,7 @@ export function useAnalyticsBreakdown(
   workspaceId: string | undefined,
   linkId: string | undefined,
   range: DateRange,
-  dimension: "country" | "device" | "browser" | "os" | "referrer",
+  dimension: "country" | "city" | "region" | "device" | "browser" | "os" | "referrer",
   from?: string,
   to?: string
 ) {

@@ -173,6 +173,8 @@ export function LinkAnalyticsClient({ linkId, workspaceId }: LinkAnalyticsClient
   const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview(workspaceId, range, from, to, linkId);
   const { data: timeSeries, isLoading: timeSeriesLoading } = useAnalyticsTimeSeries(workspaceId, linkId, range, "day", from, to);
   const { data: countries, isLoading: countriesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "country", from, to);
+  const { data: cities, isLoading: citiesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "city", from, to);
+  const { data: regions, isLoading: regionsLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "region", from, to);
   const { data: devices, isLoading: devicesLoading } = useAnalyticsBreakdown(workspaceId, linkId, range, "device", from, to);
 
   const rangeLabel = range === "7d" ? "Last 7 days" : range === "30d" ? "Last 30 days" : range === "90d" ? "Last 90 days" : "Custom range";
@@ -229,17 +231,29 @@ export function LinkAnalyticsClient({ linkId, workspaceId }: LinkAnalyticsClient
         <ClicksChart data={timeSeries || []} isLoading={timeSeriesLoading} />
       </div>
 
-      {/* Row 3 - Geographic Map & Device Breakdown */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Geographic Map */}
+      {/* Row 3 - Geographic Distribution */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Countries */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-950">Geographic Distribution</h2>
-          <WorldMap />
-          <div className="mt-4">
-            <TopCountries data={countries || []} isLoading={countriesLoading} />
-          </div>
+          <h2 className="mb-4 text-lg font-semibold text-slate-950">Countries</h2>
+          <TopCountries data={countries || []} isLoading={countriesLoading} />
         </div>
 
+        {/* Cities */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-slate-950">Cities</h2>
+          <TopCountries data={cities || []} isLoading={citiesLoading} />
+        </div>
+
+        {/* Regions */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-slate-950">Regions</h2>
+          <TopCountries data={regions || []} isLoading={regionsLoading} />
+        </div>
+      </div>
+
+      {/* Row 4 - Device Breakdown */}
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Device Breakdown */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-slate-950">Device Breakdown</h2>
@@ -259,10 +273,10 @@ export function LinkAnalyticsClient({ linkId, workspaceId }: LinkAnalyticsClient
             </div>
           )}
         </div>
-      </div>
 
-      {/* Row 4 - A/B Test Results */}
-      <ABTestPanel />
+        {/* A/B Test Results */}
+        <ABTestPanel />
+      </div>
     </div>
   );
 }

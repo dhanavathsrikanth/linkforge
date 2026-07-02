@@ -77,6 +77,14 @@ export async function GET(request: Request) {
       groupColumn = clicks.country;
       labelField = sql<string>`COALESCE(${clicks.country}, 'Unknown')`;
       break;
+    case "city":
+      groupColumn = clicks.city;
+      labelField = sql<string>`COALESCE(${clicks.city}, 'Unknown')`;
+      break;
+    case "region":
+      groupColumn = clicks.region;
+      labelField = sql<string>`COALESCE(${clicks.region}, 'Unknown')`;
+      break;
     case "device":
       groupColumn = clicks.device;
       labelField = sql<string>`COALESCE(${clicks.device}, 'Unknown')`;
@@ -99,6 +107,13 @@ export async function GET(request: Request) {
   }
 
   const countryFilter = and(baseWhere, sql`${clicks.country} IS NOT NULL`, sql`${clicks.country} != 'XX'`, sql`${clicks.country} != 'Unknown'`);
+  const cityFilter = and(baseWhere, sql`${clicks.city} IS NOT NULL`, sql`${clicks.city} != ''`);
+  const regionFilter = and(baseWhere, sql`${clicks.region} IS NOT NULL`, sql`${clicks.region} != ''`);
+
+  const dimensionFilter = dimension === "country" ? countryFilter
+    : dimension === "city" ? cityFilter
+    : dimension === "region" ? regionFilter
+    : baseWhere;
 
   const breakdownData = await db
     .select({
@@ -106,7 +121,7 @@ export async function GET(request: Request) {
       clicks: sql<number>`count(*)::int`,
     })
     .from(clicks)
-    .where(dimension === "country" ? countryFilter : baseWhere)
+    .where(dimensionFilter)
     .groupBy(groupColumn)
     .orderBy(desc(sql`count(*)`))
     .limit(20);

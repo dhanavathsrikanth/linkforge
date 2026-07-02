@@ -183,6 +183,20 @@ export async function GET(request: NextRequest) {
           sql`${clicks.country} != 'Unknown'`,
         ];
         break;
+      case "city":
+        groupColumn = clicks.city;
+        dimensionFilters = [
+          sql`${clicks.city} IS NOT NULL`,
+          sql`${clicks.city} != ''`,
+        ];
+        break;
+      case "region":
+        groupColumn = clicks.region;
+        dimensionFilters = [
+          sql`${clicks.region} IS NOT NULL`,
+          sql`${clicks.region} != ''`,
+        ];
+        break;
       case "device":
         groupColumn = clicks.device;
         dimensionFilters = [

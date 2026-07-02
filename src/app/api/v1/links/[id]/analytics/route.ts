@@ -109,6 +109,32 @@ export async function GET(
 
   const totalWithGeo = geoData.reduce((s, r) => s + r.clicks, 0);
 
+  const cityData = await db
+    .select({
+      city: clicks.city,
+      clicks: sql<number>`count(*)::int`,
+    })
+    .from(clicks)
+    .where(and(where, sql`${clicks.city} is not null`, sql`${clicks.city} != ''`))
+    .groupBy(clicks.city)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  const totalWithCity = cityData.reduce((s, r) => s + r.clicks, 0);
+
+  const regionData = await db
+    .select({
+      region: clicks.region,
+      clicks: sql<number>`count(*)::int`,
+    })
+    .from(clicks)
+    .where(and(where, sql`${clicks.region} is not null`, sql`${clicks.region} != ''`))
+    .groupBy(clicks.region)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  const totalWithRegion = regionData.reduce((s, r) => s + r.clicks, 0);
+
   const deviceData = await db
     .select({
       device: clicks.device,
@@ -164,6 +190,16 @@ export async function GET(
           country: r.country || "Unknown",
           clicks: r.clicks,
           percentage: totalWithGeo > 0 ? parseFloat(((r.clicks / totalWithGeo) * 100).toFixed(1)) : 0,
+        })),
+        byCity: cityData.map((r) => ({
+          city: r.city || "Unknown",
+          clicks: r.clicks,
+          percentage: totalWithCity > 0 ? parseFloat(((r.clicks / totalWithCity) * 100).toFixed(1)) : 0,
+        })),
+        byRegion: regionData.map((r) => ({
+          region: r.region || "Unknown",
+          clicks: r.clicks,
+          percentage: totalWithRegion > 0 ? parseFloat(((r.clicks / totalWithRegion) * 100).toFixed(1)) : 0,
         })),
       },
       devices: {
