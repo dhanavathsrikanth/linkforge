@@ -321,7 +321,7 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
             </div>
             <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
               <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Device Breakdown (QR)</h4>
-              <DonutChart data={qrDevices || []} isLoading={qrDevicesLoading} />
+              <AnalyticsList data={qrDevices || []} isLoading={qrDevicesLoading} type="device" />
             </div>
           </div>
         </div>
