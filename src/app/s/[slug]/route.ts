@@ -300,11 +300,13 @@ export async function GET(
           const ipHash = await hashIp(rawIp);
           const browser = parseBrowser(ua);
           const os = parseOs(ua);
-          // Geo: iplocate.io is the sole source for analytics
+          // Geo: iplocate.io primary, fall back to Cloudflare headers
           const geoData = await lookupGeo(rawIp);
+          const cfCountry = req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "";
+          const fallbackCountry = cfCountry && cfCountry !== "XX" && cfCountry !== "Unknown" ? cfCountry : null;
           const country = (geoData?.country_code && geoData.country_code !== "XX" && geoData.country_code !== "Unknown")
             ? geoData.country_code
-            : null;
+            : fallbackCountry;
           const city = geoData?.city || null;
           const region = geoData?.region || null;
           const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
