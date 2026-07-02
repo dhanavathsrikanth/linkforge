@@ -8,6 +8,7 @@ import { trackLinkClicked } from "@/lib/posthog";
 import { getDefaultDomain } from "@/lib/utils";
 import { incrementUsage } from "@/lib/billing/usage";
 import { sendFirstClickAlert } from "@/lib/email";
+import { lookupGeo } from "@/lib/geo";
 
 type DeviceType = "desktop" | "mobile" | "tablet" | "bot" | "unknown";
 
@@ -299,30 +300,13 @@ export async function GET(
           const ipHash = await hashIp(rawIp);
           const browser = parseBrowser(ua);
           const os = parseOs(ua);
-          // Country detection — prefer the `cf` request context (Cloudflare's
-          // geo object), then fall back to the legacy cf-ipcountry header,
-          // then to Vercel's forwarded header, and finally to "XX". Without
-          // these fallbacks clicks from non-CF sources all looked identical
-          // in the country breakdown.
-          const cfContext = (req as any).cf;
-          const rawCountry =
-            cfContext?.country ||
-            req.headers.get("cf-ipcountry") ||
-            req.headers.get("x-vercel-ip-country") ||
-            "";
-          const country = rawCountry && rawCountry !== "XX" && rawCountry !== "Unknown" ? rawCountry : null;
-          const rawCity =
-            cfContext?.city ||
-            req.headers.get("cf-ipcity") ||
-            req.headers.get("x-vercel-ip-city") ||
-            "";
-          const city = rawCity && rawCity !== "XX" ? rawCity : null;
-          const rawRegion =
-            cfContext?.region ||
-            req.headers.get("cf-region") ||
-            req.headers.get("x-vercel-ip-country-region") ||
-            "";
-          const region = rawRegion && rawRegion !== "XX" ? rawRegion : null;
+          // Geo: iplocate.io is the sole source for analytics
+          const geoData = await lookupGeo(rawIp);
+          const country = (geoData?.country_code && geoData.country_code !== "XX" && geoData.country_code !== "Unknown")
+            ? geoData.country_code
+            : null;
+          const city = geoData?.city || null;
+          const region = geoData?.region || null;
           const isQrScan = new URL(req.url).searchParams.get("source") === "qr";
           const isDeepLink = new URL(req.url).searchParams.get("deep") === "1";
           const referrerDomain = referrer ? (() => { try { return new URL(referrer).hostname; } catch { return null; } })() : null;
