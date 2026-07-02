@@ -11,15 +11,14 @@ export interface GeoResult {
   longitude: number;
 }
 
-const IPLOCATE_API_KEY = process.env.IPLOCATE_API_KEY || '';
-
 export async function lookupGeo(ip: string): Promise<GeoResult | null> {
-  if (!IPLOCATE_API_KEY || !ip || ip === '0.0.0.0' || ip === '::1' || ip.startsWith('127.') || ip.startsWith('::ffff:127.')) {
+  const apiKey = process.env.IPLOCATE_API_KEY;
+  if (!apiKey || !ip || ip === '0.0.0.0' || ip === '::1' || ip.startsWith('127.') || ip.startsWith('::ffff:127.')) {
     return null;
   }
   try {
-    const res = await fetch(`https://iplocate.io/api/lookup/${encodeURIComponent(ip)}?apikey=${IPLOCATE_API_KEY}`, {
-      next: { revalidate: 86400 },
+    const res = await fetch(`https://iplocate.io/api/lookup/${encodeURIComponent(ip)}?apikey=${apiKey}`, {
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
     const data = await res.json();
