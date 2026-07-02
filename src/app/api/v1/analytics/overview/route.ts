@@ -205,6 +205,9 @@ export async function GET(request: NextRequest) {
 
     const rawCountry = topCountryData[0]?.country;
     const topCountry = (!rawCountry || rawCountry === "XX" || rawCountry === "Unknown") ? "Unknown" : rawCountry;
+    const topCountryWithFlag = topCountry === "Unknown"
+      ? "Unknown"
+      : `${String.fromCodePoint(...topCountry.toUpperCase().split("").map(c => 127397 + c.charCodeAt(0)))} ${topCountry}`;
     const topCountryCount = topCountryData[0]?.count || 0;
 
     const topDeviceData = await db
@@ -292,7 +295,7 @@ export async function GET(request: NextRequest) {
       deepLinkClicks,
       topLink,
       averageCTR,
-      topCountry,
+      topCountry: topCountryWithFlag,
       topCountryCount,
       topDevice,
       topDeviceCount,
