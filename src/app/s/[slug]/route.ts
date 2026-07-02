@@ -16,7 +16,9 @@ function parseDevice(ua: string): DeviceType {
   if (!ua) return "unknown";
   if (/bot|crawl|spider/i.test(ua)) return "bot";
   if (/tablet|ipad|playbook|silk/i.test(ua)) return "tablet";
-  if (/mobile|iphone|ipod|android.*mobile|blackberry|iemobile|kindle/i.test(ua)) return "mobile";
+  // Match any mobile UA: including Android without "mobile" keyword
+  // (common in QR scanner apps and some mobile browsers)
+  if (/mobile|iphone|ipod|android|blackberry|iemobile|kindle/i.test(ua)) return "mobile";
   return "desktop";
 }
 
