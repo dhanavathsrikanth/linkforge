@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 interface AnalyticsListProps {
   data: {
     label: string;
@@ -42,7 +44,7 @@ const deviceLabels: Record<string, string> = {
 };
 
 function DeviceIcon({ type }: { type: string }) {
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, ReactNode> = {
     desktop: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
         <path d="M4 4h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
@@ -73,7 +75,7 @@ function DeviceIcon({ type }: { type: string }) {
 }
 
 function BrowserIcon({ type }: { type: string }) {
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, ReactNode> = {
     Chrome: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -112,7 +114,7 @@ function BrowserIcon({ type }: { type: string }) {
 }
 
 function OsIcon({ type }: { type: string }) {
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, ReactNode> = {
     windows: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z" />
