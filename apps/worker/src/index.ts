@@ -707,30 +707,21 @@ export default {
 
       const userAgent = request.headers.get('User-Agent') || '';
       const device = detectDevice(userAgent);
-      const cfContext = (request as any).cf;
-      const ip = request.headers.get('CF-Connecting-IP') || '0.0.0.0';
+      const ip = request.headers.get('CF-Connecting-IP') || '';
 
-      // Country: Cloudflare's cf.country or cf-ipcountry header (accurate)
-      const rawCountry =
-        cfContext?.country ||
-        request.headers.get('cf-ipcountry') ||
-        request.headers.get('x-vercel-ip-country') ||
-        '';
-      const country = rawCountry && rawCountry !== 'XX' ? rawCountry : '';
-
-      // City/region: use iplocate.io for accuracy, fall back to Cloudflare cf
-      let city = '';
-      let region = '';
-      const geoData = await lookupGeo(ip, env.IPLOCATE_API_KEY);
-      if (geoData) {
-        city = geoData.city || '';
-        region = geoData.region || '';
-      } else {
-        const rawCity = cfContext?.city || request.headers.get('cf-ipcity') || '';
-        city = rawCity && rawCity !== 'XX' ? rawCity : '';
-        const rawRegion = cfContext?.region || request.headers.get('cf-region') || '';
-        region = rawRegion && rawRegion !== 'XX' ? rawRegion : '';
-      }
+      // Geo: iplocate.io is the sole source for analytics (country, city, region)
+      // Skip lookup for invalid/loopback IPs — they produce wrong geo data.
+      const isInvalidIp = !ip
+        || ip === '0.0.0.0'
+        || ip === '::1'
+        || ip.startsWith('127.')
+        || ip.startsWith('::ffff:127.');
+      const geoData = isInvalidIp ? null : await lookupGeo(ip, env.IPLOCATE_API_KEY);
+      const country = (geoData?.country_code && geoData.country_code !== 'XX')
+        ? geoData.country_code
+        : '';
+      const city = geoData?.city || '';
+      const region = geoData?.region || '';
 
       const language = request.headers.get('Accept-Language')?.split(',')[0] || 'en';
       const ipHash = await hashIP(ip);

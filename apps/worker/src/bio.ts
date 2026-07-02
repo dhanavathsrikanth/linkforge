@@ -316,16 +316,22 @@ export async function handleBioRequest(
       );
     }
 
-    const cf = (request as any).cf ?? {};
     const bioIp = request.headers.get('CF-Connecting-IP') || '';
-    const geoData = await lookupGeo(bioIp, env.IPLOCATE_API_KEY);
+    const isInvalidIp = !bioIp
+      || bioIp === '0.0.0.0'
+      || bioIp === '::1'
+      || bioIp.startsWith('127.')
+      || bioIp.startsWith('::ffff:127.');
+    const geoData = isInvalidIp ? null : await lookupGeo(bioIp, env.IPLOCATE_API_KEY);
     const event: BioPageEvent = {
       ts: new Date().toISOString(),
-      country: cf.country ?? 'XX',
-      city: geoData?.city || cf.city || '',
-      region: geoData?.region || cf.region || '',
-      lat: geoData?.latitude || cf.latitude,
-      lon: geoData?.longitude || cf.longitude,
+      country: (geoData?.country_code && geoData.country_code !== 'XX')
+        ? geoData.country_code
+        : '',
+      city: geoData?.city || '',
+      region: geoData?.region || '',
+      lat: geoData?.latitude || undefined,
+      lon: geoData?.longitude || undefined,
       device,
       browser: detectBrowser(ua),
       os: detectOs(ua),
