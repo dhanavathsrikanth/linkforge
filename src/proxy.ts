@@ -51,8 +51,7 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
     // Let them pass through so the action handler can return a proper error.
     if (
       req.nextUrl.pathname.startsWith("/api") ||
-      req.method === "POST" ||
-      req.headers.get("next-action")
+      req.headers.has("next-action")
     ) {
       return new Response("Unauthorized", { status: 401 });
     }
