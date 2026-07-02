@@ -19,6 +19,7 @@ import { ClicksChart } from "@/components/analytics/ClicksChart";
 import { TopCountries } from "@/components/analytics/TopCountries";
 import { DonutChart } from "@/components/analytics/DonutChart";
 import { TopReferrers } from "@/components/analytics/TopReferrers";
+import { AnalyticsList } from "@/components/analytics/AnalyticsList";
 import { FolderFilter, FolderItem } from "@/components/dashboard/FolderFilter";
 import { TagFilter, TagItem } from "@/components/dashboard/TagFilter";
 import { ActiveUsersIndicator, RealtimeStatusIndicator } from "@/components/dashboard/ActiveUsersIndicator";
@@ -129,6 +130,54 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
     refetchIntervalInBackground: false,
   });
 
+  const { data: browsers, isLoading: browsersLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "browser"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=browser`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
+  });
+
+  const { data: operatingSystems, isLoading: osLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "os"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=os`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
+  });
+
+  const { data: cities, isLoading: citiesLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "city"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=city`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
+  });
+
+  const { data: regions, isLoading: regionsLoading } = useQuery<any[]>({
+    queryKey: ["analytics", "breakdown", workspaceId, link.id, "7d", "region"],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/analytics/breakdown?workspaceId=${workspaceId}&range=7d&linkId=${link.id}&dimension=region`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workspaceId,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
+  });
+
   // Per-QR analytics — separate queries so QR scans show up as their own
   // section in the expanded row (count, growth, time series, top countries,
   // top devices, top referrers — all filtered to clicks where isQrScan=true).
@@ -208,28 +257,34 @@ function ExpandedRow({ link, workspaceId }: { link: LinkRow; workspaceId: string
         </div>
 
         {/* Three Column Row */}
-        <div className="grid min-w-0 gap-3 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Countries</h3>
             <TopCountries data={countries || []} isLoading={countriesLoading} />
           </div>
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Device Breakdown</h3>
-            <DonutChart data={devices || []} isLoading={devicesLoading} />
-            {devices && devices.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-3">
-                {devices.slice(0, 3).map((d: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: ["#8b5cf6", "#3b82f6", "#10b981"][i] }} />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{d.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <AnalyticsList data={devices || []} isLoading={devicesLoading} type="device" />
+          </div>
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Browser Breakdown</h3>
+            <AnalyticsList data={browsers || []} isLoading={browsersLoading} type="browser" />
+          </div>
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Operating System</h3>
+            <AnalyticsList data={operatingSystems || []} isLoading={osLoading} type="os" />
           </div>
           <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Referrers</h3>
             <TopReferrers data={referrers || []} isLoading={referrersLoading} />
+          </div>
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Cities</h3>
+            <AnalyticsList data={cities || []} isLoading={citiesLoading} type="city" />
+          </div>
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Top Regions</h3>
+            <AnalyticsList data={regions || []} isLoading={regionsLoading} type="region" />
           </div>
         </div>
 
