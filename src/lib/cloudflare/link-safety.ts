@@ -77,7 +77,7 @@ export function isUrlScannerConfigured(): boolean {
 export async function startSafetyScan(
   linkId: string,
   destination: string,
-  options?: { rescanReason?: string }
+  options?: { rescanReason?: string; clearVerdict?: boolean }
 ): Promise<{ submitted: boolean; scanId?: string; reason?: string }> {
   if (!isUrlScannerConfigured()) {
     return { submitted: false, reason: "scanner_not_configured" };
@@ -119,6 +119,7 @@ export async function startSafetyScan(
         safetyStatus: "pending",
         safetyScanId: submission.uuid,
         safetyScannedAt: new Date(),
+        ...(options?.clearVerdict ? { safetyVerdict: null } : {}),
       })
       .where(eq(links.id, linkId));
 
@@ -256,17 +257,7 @@ export async function rescanLinkSafety(
   destination: string,
   reason: string = "manual"
 ): Promise<{ submitted: boolean; reason?: string; scanId?: string }> {
-  await db
-    .update(links)
-    .set({
-      safetyStatus: "pending",
-      safetyScanId: null,
-      safetyScannedAt: null,
-      safetyVerdict: null,
-    })
-    .where(eq(links.id, linkId));
-
-  return startSafetyScan(linkId, destination, { rescanReason: reason });
+  return startSafetyScan(linkId, destination, { rescanReason: reason, clearVerdict: true });
 }
 
 // ─── Bulk submission ──────────────────────────────────────────────────────────

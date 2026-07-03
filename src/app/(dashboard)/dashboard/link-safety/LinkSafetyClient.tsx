@@ -297,6 +297,14 @@ export function LinkSafetyClient() {
         );
         return;
       }
+      if (res.status === 429) {
+        toast.error("Scan quota exceeded. Try again later.");
+        return;
+      }
+      if (res.status === 409) {
+        toast.success("Already scanning this link.");
+        return;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         toast.error(body?.error ?? "Failed to rescan");

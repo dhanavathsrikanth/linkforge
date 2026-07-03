@@ -9,9 +9,8 @@ import { rateLimitByUser } from "@/lib/rate-limiter";
 /**
  * POST /api/url-scanner/rescan/[linkId]
  *
- * Re-submit the link's destination to Cloudflare URL Scanner. Drops any
- * existing scan ID/verdict so the dashboard shows `pending` immediately,
- * then submits a fresh scan in the background.
+ * Re-submit the link's destination to Cloudflare URL Scanner.
+ * Returns 409 if a scan is already in-flight, 429 if quota exceeded.
  */
 export async function POST(
   _req: Request,
@@ -62,7 +61,26 @@ export async function POST(
       );
     }
 
-    await rescanLinkSafety(link.id, link.destination);
+    const result = await rescanLinkSafety(link.id, link.destination);
+
+    if (!result.submitted) {
+      if (result.reason === "submit_in_flight") {
+        return NextResponse.json(
+          { error: "A scan is already in progress for this link." },
+          { status: 409 }
+        );
+      }
+      if (result.reason?.startsWith("quota_exceeded")) {
+        return NextResponse.json(
+          { error: "Scan quota exceeded. Try again later." },
+          { status: 429 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Failed to submit scan." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ status: "pending", linkId });
   } catch (err) {
