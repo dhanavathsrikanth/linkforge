@@ -74,6 +74,22 @@ const CreateLinkSchema = z.object({
       })
     )
     .optional(),
+  qrSettings: z
+    .object({
+      fgColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      bgColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).or(z.literal("transparent")).optional(),
+      errorLevel: z.enum(["L", "M", "Q", "H"]).optional(),
+      logoUrl: z.string().max(70000).optional(),
+      logoOpacity: z.number().min(0.1).max(1).optional(),
+      logoSize: z.enum(["small", "medium", "large"]).optional(),
+      rounded: z.boolean().optional(),
+      frameStyle: z.enum(["none", "scan-me"]).optional(),
+      frameText: z.string().max(60).optional(),
+      marginSize: z.number().int().min(0).max(8).optional(),
+      boostLevel: z.boolean().optional(),
+      minVersion: z.number().int().min(1).max(40).optional(),
+    })
+    .optional(),
 });
 
 
@@ -327,11 +343,10 @@ export async function POST(req: Request) {
             }))
           : null,
         routingRules: v.routingRules ?? null,
-        // Seed QR settings with the default so /dashboard/qr and every
-        // preview in the app have a single source of truth to read from
-        // (link.qrSettings). Without this, the new link would render with
-        // null settings and every consumer would need its own fallback.
-        qrSettings: DEFAULT_QR_SETTINGS,
+        // Seed QR settings: prefer caller-provided, fall back to defaults.
+        qrSettings: v.qrSettings
+          ? { ...DEFAULT_QR_SETTINGS, ...v.qrSettings }
+          : DEFAULT_QR_SETTINGS,
       })
       .returning();
 

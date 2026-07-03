@@ -85,5 +85,5 @@ export default async function QRCodesPage(props: Props) {
     domain: l.domain ?? null,
   }));
 
-  return <QRCodesClient links={serialized} />;
+  return <QRCodesClient links={serialized} workspaceId={workspaceId} />;
 }
