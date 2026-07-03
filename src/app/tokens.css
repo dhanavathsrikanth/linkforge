@@ -247,7 +247,7 @@
 /* ============================================
    DARK MODE OVERRIDES
    ============================================ */
-.dark {
+.dark-mode {
   /* Colors */
   --ds-background: var(--ds-dark-900);
   --ds-background-2: var(--ds-dark-800);
