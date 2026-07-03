@@ -285,6 +285,12 @@ export async function getScanResult(scanId: string): Promise<ScanResult | null> 
   // 404 means scan is still in progress
   if (res.status === 404) return null;
 
+  if (res.status === 429 || res.status >= 500) {
+    // Rate-limited or transient server error — treat as "still in progress"
+    // so the poller can retry on the next tick.
+    return null;
+  }
+
   if (!res.ok) {
     const errBody = await res.text();
     throw new Error(
