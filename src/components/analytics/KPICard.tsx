@@ -48,9 +48,9 @@ function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; pr
 export function KPICard({ label, value, suffix, prefix, growth, subValue, isLoading, compact }: KPICardProps) {
   if (isLoading) {
     return (
-      <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${compact ? "p-3" : "p-5"}`}>
-        <div className={`animate-pulse rounded bg-slate-200 ${compact ? "h-3 w-16" : "h-4 w-24"}`} />
-        <div className={`mt-2 animate-pulse rounded bg-slate-200 ${compact ? "h-6 w-20" : "mt-3 h-8 w-32"}`} />
+      <div className={`rounded-xl border border-border-primary bg-bg-primary shadow-sm ${compact ? "p-3" : "p-5"}`}>
+        <div className={`animate-pulse rounded bg-bg-tertiary ${compact ? "h-3 w-16" : "h-4 w-24"}`} />
+        <div className={`mt-2 animate-pulse rounded bg-bg-tertiary ${compact ? "h-6 w-20" : "mt-3 h-8 w-32"}`} />
       </div>
     );
   }
@@ -58,16 +58,16 @@ export function KPICard({ label, value, suffix, prefix, growth, subValue, isLoad
   const isPositive = growth !== undefined && growth >= 0;
 
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-[#DEDCFF] ${compact ? "p-3" : "p-5"}`}>
-      <p className={`font-medium uppercase tracking-wider text-slate-500 ${compact ? "text-[10px]" : "text-xs"}`}>{label}</p>
+    <div className={`rounded-xl border border-border-primary bg-bg-primary shadow-sm transition-all hover:border-border-brand ${compact ? "p-3" : "p-5"}`}>
+      <p className={`font-medium uppercase tracking-wider text-text-tertiary ${compact ? "text-[10px]" : "text-xs"}`}>{label}</p>
       <div className="mt-1 flex items-baseline justify-between">
-        <h3 className={`font-bold text-slate-950 ${compact ? "text-xl" : "text-3xl"}`}>
+        <h3 className={`font-bold text-text-primary ${compact ? "text-xl" : "text-3xl"}`}>
           <AnimatedNumber value={value} prefix={prefix} suffix={suffix} />
         </h3>
         {growth !== undefined && (
           <span
             className={`flex items-center gap-1 font-medium ${compact ? "text-xs" : "text-sm"} ${
-              isPositive ? "text-emerald-600" : "text-red-600"
+              isPositive ? "text-text-success" : "text-text-error"
             }`}
           >
             {isPositive ? (
@@ -83,7 +83,7 @@ export function KPICard({ label, value, suffix, prefix, growth, subValue, isLoad
           </span>
         )}
       </div>
-      {subValue && <p className={`text-slate-500 ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>{subValue}</p>}
+      {subValue && <p className={`text-text-tertiary ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"}`}>{subValue}</p>}
     </div>
   );
 }

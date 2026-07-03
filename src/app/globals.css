@@ -78,7 +78,7 @@
   }
 
   * {
-    @apply border-border-primary outline-ring/50;
+    border-color: var(--color-border-primary);
   }
 
   /* Selection */

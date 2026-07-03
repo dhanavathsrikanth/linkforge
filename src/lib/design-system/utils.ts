@@ -24,23 +24,23 @@ export const buttonVariants = cva(
           transition-all duration-200
         `,
         secondary: `
-          bg-[var(--ds-button-secondary-bg)]
-          text-[var(--ds-button-secondary-text)]
-          rounded-[var(--ds-button-secondary-radius)]
-          border border-gray-200
-          hover:bg-gray-50
+          bg-bg-secondary
+          text-text-primary
+          border border-border-primary
+          rounded-md
+          hover:bg-bg-tertiary
           transition-all duration-200
         `,
         outline: `
-          border border-gray-200
-          bg-white
-          text-gray-900
-          hover:bg-gray-50
+          border border-border-primary
+          bg-bg-primary
+          text-text-primary
+          hover:bg-bg-secondary
           transition-all duration-200
         `,
         ghost: `
-          hover:bg-gray-100
-          text-gray-900
+          hover:bg-bg-tertiary
+          text-text-primary
           transition-all duration-200
         `,
         link: `
@@ -66,7 +66,7 @@ export const buttonVariants = cva(
 
 // Input variants using the design system
 export const inputVariants = cva(
-  "flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+  "flex h-10 w-full rounded-md border border-border-primary bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-placeholder focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {
@@ -80,7 +80,7 @@ export const inputVariants = cva(
           bg-transparent
           text-[var(--ds-input-text)]
           border-0
-          border-b-2 border-gray-200
+          border-b-2 border-border-primary
           rounded-none
           px-0
           focus:border-[var(--ds-accent)]
@@ -100,19 +100,19 @@ export const cardVariants = cva(
     variants: {
       variant: {
         default: `
-          bg-white
-          border-gray-200
+          bg-bg-primary
+          border-border-primary
           shadow-sm
         `,
         elevated: `
-          bg-white
-          border-gray-200
+          bg-bg-primary
+          border-border-primary
           shadow-lg
         `,
         design: `
-          bg-[var(--ds-background)]
-          border-gray-200
-          rounded-[var(--ds-border-radius)]
+          bg-bg-secondary
+          border-border-primary
+          rounded-lg
         `,
       },
     },

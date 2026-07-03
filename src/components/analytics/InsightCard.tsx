@@ -26,28 +26,28 @@ const iconMap: Record<string, React.ElementType> = {
 
 const typeStyles: Record<string, { border: string; bg: string; iconBg: string; iconColor: string }> = {
   opportunity: {
-    border: "border-emerald-200",
-    bg: "bg-emerald-50",
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-600",
+    border: "border-border-success",
+    bg: "bg-bg-success",
+    iconBg: "bg-bg-success",
+    iconColor: "text-text-success",
   },
   trend: {
-    border: "border-blue-200",
-    bg: "bg-blue-50",
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
+    border: "border-border-brand",
+    bg: "bg-bg-brand-primary",
+    iconBg: "bg-bg-brand-secondary",
+    iconColor: "text-text-brand-tertiary",
   },
   warning: {
-    border: "border-amber-200",
-    bg: "bg-amber-50",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
+    border: "border-border-warning",
+    bg: "bg-bg-warning",
+    iconBg: "bg-bg-warning",
+    iconColor: "text-text-warning",
   },
   recommendation: {
-    border: "border-violet-200",
-    bg: "bg-violet-50",
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
+    border: "border-border-brand",
+    bg: "bg-bg-brand-primary",
+    iconBg: "bg-bg-brand-secondary",
+    iconColor: "text-text-brand-tertiary",
   },
 };
 
@@ -63,14 +63,14 @@ export function InsightCard({ type, title, description, metric, icon }: InsightC
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-slate-900">{title}</p>
+            <p className="text-sm font-semibold text-text-primary">{title}</p>
             {metric && (
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${styles.bg.replace("border-", "bg-")} ${styles.iconColor}`}>
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${styles.bg} ${styles.iconColor}`}>
                 {metric}
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-slate-600 leading-relaxed">{description}</p>
+          <p className="mt-0.5 text-xs text-text-secondary leading-relaxed">{description}</p>
         </div>
       </div>
     </div>
