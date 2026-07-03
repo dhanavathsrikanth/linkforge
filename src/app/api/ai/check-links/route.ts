@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     if (linkIds && Array.isArray(linkIds) && linkIds.length > 0) {
       batch = await db.query.links.findMany({
         where: and(eq(links.workspaceId, workspaceId), inArray(links.id, linkIds)),
-        limit: 50,
+        limit: 200,
         columns: {
           id: true, slug: true, destination: true, title: true,
           safetyStatus: true, safetyTrustScore: true, safetyTrustBand: true,
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     } else {
       batch = await db.query.links.findMany({
         where: eq(links.workspaceId, workspaceId),
-        limit: 50,
+        limit: 200,
         columns: {
           id: true, slug: true, destination: true, title: true,
           safetyStatus: true, safetyTrustScore: true, safetyTrustBand: true,

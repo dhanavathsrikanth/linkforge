@@ -115,7 +115,7 @@ export async function GET(request: Request) {
     const tags = searchParams.get("tags");
     const search = searchParams.get("search")?.trim() || "";
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
     const offset = (page - 1) * limit;
 
     const ws = await resolveUserWorkspace(dbUser.id, workspaceId);

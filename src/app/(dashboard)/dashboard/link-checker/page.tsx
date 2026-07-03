@@ -396,7 +396,7 @@ export default function LinkCheckerPage() {
   const { data: workspaceLinks = [], isLoading: linksLoading } = useQuery<LinkRow[]>({
     queryKey: ["links", workspaceId],
     queryFn: async () => {
-      const res = await fetch(`/api/links?workspaceId=${workspaceId}`);
+      const res = await fetch(`/api/links?workspaceId=${workspaceId}&limit=200`);
       if (!res.ok) return [];
       const json = await res.json();
       return json.links || [];
