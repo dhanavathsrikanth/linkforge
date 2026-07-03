@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { TrustBadge, type TrustBand } from "@/components/safety/TrustBadge";
 
 type SafetyStatus =
   | "unknown"
@@ -52,8 +53,6 @@ interface SafetyLink {
   safetyTrustBand: TrustBand;
   createdAt: string;
 }
-
-type TrustBand = "unknown" | "low" | "medium" | "high" | "verified";
 
 interface ScanDetailsResponse {
   linkId: string;
@@ -286,7 +285,7 @@ export function LinkSafetyClient() {
   }, [pendingCount, refetch]);
 
   // ── Manual rescan ────────────────────────────────────────────────────────
-  async function handleScan(linkId: string) {
+  const handleScan = useCallback(async (linkId: string) => {
     setRescanIds((s) => new Set(s).add(linkId));
     try {
       const res = await fetch(`/api/url-scanner/rescan/${linkId}`, {
@@ -314,21 +313,16 @@ export function LinkSafetyClient() {
         return next;
       });
     }
-  }
+  }, [refetch]);
 
   // ── Auto-scan unknown links on load ───────────────────────────────────
-  const hasAutoScannedRef = useRef(false);
   useEffect(() => {
-    if (!data || hasAutoScannedRef.current) return;
+    if (!data) return;
     const unknownLinks = data.links.filter((l) => l.safetyStatus === "unknown");
-    if (unknownLinks.length === 0) return;
-    hasAutoScannedRef.current = true;
-    // Scan up to 5 unknown links at a time to avoid overwhelming the user
-    const toScan = unknownLinks.slice(0, 5);
-    for (const link of toScan) {
+    for (const link of unknownLinks) {
       handleScan(link.id);
     }
-  }, [data]);
+  }, [data, handleScan]);
 
   // Keep `handleRescan` for legacy/btn calls so nothing breaks
   function handleRescan(linkId: string) {
@@ -651,40 +645,6 @@ function StatCard({
       </div>
       <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{value}</p>
     </div>
-  );
-}
-
-// ─── Trust badge ──────────────────────────────────────────────────────────────
-
-function TrustBadge({
-  score,
-  band,
-}: {
-  score: number | null;
-  band: TrustBand;
-}) {
-  if (band === "unknown" || score === null) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold text-stone-500">
-        <ShieldQuestion className="h-3 w-3" />
-        Unscored
-      </span>
-    );
-  }
-  const styles: Record<Exclude<TrustBand, "unknown">, string> = {
-    low: "border-red-200 bg-red-50 text-red-700",
-    medium: "border-amber-200 bg-amber-50 text-amber-700",
-    high: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    verified: "border-blue-200 bg-blue-50 text-blue-700",
-  };
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${styles[band]}`}
-      title={`Trust score: ${score}/100 — ${band}`}
-    >
-      <ShieldCheck className="h-3 w-3" />
-      {score}/100
-    </span>
   );
 }
 

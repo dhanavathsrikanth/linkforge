@@ -25,6 +25,7 @@ interface AbuseLink {
   workspaceId: string;
   workspaceName: string | null;
   safetyStatus: string;
+  safetyScanId: string | null;
   safetyTrustScore: number | null;
   safetyTrustBand: TrustBand;
   safetyScannedAt: string | null;

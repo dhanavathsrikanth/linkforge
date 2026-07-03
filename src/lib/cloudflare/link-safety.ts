@@ -328,6 +328,7 @@ export async function startBulkSafetyScan(
       reserved.map((c) =>
         db.update(links).set({
           safetyStatus: "pending",
+          safetyScanId: null,
           safetyScannedAt: new Date(),
         }).where(eq(links.id, c.linkId))
       )
