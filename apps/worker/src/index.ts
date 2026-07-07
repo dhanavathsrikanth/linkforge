@@ -158,19 +158,19 @@ function detectDevice(userAgent: string): 'mobile' | 'desktop' | 'tablet' | 'bot
     'whatsapp', 'telegrambot', 'applebot', 'semrushbot',
   ];
   if (botPatterns.some((bot) => ua.includes(bot))) return 'bot';
-  if (ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile'))) return 'tablet';
-  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone') || ua.includes('ipod')) return 'mobile';
+  if (ua.includes('ipad') || ua.includes('playbook') || ua.includes('silk') || (ua.includes('android') && !ua.includes('mobile'))) return 'tablet';
+  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone') || ua.includes('ipod') || ua.includes('kindle') || ua.includes('blackberry') || ua.includes('iemobile')) return 'mobile';
   return 'desktop';
 }
 
 function parseUserAgent(userAgent: string): { browser?: string; os?: string } {
   const ua = userAgent.toLowerCase();
   let browser: string | undefined;
-  if (ua.includes('chrome') && !ua.includes('edg')) browser = 'chrome';
-  else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'safari';
+  if (ua.includes('edg')) browser = 'edge';
+  else if (ua.includes('opr') || ua.includes('opera')) browser = 'opera';
+  else if (ua.includes('chrome') && !ua.includes('edg')) browser = 'chrome';
   else if (ua.includes('firefox')) browser = 'firefox';
-  else if (ua.includes('edg')) browser = 'edge';
-  else if (ua.includes('opera') || ua.includes('opr')) browser = 'opera';
+  else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'safari';
   let os: string | undefined;
   if (ua.includes('windows')) os = 'windows';
   else if (ua.includes('mac os') || ua.includes('macos')) os = 'macos';

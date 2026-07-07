@@ -79,9 +79,9 @@ export function parseBrowser(ua: string): string {
   if (!ua) return "Other";
   if (/Edg\//i.test(ua)) return "Edge";
   if (/OPR\//i.test(ua) || /Opera/i.test(ua)) return "Opera";
-  if (/Chrome\//i.test(ua)) return "Chrome";
+  if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) return "Chrome";
   if (/Firefox\//i.test(ua)) return "Firefox";
-  if (/Safari\//i.test(ua)) return "Safari";
+  if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) return "Safari";
   if (/MSIE|Trident\//i.test(ua)) return "IE";
   return "Other";
 }

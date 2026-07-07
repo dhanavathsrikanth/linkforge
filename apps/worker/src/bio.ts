@@ -36,8 +36,8 @@ function isBot(userAgent: string): boolean {
 function detectDevice(ua: string): 'mobile' | 'desktop' | 'tablet' | 'bot' {
   const u = ua.toLowerCase();
   if (isBot(u)) return 'bot';
-  if (u.includes('ipad') || (u.includes('android') && !u.includes('mobile'))) return 'tablet';
-  if (u.includes('mobile') || u.includes('android') || u.includes('iphone') || u.includes('ipod')) return 'mobile';
+  if (u.includes('ipad') || u.includes('playbook') || u.includes('silk') || (u.includes('android') && !u.includes('mobile'))) return 'tablet';
+  if (u.includes('mobile') || u.includes('android') || u.includes('iphone') || u.includes('ipod') || u.includes('kindle') || u.includes('blackberry') || u.includes('iemobile')) return 'mobile';
   return 'desktop';
 }
 
