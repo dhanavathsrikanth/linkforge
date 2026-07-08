@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Link2, Globe2, BarChart3, Users, Zap, Shield, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -13,16 +13,6 @@ const stagger = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
 };
-
-const stats = [
-  { value: "254K+", label: "Links created" },
-  { value: "8M+", label: "Events tracked" },
-  { value: "$3.2M", label: "Revenue attributed" },
-];
-
-const trustedCompanies = [
-  "Stripe", "Vercel", "Linear", "Notion", "Framer", "Supabase",
-];
 
 const avatars = [
   { initial: "A", color: "bg-blue-100 text-blue-600" },
@@ -87,31 +77,39 @@ export function Hero() {
             variants={fadeUp}
             className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-primary)]/20 bg-[var(--ds-primary)]/5 px-4 py-1.5 mb-8"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[var(--ds-primary)]" />
             <span className="text-xs font-semibold text-[var(--ds-primary)]">
               Introducing Partner Referrals
             </span>
             <ArrowRight className="w-3 h-3 text-[var(--ds-primary)]" />
           </motion.div>
 
-          {/* Headline - BaseHub clean centered style */}
+          {/* Headline - Direct, pain-focused, one breath */}
           <motion.h1
             variants={fadeUp}
-            className="max-w-[800px] text-center text-[clamp(32px,7vw,64px)] leading-none font-medium tracking-[-1.44px] md:tracking-[-2.16px] text-pretty text-[var(--ds-text-primary)] mb-4"
+            className="max-w-[800px] text-center text-[clamp(32px,7vw,64px)] leading-[1.1] font-medium tracking-[-1.44px] md:tracking-[-2.16px] text-pretty text-[var(--ds-text-primary)] mb-4"
           >
-            Turn every click
+            The link platform that lets you
             <br />
-            <span className="text-[var(--ds-primary)]">into revenue</span>
+            <span className="text-[var(--ds-primary)]">fix mistakes after you hit publish</span>
           </motion.h1>
 
-          {/* Subtext */}
+          {/* Subtext - Names the pain, states the fix, adds proof */}
           <motion.p
             variants={fadeUp}
-            className="max-w-2xl text-center text-lg md:text-xl text-[var(--ds-text-secondary)] mb-10 leading-relaxed text-pretty"
+            className="max-w-2xl text-center text-lg md:text-xl text-[var(--ds-text-secondary)] mb-6 leading-relaxed text-pretty"
           >
-            The modern link attribution platform for short links, conversion tracking,
-            and affiliate programs. Faster than Bitly. Smarter than Dub.
+            Change any destination, swap a QR target, or update a bio page &mdash;
+            without breaking what&apos;s already out there.
           </motion.p>
+
+          {/* Proof point - Concrete example */}
+          <motion.div
+            variants={fadeUp}
+            className="flex items-center gap-2 text-sm text-[var(--ds-text-secondary)] mb-10"
+          >
+            <Check className="w-4 h-4 text-[var(--ds-accent)] shrink-0" />
+            <span>Changed a campaign URL 6 months after launch. Zero broken links.</span>
+          </motion.div>
 
           {/* Stacked CTAs - BaseHub style */}
           <motion.div variants={fadeUp} className="relative w-full max-w-[392px]">
