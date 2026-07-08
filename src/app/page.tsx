@@ -363,7 +363,8 @@ export default function LandingPage() {
               <span className="text-[var(--ds-primary)]">One platform covers it.</span>
             </h2>
             <p className="mt-3 text-base text-[var(--ds-text-secondary)] max-w-lg mx-auto">
-              Every feature engineers, marketers, and security teams ask for — built in, not bolted on.
+              Whether you&apos;re running a campaign, shipping an app, or locking down your
+              security stack &mdash; everything works from one place, and every link stays editable.
             </p>
           </motion.div>
 
@@ -376,12 +377,12 @@ export default function LandingPage() {
             className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5 mb-6"
           >
             {[
-              { icon: Globe2, title: "Custom domains", desc: "Bring your own domain for short links, bio pages, and QR codes. Professional branding in seconds.", plan: "Starter", featured: true },
-              { icon: ChartLine, title: "Real-time analytics", desc: "Device, location, referrer breakdowns with AI-powered anomaly detection. Free on every plan.", plan: "Free", featured: false },
-              { icon: TestTubes, title: "A/B testing", desc: "Split-test up to 4 destinations from one short link. Bayesian stats picks the winner automatically.", plan: "Starter", featured: false },
-              { icon: Users, title: "Team collaboration", desc: "Invite teammates with role-based access. Audit logs, shared workspaces, and link ownership.", plan: "Starter", featured: false },
-              { icon: Shield, title: "Link safety scanning", desc: "Automated malware detection via Cloudflare URL Scanner. Trust scores, phishing alerts, SOC 2.", plan: "Growth", featured: false },
-              { icon: Smartphone, title: "Deep linking", desc: "Universal Links & App Links auto-configured. Route mobile traffic straight into your app.", plan: "Starter", featured: false },
+              { icon: Globe2, title: "Custom domains", desc: "Your links look like they came from you, not a third-party tool. Bring your own domain for short links, bio pages, and QR codes.", plan: "Starter", featured: true },
+              { icon: ChartLine, title: "Real-time analytics", desc: "See which campaign is working while you can still shift budget — not in yesterday's report. Device, location, and referrer breakdowns on every plan.", plan: "Free", featured: false },
+              { icon: TestTubes, title: "A/B testing", desc: "Send half your traffic to one page, half to another. PivotURL tells you which one wins without you needing to do the math.", plan: "Starter", featured: false },
+              { icon: Users, title: "Team collaboration", desc: "Give your team access without giving up control. Set who can create, edit, or delete links — and see a full history of every change.", plan: "Starter", featured: false },
+              { icon: Shield, title: "Link safety scanning", desc: "Every link you publish gets scanned automatically. If a destination turns malicious after you share it, you get alerted.", plan: "Growth", featured: false },
+              { icon: Smartphone, title: "Deep linking", desc: "Route mobile traffic straight into your app. Automatically configured — no code changes needed.", plan: "Starter", featured: false },
             ].map(({ icon: Icon, title, desc, plan, featured }) => (
               <motion.article
                 key={title}
@@ -421,10 +422,10 @@ export default function LandingPage() {
             {[
               { icon: GitMerge, title: "Multi-touch attribution" },
               { icon: MapPin, title: "Geo & device targeting" },
-              { icon: KeyRound, title: "SAML SSO + Azure AD" },
-              { icon: Webhook, title: "Webhooks via Svix" },
+              { icon: KeyRound, title: "Enterprise security (SSO)" },
+              { icon: Webhook, title: "Real-time webhooks" },
               { icon: Building2, title: "Custom SLA (99.99%)" },
-              { icon: Lock, title: "Audit logs & RBAC" },
+              { icon: Lock, title: "Audit logs & access controls" },
             ].map(({ icon: Icon, title }) => (
               <motion.div
                 key={title}
@@ -468,8 +469,8 @@ export default function LandingPage() {
                 Know every click,<br />every scan, every view
               </h2>
               <p className="text-base text-[var(--ds-text-secondary)] leading-relaxed mb-6">
-                Real-time analytics across all your links, bio pages, and QR codes.
-                Device, location, referrer data &mdash; plus AI-powered insights that tell you what matters.
+                See which campaign is working while you can still shift budget &mdash;
+                not in yesterday&apos;s report. Every click, scan, and view shows up the moment it happens.
               </p>
               <div className="grid grid-cols-2 gap-6 mb-8">
                 <div>
