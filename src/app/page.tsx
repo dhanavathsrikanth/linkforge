@@ -733,31 +733,32 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════ 13. FINAL CTA ═══════════ */}
-      <section className="py-20 sm:py-24 bg-[var(--ds-primary)]">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 text-center">
+      <section className="py-20 sm:py-24 border-t border-[var(--ds-border)] bg-white">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+            className="rounded-2xl border border-[var(--ds-border)] bg-[#F8FAFC] px-8 py-16 sm:px-16 sm:py-20 text-center"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--ds-text-primary)] mb-3">
               Start building links<br />that work for you
             </h2>
-            <p className="text-base text-white/70 max-w-md mx-auto mb-8">
+            <p className="text-base text-[var(--ds-text-secondary)] max-w-md mx-auto mb-8">
               Free to start. No credit card required. Edit anytime.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <Link
                 href="/sign-up"
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-6 text-sm font-semibold text-[var(--ds-primary)] transition-all hover:bg-white/90 active:scale-[0.98] shadow-lg"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--ds-primary)] px-6 text-sm font-semibold text-white transition-all hover:bg-[var(--ds-primary-dark)] active:scale-[0.98]"
               >
-                Start for free <ArrowRight className="w-4 h-4 ml-1.5" />
+                Get started <ArrowRight className="w-4 h-4 ml-1.5" />
               </Link>
               <a
                 href="#features"
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-white/30 px-6 text-sm font-semibold text-white transition-all hover:bg-white/10"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-[var(--ds-border)] bg-white px-6 text-sm font-semibold text-[var(--ds-text-primary)] transition-all hover:border-[var(--ds-primary)]/30"
               >
-                See all features
+                See more
               </a>
             </div>
           </motion.div>
