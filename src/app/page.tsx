@@ -159,7 +159,7 @@ const plans = [
   {
     name: "Free", price: "$0", period: "/mo", desc: "Start without a credit card",
     features: ["50 links per month", "1 bio page", "50 QR codes", "Real-time analytics", "UTM builder", "Password protection"],
-    cta: "Start free",
+    cta: "Start free — no card needed",
   },
   {
     name: "Starter", price: "$29", period: "/mo", desc: "For professionals who need branded links",
@@ -681,18 +681,6 @@ export default function LandingPage() {
             className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto"
           >
             <TestimonialCard
-              quote="PivotURL has been a game-changer for our marketing stack &mdash; not only providing a level of source attribution, but bringing a suite of tools for our marketing and growth teams."
-              name="Johnny Ho"
-              role="Co-founder"
-              company="Personality"
-            />
-            <TestimonialCard
-              quote="It&apos;s the critical infrastructure, the absolute load-bearing infrastructure of a modern software company. It integrates with everything we use &mdash; from HubSpot to Segment to Customer.io."
-              name="Guillermo Rauch"
-              role="CEO"
-              company="Vercel"
-            />
-            <TestimonialCard
               quote="We&apos;ve been so confident in PivotURL that we&apos;ve used it for our public announcements of $4M seed and main. Incredibly reliable and robust."
               name="Josh Pigford"
               role="Founder"
@@ -703,6 +691,18 @@ export default function LandingPage() {
               name="Jason Lisch"
               role="Head of Growth"
               company="Product Hunt"
+            />
+            <TestimonialCard
+              quote="PivotURL has been a game-changer for our marketing stack &mdash; not only providing a level of source attribution, but bringing a suite of tools for our marketing and growth teams."
+              name="Johnny Ho"
+              role="Co-founder"
+              company="Personality"
+            />
+            <TestimonialCard
+              quote="It&apos;s the critical infrastructure, the absolute load-bearing infrastructure of a modern software company. It integrates with everything we use &mdash; from HubSpot to Segment to Customer.io."
+              name="Guillermo Rauch"
+              role="CEO"
+              company="Vercel"
             />
           </motion.div>
         </div>
