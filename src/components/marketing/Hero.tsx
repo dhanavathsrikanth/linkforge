@@ -88,18 +88,18 @@ export function Hero() {
             variants={fadeUp}
             className="max-w-[800px] text-center text-[clamp(32px,7vw,64px)] leading-[1.1] font-medium tracking-[-1.44px] md:tracking-[-2.16px] text-pretty text-[var(--ds-text-primary)] mb-4"
           >
-            The link platform that lets you
+            Short links you can edit after publishing
             <br />
-            <span className="text-[var(--ds-primary)]">fix mistakes after you hit publish</span>
+            <span className="text-[var(--ds-primary)]">without breaking anything</span>
           </motion.h1>
 
-          {/* Subtext - Names the pain, states the fix, adds proof */}
+          {/* Subtext - Lists exactly what keeps working */}
           <motion.p
             variants={fadeUp}
             className="max-w-2xl text-center text-lg md:text-xl text-[var(--ds-text-secondary)] mb-6 leading-relaxed text-pretty"
           >
-            Change any destination, swap a QR target, or update a bio page &mdash;
-            without breaking what&apos;s already out there.
+            Your redirects, embeds, QR codes, and printed materials keep
+            working &mdash; no reprinting, no dead links, no broken campaigns.
           </motion.p>
 
           {/* Proof point - Concrete example */}
